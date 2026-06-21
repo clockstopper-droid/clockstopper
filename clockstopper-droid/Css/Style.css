@@ -390,6 +390,84 @@ body.dark-theme .call-panel {
   border-color: #ff8c00;
 }
 
+/* ============================================================
+   Caller ID Name Row
+   ============================================================ */
+
+.caller-id-row {
+  margin-bottom: 16px;
+}
+
+.caller-id-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+body.dark-theme .caller-id-label {
+  color: #ff8c00;
+}
+
+.caller-id-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  background: #f9f9f9;
+  color: #1a1a2e;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  outline: none;
+}
+
+.caller-id-input::placeholder {
+  color: #aaa;
+  font-style: italic;
+}
+
+.caller-id-input:focus {
+  border-color: #ff8c00;
+  background: #fff;
+}
+
+body.dark-theme .caller-id-input {
+  background: #0f1622;
+  border-color: #2a2a4a;
+  color: #e0e0e0;
+}
+
+body.dark-theme .caller-id-input::placeholder {
+  color: #555;
+}
+
+body.dark-theme .caller-id-input:focus {
+  border-color: #ff8c00;
+  background: #0a1020;
+}
+
+/* Preview badge — shown beneath the input */
+.caller-id-preview {
+  margin-top: 5px;
+  font-size: 0.78rem;
+  color: #999;
+  min-height: 16px;
+  letter-spacing: 0.3px;
+}
+
+.caller-id-preview.active {
+  color: #ff8c00;
+  font-weight: 600;
+}
+
+body.dark-theme .caller-id-preview.active {
+  color: #ffb347;
+}
+
 /* ---------- Dialer Display ---------- */
 .dialer-display {
   background: #f5f5f5;
@@ -648,5 +726,9 @@ body.dark-theme .network-type-indicator.threeG {
 
   .dialer-display {
     font-size: 1.25rem;
+  }
+
+  .caller-id-input {
+    font-size: 0.95rem;
   }
 }
