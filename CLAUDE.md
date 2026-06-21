@@ -4,7 +4,7 @@
 
 **Global Time Clock** is a lightweight, client-side web application that displays three fixed world clocks: **Eastern Time**, **Central Time**, and **Western (Pacific) Time**. It is a pure frontend application with no backend dependencies, build tools, or frameworks — designed to run directly in a browser by opening `Index.html`.
 
-The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name that appears on the recipient's caller ID instead of the caller's phone number — the user can enter and save a custom caller ID name string which is used when placing outgoing calls.
+The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name that appears on the recipient's caller ID instead of the caller's phone number — the user can enter and save a custom caller ID name string which is used when placing outgoing calls. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps.
 
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
@@ -24,6 +24,7 @@ The application has been **constructed as a mobile dialing app targeting Android
 | Audio Output | Native Web Audio API (`AudioContext`) + `HTMLAudioElement` (call audio only) |
 | Microphone Input | `navigator.mediaDevices.getUserMedia()` (MediaDevices API) |
 | Caller ID Name | User-defined string stored in app state; submitted with outgoing call metadata |
+| Keyboard Input | `keydown` event listener on `document`; maps key values to `dialDigit()`, `clearDialed()`, `initiateCall()`, `endCall()` |
 | Android Packaging | Android WebView wrapper (WebView-based native Android app) |
 | Runtime | Browser (standalone) + Android WebView (mobile deployment) |
 
@@ -37,7 +38,7 @@ clockstopper/
 ├── Css/
 │   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, mobile network selection, call audio, dialer, caller ID name
+│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, mobile network selection, call audio, dialer, caller ID name, keyboard input handling
 ├── README.md           # Project documentation
 └── .gitignore          # Android/IntelliJ artifacts excluded
 ```
@@ -55,6 +56,7 @@ The application has been packaged as an **Android WebView-based mobile dialing a
 - The dialer UI, keypad, connectivity panel, call audio system, and caller ID name input are all functional within the Android WebView environment.
 - Mobile-specific CSS breakpoints and touch-friendly keypad sizing ensure a native-feeling experience on Android screen sizes.
 - The `.gitignore` Android/Gradle/IntelliJ entries are intentional and directly applicable to the Android project artifacts generated during packaging.
+- Keyboard input support is compatible with Android WebView's software keyboard — physical keyboard events and soft keyboard input events both dispatch `keydown` events that the dialer listener handles.
 
 ---
 
@@ -95,6 +97,29 @@ Key implementation details:
 
 ---
 
+## Keyboard Input Support
+
+The dialer supports **physical keyboard and software keyboard input** in addition to on-screen keypad button taps. This is implemented via a single `keydown` event listener attached to `document` in `app.js`.
+
+Key mapping conventions:
+| Key | Action |
+|---|---|
+| `0`–`9` | `dialDigit(key)` — appends digit to dialed number |
+| `*` | `dialDigit('*')` — appends star character |
+| `#` | `dialDigit('#')` — appends hash/pound character |
+| `+` | `dialDigit('+')` — appends plus character (international prefix) |
+| `Backspace` | `clearDialed()` — removes last digit (backspace behavior) |
+| `Enter` | `initiateCall()` — starts outgoing call if number is present |
+| `Escape` | `endCall()` — ends active call or clears dialer state |
+
+Implementation notes:
+- The keyboard listener is initialized during page load setup in `app.js`.
+- Input is **guarded**: if focus is on a text input element (e.g., `#callerIdNameInput`), keyboard events are **not intercepted** by the dialer listener, allowing normal text typing in form fields.
+- The listener does not call `preventDefault()` globally — only for keys that have been mapped to dialer actions and are not directed at a text input, preventing accidental page scroll or browser shortcut conflicts.
+- Behavior is identical whether triggered by a keypad button tap or a keyboard key press — both routes call the same underlying `dialDigit()`, `clearDialed()`, `initiateCall()`, and `endCall()` functions.
+
+---
+
 ## Architecture
 
 This is a **single-page, no-framework, pure JavaScript application** deployable both as a standalone browser app and as the UI layer of an Android WebView application. There is no module system, no bundler, and no package manager involved.
@@ -123,10 +148,10 @@ Index.html
   └── toggleConnectivityPanel()→ Called inline to expand/collapse the connectivity panel
   └── selectMobileNetwork()    → Called inline to set mobile/cellular as the preferred network for calls
   └── setCallerIdName()        → Called inline by #setCallerIdNameBtn to save caller ID name from input to state
-  └── dialDigit(digit)         → Called inline by each keypad button to append a digit to the dialed number
-  └── clearDialed()            → Called inline by a clear/backspace button to remove the last digit or clear all
-  └── initiateCall()           → Called inline to start an outgoing call with audio using the dialed number
-  └── endCall()                → Called inline to end an active call and release audio/mic resources
+  └── dialDigit(digit)         → Called inline by each keypad button OR by keyboard input handler to append a digit
+  └── clearDialed()            → Called inline by a clear/backspace button OR by Backspace key to remove the last digit or clear all
+  └── initiateCall()           → Called inline to start an outgoing call; also triggered by Enter key
+  └── endCall()                → Called inline to end an active call; also triggered by Escape key
 
 js/app.js
   └── State management         → Tracks mute state, connectivity state, network info, preferred network type
@@ -144,6 +169,9 @@ js/app.js
                                   the name is passed as caller identity when initiateCall() is invoked
   └── dialDigit(digit)         → Appends a digit character to the dialedNumber state string; updates #dialerDisplay and #dialedNumberReadout
   └── clearDialed()            → Removes last character (backspace) or clears full dialedNumber string; updates display elements
+  └── initKeyboardInput()      → Attaches document-level keydown listener; maps digit/symbol keys to dialDigit(),
+                                  Backspace to clearDialed(), Enter to initiateCall(), Escape to endCall();
+                                  guards against intercepting focus on text input elements
   └── initConnectivity()       → Registers online/offline event listeners, sets initial state, starts probe,
                                   detects mobile network availability via navigator.connection.type
   └── updateConnectivityUI()   → Updates connectivity panel classes and text to reflect online/offline;
@@ -180,29 +208,4 @@ Css/Style.css
   └── .wifi-status.offline     → Visual state for offline/disconnected
   └── .network-list            → Styles for the list of available/detected networks
   └── .network-list-item       → Individual network entry styles
-  └── .network-list-item.selected → Visual state for currently selected/active network
-  └── .network-list-item.mobile   → Visual state for mobile/cellular network entries in the list
-  └── .mobile-network-option   → Styles for the dedicated mobile network selection element
-  └── .mobile-network-option.available  → Visual state when mobile/cellular network is detected and usable
-  └── .mobile-network-option.selected   → Visual state when mobile network is the preferred/active selection
-  └── .mobile-network-option.unavailable → Visual state when no cellular network is detected
-  └── .probe-status            → Styles for the fetch-probe result indicator
-  └── .probe-status.verified   → Visual state when internet access is confirmed via probe
-  └── .probe-status.unverified → Visual state when probe fails despite navigator.onLine = true
-  └── .call-panel              → Outgoing call UI panel container styles
-  └── .call-panel.active       → Visual state when a call is in progress
-  └── .caller-id-name-section  → Container for the caller ID name input, save button, and display elements
-  └── .caller-id-name-input    → Text input field styles for entering a custom caller ID name
-  └── .caller-id-name-input.has-value → Visual state when a caller ID name value has been entered
-  └── .set-caller-id-btn       → Save/set button styles for committing the caller ID name
-  └── .caller-id-name-display  → Read-only display showing the active caller ID name; confirms what recipients will see
-  └── .caller-id-name-display.active → Visual state when a caller ID name is set and active
-  └── .network-type-indicator  → Displays the active network type (WiFi/4G/3G/2G) during a call
-  └── .network-type-indicator.wifi     → Visual state when call is using WiFi
-  └── .network-type-indicator.cellular → Visual state when call is using mobile/cellular network
-  └── .network-type-indicator.fourG    → Visual state for 4G LTE mobile connection
-  └── .network-type-indicator.threeG   → Visual state for 3G mobile connection
-  └── .dialer-display          → Primary number display box above the keypad; shows the full outgoing number; no neon glow
-  └── .dialer-display.has-number → Visual state when at least one digit has been entered
-  └── .dialed-number-readout   → Secondary label beneath the dialer display; live readout of digits as they are entered
-  └── .dialed-number-readout.active
+  └── .network-
