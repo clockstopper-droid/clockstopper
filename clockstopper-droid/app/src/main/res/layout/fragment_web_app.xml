@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Layout for WebAppFragment.
+
+    A single full-screen WebView that hosts the ClockStopper HTML/CSS/JS
+    application bundled in src/main/assets/.
+
+    Using FrameLayout as a thin wrapper rather than ConstraintLayout avoids
+    pulling in an extra measure pass for a layout that has exactly one child
+    filling the whole surface.
+-->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</FrameLayout>

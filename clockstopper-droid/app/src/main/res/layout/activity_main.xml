@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Root layout for MainActivity.
+
+    FragmentContainerView is the recommended host for Fragment transactions; it
+    correctly handles animation Z-ordering and back-stack transitions that plain
+    FrameLayout does not.  The ID "fragmentContainer" is referenced by
+    MainActivity when it calls supportFragmentManager.commit { replace(...) }.
+-->
+<androidx.fragment.app.FragmentContainerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fragmentContainer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
