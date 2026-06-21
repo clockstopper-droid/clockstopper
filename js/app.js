@@ -1,5 +1,5 @@
 /* ============================================================
-   Global Time Clock — app.js  (root)
+   Global Time Clock — app.js
    Pure vanilla JS; no neon/glow effects
    ============================================================ */
 
@@ -17,6 +17,7 @@ let isMuted          = false;
 let isOnline         = navigator.onLine;
 let preferredNetwork = 'wifi';   // 'wifi' | 'cellular'
 let dialedNumber     = '';
+let callerIdName     = '';       // Custom wording shown on recipient's caller ID
 let callActive       = false;
 let micStream        = null;
 let audioContext     = null;
@@ -58,11 +59,11 @@ function updateClocks() {
     const tz = card.dataset.tz;
 
     const timeStr = new Intl.DateTimeFormat('en-US', {
-      timeZone:  tz,
-      hour:      '2-digit',
-      minute:    '2-digit',
-      second:    '2-digit',
-      hour12:    true,
+      timeZone: tz,
+      hour:     '2-digit',
+      minute:   '2-digit',
+      second:   '2-digit',
+      hour12:   true,
     }).format(now);
 
     const dateStr = new Intl.DateTimeFormat('en-US', {
@@ -100,12 +101,47 @@ function toggleMute() {
 }
 
 /* ============================================================
+   Caller ID Name
+   ============================================================ */
+
+/**
+ * Reads the caller-ID input, updates the in-memory state,
+ * and refreshes the preview badge beneath the field.
+ */
+function updateCallerIdPreview() {
+  const input   = document.getElementById('callerIdInput');
+  const preview = document.getElementById('callerIdPreview');
+
+  callerIdName = input ? input.value.trim() : '';
+
+  if (!preview) return;
+
+  if (callerIdName.length > 0) {
+    preview.textContent = `Caller ID will show: "${callerIdName}"`;
+    preview.classList.add('active');
+  } else {
+    preview.textContent = 'Caller ID will show your number';
+    preview.classList.remove('active');
+  }
+}
+
+/**
+ * Returns the effective caller-ID string:
+ *   - custom wording if set, otherwise the dialed number itself.
+ */
+function getEffectiveCallerId() {
+  return callerIdName.length > 0 ? callerIdName : dialedNumber;
+}
+
+/* ============================================================
    Dialer
    ============================================================ */
 
 function initDialer() {
   dialedNumber = '';
+  callerIdName = '';
   updateDialerDisplay();
+  updateCallerIdPreview();
 }
 
 function dialDigit(digit) {
@@ -272,6 +308,9 @@ function initiateCall() {
   if (dialedNumber.length === 0) return;
   if (callActive) return;
 
+  // Snapshot the effective caller ID at call-initiation time
+  const effectiveId = getEffectiveCallerId();
+
   requestMicPermission()
     .then(() => {
       callActive   = true;
@@ -282,7 +321,11 @@ function initiateCall() {
 
       const callStatusEl = document.getElementById('callStatus');
       if (callStatusEl) {
-        callStatusEl.textContent = `Calling ${dialedNumber}…`;
+        // Show both the dialed number and the outbound caller ID name (if set)
+        const idLabel = callerIdName.length > 0
+          ? ` · ID: "${effectiveId}"`
+          : '';
+        callStatusEl.textContent = `Calling ${dialedNumber}${idLabel}…`;
         callStatusEl.className   = 'call-status calling';
       }
 
@@ -363,7 +406,7 @@ function updateNetworkTypeIndicator() {
       indicatorEl.classList.add('cellular');
       indicatorEl.textContent = 'Cellular';
     }
-  } else {
+    } else {
     indicatorEl.classList.add('wifi');
     indicatorEl.textContent = 'WiFi';
   }

@@ -1,36 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#212121" />
-    <title>ClockStopper</title>
-    <link rel="stylesheet" href="css/style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <title>Global Time Clock</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<body class="dark-theme">
 
-    <header class="app-header">
-        <h1>ClockStopper</h1>
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <h1>🌐 Global Time Clock</h1>
+      <div class="controls">
+        <button onclick="toggleTheme()">🌓 Theme</button>
+        <button id="muteBtn" class="mute-btn" onclick="toggleMute()">🔊 Mute</button>
+      </div>
     </header>
 
-    <main class="app-main">
-        <!-- Stopwatch display -->
-        <div class="display" id="display">00:00:00.000</div>
+    <!-- Clocks Grid (Eastern / Central / Western — fixed, hardcoded) -->
+    <div class="clocks-grid" id="clocksGrid"></div>
 
-        <!-- Controls -->
-        <div class="controls">
-            <button id="btnStartStop" class="btn btn--primary">Start</button>
-            <button id="btnLap"       class="btn btn--secondary" disabled>Lap</button>
-            <button id="btnReset"     class="btn btn--danger"    disabled>Reset</button>
-        </div>
+    <!-- Connectivity Panel -->
+    <div class="connectivity-panel" id="connectivityPanel">
+      <div class="connectivity-panel-header" onclick="toggleConnectivityPanel()">
+        <span id="wifiStatus" class="wifi-status">Checking…</span>
+        <span style="font-size:0.8rem;opacity:0.6;">Network ▾</span>
+      </div>
+      <div class="connectivity-panel-body">
+        <div id="networkDetail" style="font-size:0.82rem;margin-bottom:10px;opacity:0.7;"></div>
 
-        <!-- Lap list -->
-        <section class="laps" id="lapsSection" hidden>
-            <h2 class="laps__title">Laps</h2>
-            <ol class="laps__list" id="lapList" reversed></ol>
-        </section>
-    </main>
+        <div
+          id="mobileNetworkOption"
+          class="mobile-network-option unavailable"
+          onclick="selectMobileNetwork()"
+        >📶 Use Mobile / Cellular Network for calls</div>
 
-    <script src="js/app.js"></script>
+        <ul class="network-list" id="networkList"></ul>
+
+        <div id="connectivityProbeStatus" class="probe-status">—</div>
+
+        <button
+          onclick="scanNetworks()"
+          style="margin-top:12px;padding:6px 14px;font-size:0.8rem;cursor:pointer;"
+        >↺ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Call / Dialer Panel -->
+    <div class="call-panel" id="callPanel">
+
+      <!-- Caller ID Name -->
+      <div class="caller-id-row">
+        <label class="caller-id-label" for="callerIdInput">Caller ID Name</label>
+        <input
+          id="callerIdInput"
+          class="caller-id-input"
+          type="text"
+          maxlength="40"
+          placeholder="Your name shown to recipient"
+          oninput="updateCallerIdPreview()"
+        />
+        <div id="callerIdPreview" class="caller-id-preview"></div>
+      </div>
+
+      <!-- Dialer Display -->
+      <div id="dialerDisplay" class="dialer-display"></div>
+      <div id="dialedNumberReadout" class="dialed-number-readout">Enter a number</div>
+
+      <!-- Keypad -->
+      <div class="keypad">
+        <button class="keypad-btn" onclick="dialDigit('1')">1</button>
+        <button class="keypad-btn" onclick="dialDigit('2')">2</button>
+        <button class="keypad-btn" onclick="dialDigit('3')">3</button>
+        <button class="keypad-btn" onclick="dialDigit('4')">4</button>
+        <button class="keypad-btn" onclick="dialDigit('5')">5</button>
+        <button class="keypad-btn" onclick="dialDigit('6')">6</button>
+        <button class="keypad-btn" onclick="dialDigit('7')">7</button>
+        <button class="keypad-btn" onclick="dialDigit('8')">8</button>
+        <button class="keypad-btn" onclick="dialDigit('9')">9</button>
+        <button class="keypad-btn" onclick="dialDigit('*')">*</button>
+        <button class="keypad-btn" onclick="dialDigit('0')">0</button>
+        <button class="keypad-btn" onclick="dialDigit('#')">#</button>
+      </div>
+
+      <!-- Clear -->
+      <div class="call-actions" style="margin-bottom:10px;">
+        <button class="call-btn" style="background:#555;color:#fff;" onclick="clearDialed()">⌫ Back</button>
+        <button class="call-btn" style="background:#333;color:#fff;" onclick="clearAll()">✕ Clear</button>
+      </div>
+
+      <!-- Network type indicator -->
+      <div style="text-align:center;margin-bottom:8px;">
+        <span id="networkTypeIndicator" class="network-type-indicator"></span>
+      </div>
+
+      <!-- Call actions -->
+      <div class="call-actions">
+        <button class="call-btn start" onclick="initiateCall()">📞 Call</button>
+        <button class="call-btn end"   onclick="endCall()">⏹ End</button>
+      </div>
+
+      <!-- Status readouts -->
+      <div id="callStatus"          class="call-status"></div>
+      <div id="micPermissionStatus" class="mic-permission-status"></div>
+
+    </div><!-- /.call-panel -->
+
+  </div><!-- /.container -->
+
+  <script src="js/app.js"></script>
 </body>
 </html>
