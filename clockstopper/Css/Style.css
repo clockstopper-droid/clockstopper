@@ -1,448 +1,390 @@
-/* ─── Reset & Base ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Global Time Clock — Style.css
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Reset / base ──────────────────────────────────────────────────────────── */
 *, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background-color: #f0f2f5;
-    color: #1a1a2e;
-    min-height: 100vh;
-    transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f0f2f5;
+  color: #1a1a2e;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
 }
 
-/* ─── Layout ────────────────────────────────────────────────────────────────── */
+/* ── Layout ────────────────────────────────────────────────────────────────── */
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px 16px 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
 }
 
 h1 {
-    text-align: center;
-    font-size: 2rem;
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-    color: #1a1a2e;
-    transition: color 0.3s ease;
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 1.75rem;
+  letter-spacing: 0.03em;
 }
 
-/* ─── WiFi Status Indicator ─────────────────────────────────────────────────── */
-/*
- * Sits just below the page heading, above the clock grid.
- * Displays a coloured dot + connection-type label so users can see at a
- * glance whether the browser has a live network connection.
- *
- * States
- * ──────
- *   .wifi-online   – green dot, shows connection type (WiFi / Ethernet / 4G …)
- *   .wifi-offline  – red dot,   shows "Offline"
- *
- * The element is built into Index.html; JS keeps it up-to-date via
- * updateWifiStatus() which runs on load and on every network-state change.
- */
-
-#wifiStatus {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 5px 12px;
-    border-radius: 20px;
-    border: 1.5px solid transparent;
-    cursor: default;
-    user-select: none;
-    transition:
-        background-color 0.35s ease,
-        border-color     0.35s ease,
-        color            0.35s ease;
-
-    /* Default (pre-JS paint): neutral until JS sets a state class */
-    background-color: #e2e8f0;
-    border-color:     #cbd5e1;
-    color:            #475569;
+/* ── Clock grid ────────────────────────────────────────────────────────────── */
+.clocks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
 }
 
-/* Wrapper that centres the indicator beneath the heading */
-.wifi-status-wrapper {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
-}
-
-/* Animated pulse dot shared by both states */
-.wifi-icon {
-    display: inline-block;
-    font-size: 0.65rem;
-    line-height: 1;
-    transition: color 0.35s ease;
-}
-
-.wifi-label {
-    line-height: 1;
-}
-
-/* ── Online state ──────────────────────────────────────────────────────────── */
-#wifiStatus.wifi-online {
-    background-color: #dcfce7;
-    border-color:     #86efac;
-    color:            #166534;
-}
-
-#wifiStatus.wifi-online .wifi-icon {
-    color: #16a34a;
-    /* Subtle pulse to confirm live connection */
-    animation: wifiPulse 2.4s ease-in-out infinite;
-}
-
-@keyframes wifiPulse {
-    0%,  100% { opacity: 1;    transform: scale(1);    }
-    50%        { opacity: 0.55; transform: scale(0.85); }
-}
-
-/* ── Offline state ─────────────────────────────────────────────────────────── */
-#wifiStatus.wifi-offline {
-    background-color: #fee2e2;
-    border-color:     #fca5a5;
-    color:            #991b1b;
-}
-
-#wifiStatus.wifi-offline .wifi-icon {
-    color: #dc2626;
-    animation: none; /* stop pulse when offline */
-}
-
-/* ─── Dark theme overrides for WiFi indicator ───────────────────────────────── */
-body.dark-theme #wifiStatus {
-    /* Default neutral */
-    background-color: #1e293b;
-    border-color:     #334155;
-    color:            #94a3b8;
-}
-
-body.dark-theme #wifiStatus.wifi-online {
-    background-color: #14532d;
-    border-color:     #166534;
-    color:            #86efac;
-}
-
-body.dark-theme #wifiStatus.wifi-online .wifi-icon {
-    color: #4ade80;
-}
-
-body.dark-theme #wifiStatus.wifi-offline {
-    background-color: #450a0a;
-    border-color:     #7f1d1d;
-    color:            #fca5a5;
-}
-
-body.dark-theme #wifiStatus.wifi-offline .wifi-icon {
-    color: #f87171;
-}
-
-/* ─── Clock Grid ────────────────────────────────────────────────────────────── */
-#clocksGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 20px;
-    margin-bottom: 28px;
-}
-
-/* ─── Clock Card ────────────────────────────────────────────────────────────── */
 .clock-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 20px 16px 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.2s ease;
+  background: #ffffff;
+  border: 1px solid #dde1e7;
+  border-radius: 12px;
+  padding: 1.25rem 1rem 1rem;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
 }
 
-.clock-card:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+.clock-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+  word-break: break-all;
 }
 
-.tz-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #64748b;
-    text-align: center;
-    transition: color 0.3s ease;
-}
-
-.time-display {
-    font-size: 1.75rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.03em;
-    color: #1a1a2e;
-    transition: color 0.3s ease;
-}
-
-.date-display {
-    font-size: 0.82rem;
-    color: #94a3b8;
-    transition: color 0.3s ease;
+.clock-time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #1a1a2e;
+  transition: color 0.3s;
 }
 
 .remove-btn {
-    margin-top: 10px;
-    font-size: 0.78rem;
-    padding: 5px 14px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    background: transparent;
-    color: #94a3b8;
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  position: absolute;
+  top: 0.45rem;
+  right: 0.55rem;
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
 }
-
 .remove-btn:hover {
-    background-color: #fee2e2;
-    border-color: #fca5a5;
-    color: #dc2626;
+  color: #e53935;
+  background: rgba(229,57,53,0.08);
 }
 
-/* ─── Controls ──────────────────────────────────────────────────────────────── */
+/* ── Controls ──────────────────────────────────────────────────────────────── */
 .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-    justify-content: center;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2.25rem;
 }
 
-#tzInput {
-    flex: 1 1 220px;
-    min-width: 0;
-    padding: 9px 14px;
-    font-size: 0.92rem;
-    border: 1.5px solid #cbd5e1;
-    border-radius: 8px;
-    background: #f8fafc;
-    color: #1a1a2e;
-    outline: none;
-    transition: border-color 0.2s ease, background-color 0.3s ease;
+.controls input[type="text"] {
+  flex: 1 1 220px;
+  padding: 0.55rem 0.9rem;
+  border: 2px solid #c0c5ce;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: #1a1a2e;
+  outline: none;
+  transition: border-color 0.2s, background 0.3s, color 0.3s;
+}
+.controls input[type="text"]:focus {
+  border-color: #3a86ff;
 }
 
-#tzInput:focus {
-    border-color: #3b82f6;
-    background: #ffffff;
-}
-
-#tzInput::placeholder {
-    color: #94a3b8;
-}
-
-/* Shared button base */
 .controls button {
-    padding: 9px 18px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
-    white-space: nowrap;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #3a86ff;
+  color: #fff;
+  transition: background 0.2s, transform 0.1s;
+}
+.controls button:hover  { background: #2563eb; }
+.controls button:active { transform: scale(0.97); }
+
+/* Mute button */
+.mute-btn             { background: #6c757d; }
+.mute-btn:hover       { background: #5a6268; }
+.mute-btn.muted       { background: #dc3545; }
+.mute-btn.muted:hover { background: #c82333; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CONNECTIVITY PANEL
+   ══════════════════════════════════════════════════════════════════════════════
+
+   Architecture note
+   ─────────────────
+   Browsers expose zero API for enumerating or joining Wi-Fi networks — that
+   is an OS / driver responsibility.  Routing traffic through a specific
+   interface (Wi-Fi vs. cellular) is equally outside the reach of any web API.
+
+   What IS available:
+     • navigator.onLine        — coarse online/offline flag
+     • window online/offline   — events fired when that flag changes
+     • navigator.connection    — Network Information API (Chromium only)
+         .type                   physical link type: 'wifi' | 'cellular' | …
+         .effectiveType          quality class: '4g' | '3g' | '2g' | 'slow-2g'
+         .downlink               estimated downstream bandwidth (Mbps)
+         .rtt                    estimated round-trip time (ms)
+         .saveData               whether Data Saver mode is active
+     • fetch() to a probe URL — confirms actual internet reachability
+       (navigator.onLine can be true on a LAN with no WAN access)
+
+   The panel below surfaces all of the above, degrades gracefully in browsers
+   that do not support the Network Information API (Safari, Firefox), and
+   provides a manual Re-check button for on-demand re-probing.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.conn-panel-wrapper {
+  margin-top: 0.5rem;
 }
 
-.controls button:active {
-    transform: scale(0.97);
+.conn-panel-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.65rem;
+  text-align: center;
+  letter-spacing: 0.02em;
+  color: #444;
+  transition: color 0.3s;
 }
 
-/* Add Clock button */
-#addBtn {
-    background-color: #3b82f6;
-    color: #ffffff;
+/* ── #wifiStatus base card ─────────────────────────────────────────────────── */
+.wifi-status {
+  background: #ffffff;
+  border: 2px solid #dde1e7;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  font-size: 0.9rem;
+  transition: background 0.3s, border-color 0.3s, color 0.3s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
-#addBtn:hover {
-    background-color: #2563eb;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+/* Online / offline / degraded border accent */
+.wifi-status.online   { border-color: #22c55e; }
+.wifi-status.offline  { border-color: #ef4444; }
+.wifi-status.degraded { border-color: #f59e0b; }
+
+/* ── Panel header row (icon + status text + re-check button) ───────────────── */
+.conn-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
 }
 
-/* Theme toggle button */
-#themeBtn {
-    background-color: #e2e8f0;
-    color: #475569;
+.conn-status-icon {
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
-#themeBtn:hover {
-    background-color: #cbd5e1;
+.conn-status-text {
+  font-size: 1rem;
+  font-weight: 700;
+  flex: 1 1 auto;
 }
 
-/* Mute button ─────────────────────────────────────────────────────────────── */
-.mute-btn {
-    background-color: #e2e8f0;
-    color: #475569;
+.wifi-status.online   .conn-status-text { color: #15803d; }
+.wifi-status.offline  .conn-status-text { color: #b91c1c; }
+.wifi-status.degraded .conn-status-text { color: #b45309; }
+
+/* Re-check button inside the panel */
+.conn-recheck-btn {
+  margin-left: auto;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1.5px solid #c0c5ce;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.conn-recheck-btn:hover  { background: rgba(0,0,0,0.06); border-color: #999; }
+.conn-recheck-btn:active { transform: scale(0.97); }
+
+/* ── Detail rows ───────────────────────────────────────────────────────────── */
+.conn-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.mute-btn:hover {
-    background-color: #cbd5e1;
+.conn-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  font-size: 0.85rem;
+}
+.conn-row:last-child { border-bottom: none; }
+
+.conn-row-label {
+  color: #666;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-/* Visual state when muted */
-.mute-btn.muted {
-    background-color: #fef3c7;
-    color:            #92400e;
-    box-shadow: inset 0 0 0 1.5px #fcd34d;
+.conn-row-value {
+  font-weight: 600;
+  text-align: right;
 }
 
-.mute-btn.muted:hover {
-    background-color: #fde68a;
+/* ── Quality badges ────────────────────────────────────────────────────────── */
+.conn-quality {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
-/* ─── Dark Theme ────────────────────────────────────────────────────────────── */
-body.dark-theme {
-    background-color: #0f172a;
-    color: #e2e8f0;
+.quality-good    { background: #dcfce7; color: #15803d; }
+.quality-fair    { background: #fef9c3; color: #854d0e; }
+.quality-poor    { background: #fee2e2; color: #b91c1c; }
+.quality-unknown { background: #f3f4f6; color: #6b7280; }
+
+/* ── API not-supported note ────────────────────────────────────────────────── */
+.conn-api-note {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #777;
+  font-style: italic;
+  line-height: 1.4;
 }
 
-body.dark-theme h1 {
-    color: #f1f5f9;
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK THEME
+   All dark-theme overrides are scoped under .dark-theme on <body>
+   Orange (#ff7f00 family) is the primary accent for controls / keypad.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.dark-theme {
+  background: #12121f;
+  color: #e8e8f0;
 }
 
-/* Dark clock cards */
-body.dark-theme .clock-card {
-    background-color: #1e293b;
-    border-color: #334155;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-}
+/* Heading */
+.dark-theme h1 { color: #e8e8f0; }
 
-body.dark-theme .tz-label {
-    color: #94a3b8;
+/* Clock cards */
+.dark-theme .clock-card {
+  background: #1e1e32;
+  border-color: #2e2e50;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
 }
+.dark-theme .clock-label { color: #9999bb; }
+.dark-theme .clock-time  { color: #ff9f1c; }  /* orange accent */
 
-body.dark-theme .time-display {
-    color: #f1f5f9;
+/* Remove button */
+.dark-theme .remove-btn       { color: #666; }
+.dark-theme .remove-btn:hover { color: #ff6b6b; background: rgba(255,107,107,0.1); }
+
+/* Controls */
+.dark-theme .controls input[type="text"] {
+  background: #1e1e32;
+  border-color: #ff7f00;
+  color: #e8e8f0;
 }
+.dark-theme .controls input[type="text"]:focus { border-color: #ffb347; }
 
-body.dark-theme .date-display {
-    color: #64748b;
+.dark-theme .controls button {
+  background: #ff7f00;
+  color: #12121f;
 }
+.dark-theme .controls button:hover { background: #ffb347; }
 
-body.dark-theme .remove-btn {
-    border-color: #334155;
-    color: #64748b;
+/* Mute button in dark mode */
+.dark-theme .mute-btn             { background: #555; color: #e8e8f0; }
+.dark-theme .mute-btn:hover       { background: #666; }
+.dark-theme .mute-btn.muted       { background: #ff7f00; color: #12121f; }
+.dark-theme .mute-btn.muted:hover { background: #ffb347; color: #12121f; }
+
+/* Connectivity panel title */
+.dark-theme .conn-panel-title { color: #9999bb; }
+
+/* Connectivity panel card */
+.dark-theme .wifi-status {
+  background: #1e1e32;
+  border-color: #2e2e50;
+  color: #e8e8f0;
 }
+.dark-theme .wifi-status.online   { border-color: #22c55e; }
+.dark-theme .wifi-status.offline  { border-color: #ef4444; }
+.dark-theme .wifi-status.degraded { border-color: #f59e0b; }
 
-body.dark-theme .remove-btn:hover {
-    background-color: #450a0a;
-    border-color: #7f1d1d;
-    color: #f87171;
+/* Status text colours in dark mode */
+.dark-theme .wifi-status.online   .conn-status-text { color: #4ade80; }
+.dark-theme .wifi-status.offline  .conn-status-text { color: #f87171; }
+.dark-theme .wifi-status.degraded .conn-status-text { color: #fbbf24; }
+
+/* Row labels / dividers */
+.dark-theme .conn-row          { border-bottom-color: rgba(255,255,255,0.06); }
+.dark-theme .conn-row-label    { color: #8888aa; }
+
+/* Quality badges in dark mode */
+.dark-theme .quality-good    { background: #14532d; color: #4ade80; }
+.dark-theme .quality-fair    { background: #451a03; color: #fbbf24; }
+.dark-theme .quality-poor    { background: #450a0a; color: #f87171; }
+.dark-theme .quality-unknown { background: #1f2937; color: #9ca3af; }
+
+/* Re-check button in dark mode */
+.dark-theme .conn-recheck-btn {
+  border-color: #ff7f00;
+  color: #ff9f1c;
 }
+.dark-theme .conn-recheck-btn:hover { background: rgba(255,127,0,0.12); border-color: #ffb347; }
 
-/* Dark controls panel — orange accent */
-body.dark-theme .controls {
-    background-color: #1e293b;
-    border-color: #334155;
-}
+/* API note in dark mode */
+.dark-theme .conn-api-note { color: #6666aa; }
 
-body.dark-theme #tzInput {
-    background-color: #0f172a;
-    border-color: #f97316;    /* orange accent on input border */
-    color: #f1f5f9;
-}
-
-body.dark-theme #tzInput:focus {
-    border-color: #fb923c;
-    background-color: #1e293b;
-}
-
-body.dark-theme #tzInput::placeholder {
-    color: #475569;
-}
-
-/* Dark Add button — orange */
-body.dark-theme #addBtn {
-    background-color: #f97316;
-    color: #ffffff;
-}
-
-body.dark-theme #addBtn:hover {
-    background-color: #ea6c0a;
-    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
-}
-
-/* Dark Theme toggle — orange */
-body.dark-theme #themeBtn {
-    background-color: #f97316;
-    color: #ffffff;
-}
-
-body.dark-theme #themeBtn:hover {
-    background-color: #ea6c0a;
-}
-
-/* Dark Mute button — orange */
-body.dark-theme .mute-btn {
-    background-color: #f97316;
-    color: #ffffff;
-}
-
-body.dark-theme .mute-btn:hover {
-    background-color: #ea6c0a;
-}
-
-body.dark-theme .mute-btn.muted {
-    background-color: #92400e;
-    color: #fef3c7;
-    box-shadow: inset 0 0 0 1.5px #f59e0b;
-}
-
-body.dark-theme .mute-btn.muted:hover {
-    background-color: #78350f;
-}
-
-/* ─── Responsive ────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 600px) {
-    h1 {
-        font-size: 1.4rem;
-    }
+  h1 { font-size: 1.4rem; }
 
-    #clocksGrid {
-        grid-template-columns: 1fr;
-    }
+  .clocks-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.9rem; }
 
-    .controls {
-        flex-direction: column;
-        align-items: stretch;
-    }
+  .clock-time { font-size: 1.2rem; }
 
-    #tzInput {
-        width: 100%;
-    }
+  .controls { flex-direction: column; align-items: stretch; }
+  .controls input[type="text"],
+  .controls button { width: 100%; }
 
-    .controls button {
-        width: 100%;
-        text-align: center;
-    }
-
-    #wifiStatus {
-        font-size: 0.76rem;
-        padding: 4px 10px;
-    }
+  .conn-header { flex-direction: column; align-items: flex-start; }
+  .conn-recheck-btn { margin-left: 0; width: 100%; text-align: center; }
 }
 
-@media (min-width: 601px) and (max-width: 900px) {
-    #clocksGrid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+@media (max-width: 400px) {
+  .container { padding: 1rem 0.75rem 2rem; }
+  .wifi-status { padding: 0.75rem; }
 }

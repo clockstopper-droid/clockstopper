@@ -1,93 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Global Time Clock</title>
-    <link rel="stylesheet" href="Css/Style.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Time Clock</title>
+  <link rel="stylesheet" href="Css/Style.css" />
 </head>
 <body>
 
-<div class="container">
+  <div class="container">
+    <h1>🌍 Global Time Clock</h1>
 
-    <!-- ── Page heading ─────────────────────────────────────────────────── -->
-    <h1>🌐 Global Time Clock</h1>
+    <!-- ── Clock grid ─────────────────────────────────────────────────── -->
+    <div id="clocksGrid" class="clocks-grid"></div>
 
-    <!-- ── WiFi / Network status indicator ──────────────────────────────── -->
-    <!--
-        Updated by updateWifiStatus() in app.js on page load and on every
-        network-state change (online / offline / connection-type events).
-
-        JS adds one of:  .wifi-online  |  .wifi-offline
-        to #wifiStatus so CSS can colour it appropriately.
-
-        The two inner spans are targeted by JS:
-          .wifi-icon  – receives the ● / ○ glyph
-          .wifi-label – receives the human-readable type label or "Offline"
-    -->
-    <div class="wifi-status-wrapper">
-        <div
-            id="wifiStatus"
-            role="status"
-            aria-live="polite"
-            aria-label="Checking network status…"
-            title="Checking network status…"
-        >
-            <span class="wifi-icon" aria-hidden="true">●</span>
-            <span class="wifi-label">Checking…</span>
-        </div>
+    <!-- ── Controls ──────────────────────────────────────────────────── -->
+    <div class="controls">
+      <input
+        type="text"
+        id="tzInput"
+        placeholder="e.g. America/Chicago"
+        aria-label="IANA time zone"
+      />
+      <button onclick="addTimezone()">➕ Add Clock</button>
+      <button id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+      <button id="muteBtn"  class="mute-btn" onclick="toggleMute()">🔔 Mute</button>
     </div>
 
-    <!-- ── Clock grid ────────────────────────────────────────────────────── -->
+    <!-- ── Connectivity panel ─────────────────────────────────────────── -->
     <!--
-        Populated dynamically by renderClocks() in app.js.
-        Each child is a .clock-card div created by createClockCard().
+      #wifiStatus is populated entirely by renderConnectivityPanel() in app.js.
+      It shows:
+        • Overall online / offline / degraded status (via CSS classes)
+        • Connection type from the Network Information API (wifi, cellular, …)
+        • Effective speed class (4G / 3G / 2G / slow-2G) where available
+        • Estimated downlink speed and round-trip latency
+        • Data Saver mode flag
+        • Actual internet reachability confirmed by a lightweight fetch probe
+        • A manual Re-check button
+
+      NOTE: The Network Information API (navigator.connection) is supported in
+      Chromium-based browsers (Chrome, Edge, Samsung Internet, Opera) and
+      Android WebView.  It is NOT supported in Safari or Firefox.  The panel
+      degrades gracefully: connection-type rows are simply omitted when the
+      API is unavailable, and an informational note is shown instead.
+
+      Routing traffic through a specific network interface (e.g. forcing Wi-Fi
+      vs. cellular) is an OS-level operation and is not accessible from a web
+      page — no browser API exposes that capability.  This panel focuses on
+      what is genuinely possible: surfacing the connection the OS has already
+      chosen and verifying actual internet reachability.
     -->
-    <div id="clocksGrid" role="list" aria-label="World clocks"></div>
+    <section class="conn-panel-wrapper" aria-label="Network connectivity status">
+      <h2 class="conn-panel-title">📡 Network Status</h2>
+      <div id="wifiStatus" class="wifi-status" role="status" aria-live="polite">
+        <span class="conn-status-text">Detecting…</span>
+      </div>
+    </section>
+  </div>
 
-    <!-- ── Controls ──────────────────────────────────────────────────────── -->
-    <div class="controls" role="group" aria-label="Clock controls">
-
-        <label for="tzInput" class="sr-only">IANA Time Zone</label>
-        <input
-            type="text"
-            id="tzInput"
-            placeholder="e.g. America/Chicago"
-            aria-label="Enter IANA time zone identifier"
-            autocomplete="off"
-            spellcheck="false"
-        />
-
-        <button
-            id="addBtn"
-            onclick="addTimezone()"
-            aria-label="Add clock for entered time zone"
-        >
-            ＋ Add Clock
-        </button>
-
-        <button
-            id="themeBtn"
-            onclick="toggleTheme()"
-            aria-label="Toggle dark/light theme"
-        >
-            🌙 Theme
-        </button>
-
-        <button
-            id="muteBtn"
-            class="mute-btn"
-            onclick="toggleMute()"
-            aria-label="Toggle mute"
-            aria-pressed="false"
-        >
-            🔊 Mute
-        </button>
-
-    </div><!-- /.controls -->
-
-</div><!-- /.container -->
-
-<script src="js/app.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
