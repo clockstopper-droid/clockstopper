@@ -1,774 +1,901 @@
 /* =============================================================
    Global Time Clock — Style.css
-   Global styles, responsive layout, dark theme,
-   connectivity panel, mobile network panel, call / dialer UI.
+   Mobile-first Android dialer UI
    ============================================================= */
 
 /* ─────────────────────────────────────────────
-   RESET & BASE
+   CSS CUSTOM PROPERTIES  (design tokens)
+   ───────────────────────────────────────────── */
+:root {
+  /* Light theme */
+  --bg:            #f4f6fb;
+  --surface:       #ffffff;
+  --surface-2:     #eef0f5;
+  --border:        #dde1ec;
+  --text:          #1a1a2e;
+  --text-2:        #5a5f7a;
+  --text-inv:      #ffffff;
+  --accent:        #e86f1c;
+  --accent-dark:   #c45a0e;
+  --accent-light:  #fde8d4;
+  --green:         #28a745;
+  --red:           #dc3545;
+  --yellow:        #ffc107;
+  --app-bar-bg:    #1a1a2e;
+  --app-bar-text:  #ffffff;
+  --nav-bg:        #ffffff;
+  --nav-active:    #e86f1c;
+  --nav-inactive:  #9098b1;
+  --shadow:        0 2px 12px rgba(0,0,0,.10);
+  --shadow-lg:     0 8px 32px rgba(0,0,0,.18);
+  --radius:        14px;
+  --radius-sm:     8px;
+  --radius-pill:   999px;
+  --pad-key-bg:    #ffffff;
+  --pad-key-text:  #1a1a2e;
+  --pad-key-hover: #f0f2f8;
+  --pad-key-active:#e2e6f0;
+  --dialer-bg:     #f4f6fb;
+  --font-mono:     'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  --tab-bar-h:     64px;
+  --app-bar-h:     56px;
+  --safe-bottom:   env(safe-area-inset-bottom, 0px);
+}
+
+/* Dark theme overrides */
+.dark-theme {
+  --bg:            #0f0f1a;
+  --surface:       #1a1a2e;
+  --surface-2:     #22223a;
+  --border:        #2e2e4a;
+  --text:          #eef0f8;
+  --text-2:        #9098b1;
+  --text-inv:      #1a1a2e;
+  --accent:        #ff8c3a;
+  --accent-dark:   #e86f1c;
+  --accent-light:  #3a2010;
+  --green:         #2ecc71;
+  --red:           #e74c3c;
+  --yellow:        #f1c40f;
+  --app-bar-bg:    #12121f;
+  --app-bar-text:  #eef0f8;
+  --nav-bg:        #12121f;
+  --nav-active:    #ff8c3a;
+  --nav-inactive:  #5a5f7a;
+  --shadow:        0 2px 12px rgba(0,0,0,.40);
+  --shadow-lg:     0 8px 32px rgba(0,0,0,.60);
+  --pad-key-bg:    #22223a;
+  --pad-key-text:  #eef0f8;
+  --pad-key-hover: #2c2c48;
+  --pad-key-active:#353558;
+  --dialer-bg:     #12121f;
+}
+
+/* ─────────────────────────────────────────────
+   RESET / BASE
    ───────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
-:root {
-  --bg:            #f4f6f8;
-  --surface:       #ffffff;
-  --surface-alt:   #f0f2f5;
-  --border:        #d1d5db;
-  --text-primary:  #1a1a2e;
-  --text-secondary:#555e6e;
-  --accent:        #e07b00;
-  --accent-hover:  #c86e00;
-  --accent-light:  #fff3e0;
-  --green:         #2e7d32;
-  --green-light:   #e8f5e9;
-  --red:           #c62828;
-  --red-light:     #ffebee;
-  --blue:          #1565c0;
-  --blue-light:    #e3f2fd;
-  --radius:        10px;
-  --shadow:        0 2px 12px rgba(0,0,0,.10);
-  --shadow-lg:     0 6px 28px rgba(0,0,0,.15);
-  --transition:    0.22s ease;
+html, body {
+  height: 100%;
+  overflow: hidden;          /* prevent page scroll — app handles scrolling inside panels */
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+               'Helvetica Neue', Arial, sans-serif;
   background: var(--bg);
-  color: var(--text-primary);
-  min-height: 100vh;
-  transition: background var(--transition), color var(--transition);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.5;
+  transition: background .25s, color .25s;
 }
 
-/* ─────────────────────────────────────────────
-   DARK THEME
-   ───────────────────────────────────────────── */
-body.dark-theme {
-  --bg:            #0d1117;
-  --surface:       #161b22;
-  --surface-alt:   #1c2128;
-  --border:        #30363d;
-  --text-primary:  #e6edf3;
-  --text-secondary:#8b949e;
-  --accent:        #ff8c00;
-  --accent-hover:  #ffa020;
-  --accent-light:  #2a1800;
-  --green:         #3fb950;
-  --green-light:   #0d2a12;
-  --red:           #f85149;
-  --red-light:     #2d0c0c;
-  --blue:          #58a6ff;
-  --blue-light:    #0c1f3a;
-}
-
-/* ─────────────────────────────────────────────
-   LAYOUT
-   ───────────────────────────────────────────── */
-.container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 24px 16px 48px;
-}
-
-.app-title {
-  font-size: 1.9rem;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 18px;
-  color: var(--text-primary);
-  letter-spacing: .5px;
-}
-
-/* ─────────────────────────────────────────────
-   CONTROLS
-   ───────────────────────────────────────────── */
-.controls {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-bottom: 24px;
-}
-
-.controls button {
-  padding: 9px 20px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text-primary);
-  font-size: .92rem;
-  font-weight: 600;
+button {
   cursor: pointer;
-  transition: background var(--transition), border-color var(--transition),
-              color var(--transition), box-shadow var(--transition);
+  font-family: inherit;
+  border: none;
+  background: none;
+  color: inherit;
 }
 
-.controls button:hover {
-  background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 2px 8px rgba(224,123,0,.18);
-}
-
-/* Muted state */
-.controls #muteBtn.muted {
-  background: var(--red-light);
-  border-color: var(--red);
-  color: var(--red);
+ul {
+  list-style: none;
 }
 
 /* ─────────────────────────────────────────────
-   CLOCK GRID
+   APP BAR  (top)
+   ───────────────────────────────────────────── */
+.app-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--app-bar-h);
+  background: var(--app-bar-bg);
+  color: var(--app-bar-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top, 0px);
+  z-index: 200;
+  box-shadow: var(--shadow);
+}
+
+.app-bar-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.app-bar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--app-bar-text);
+  transition: background .15s;
+}
+.icon-btn:hover, .icon-btn:focus {
+  background: rgba(255,255,255,.12);
+  outline: none;
+}
+.icon-btn.muted {
+  color: var(--accent);
+}
+
+/* ─────────────────────────────────────────────
+   BOTTOM NAVIGATION
+   ───────────────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--tab-bar-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--nav-bg);
+  display: flex;
+  border-top: 1px solid var(--border);
+  z-index: 200;
+  box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+}
+
+.nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--nav-inactive);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+  padding: 8px 0;
+  border-radius: 0;
+  transition: color .15s;
+  position: relative;
+}
+
+.nav-tab::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 20%; right: 20%;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--nav-active);
+  opacity: 0;
+  transform: scaleX(0);
+  transition: opacity .2s, transform .2s;
+}
+
+.nav-tab.active {
+  color: var(--nav-active);
+}
+.nav-tab.active::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.nav-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+/* ─────────────────────────────────────────────
+   MAIN CONTENT AREA
+   ───────────────────────────────────────────── */
+.app-main {
+  position: fixed;
+  top: var(--app-bar-h);
+  bottom: var(--tab-bar-h);
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────
+   TAB PANELS
+   ───────────────────────────────────────────── */
+.tab-panel {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px calc(16px + var(--safe-bottom));
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity .22s ease, transform .22s ease;
+}
+
+.tab-panel.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* ─────────────────────────────────────────────
+   SECTION HEADER
+   ───────────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ─────────────────────────────────────────────
+   CLOCKS GRID
    ───────────────────────────────────────────── */
 .clocks-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 28px;
+  grid-template-columns: 1fr;
+  gap: 14px;
 }
 
-@media (max-width: 660px) {
-  .clocks-grid { grid-template-columns: 1fr; }
+@media (min-width: 480px) {
+  .clocks-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .clock-card {
   background: var(--surface);
-  border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px 16px 16px;
-  text-align: center;
+  padding: 20px 18px 16px;
   box-shadow: var(--shadow);
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-
-.clock-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 18px rgba(224,123,0,.18);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .clock-label {
-  font-size: .78rem;
+  font-size: .8rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+  letter-spacing: .08em;
+  color: var(--accent);
 }
 
 .clock-time {
-  font-size: 1.85rem;
+  font-family: var(--font-mono);
+  font-size: 2rem;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-  letter-spacing: 1px;
+  color: var(--text);
+  letter-spacing: .03em;
   line-height: 1.1;
 }
 
 .clock-date {
   font-size: .82rem;
-  color: var(--text-secondary);
-  margin-top: 6px;
+  color: var(--text-2);
+  font-weight: 500;
 }
 
 /* ─────────────────────────────────────────────
-   CONNECTIVITY PANEL
+   DIALER TAB — display box
    ───────────────────────────────────────────── */
-.connectivity-panel {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  margin-bottom: 24px;
-  overflow: hidden;
-}
-
-/* ── Panel toggle button ── */
-.panel-toggle-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 13px 18px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-primary);
-  font-size: .95rem;
-  font-weight: 600;
-  text-align: left;
-  transition: background var(--transition);
-}
-
-.panel-toggle-btn:hover {
-  background: var(--surface-alt);
-}
-
-.panel-toggle-icon { font-size: 1.1rem; }
-
-.panel-toggle-label { flex: 1; }
-
-.panel-chevron {
-  font-size: .8rem;
-  color: var(--text-secondary);
-  transition: transform var(--transition);
-}
-
-/* ── Collapsible body ── */
-.panel-body {
-  display: none;
-  padding: 0 18px 18px;
-  border-top: 1px solid var(--border);
-}
-
-.connectivity-panel.expanded .panel-body {
-  display: block;
-}
-
-/* ── WiFi / Online status ── */
-.wifi-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0 6px;
-  font-size: .9rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.status-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--border);
-  flex-shrink: 0;
-  transition: background var(--transition);
-}
-
-.wifi-status.online  .status-dot { background: var(--green); }
-.wifi-status.offline .status-dot { background: var(--red);   }
-.wifi-status.online              { color: var(--green);       }
-.wifi-status.offline             { color: var(--red);         }
-
-/* ── Probe status ── */
-.probe-status {
-  font-size: .82rem;
-  padding: 4px 0 8px;
-  color: var(--text-secondary);
-}
-.probe-status.verified   { color: var(--green); }
-.probe-status.unverified { color: var(--red);   }
-
-/* ── Network info (connection API) ── */
-.network-info {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  padding: 6px 0 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.net-detail {
-  font-size: .82rem;
-  color: var(--text-secondary);
-}
-
-.net-detail strong {
-  color: var(--text-primary);
-}
-
-/* ─────────────────────────────────────────────
-   MOBILE NETWORK PANEL (inside connectivity panel)
-   ───────────────────────────────────────────── */
-.mobile-network-panel {
-  background: var(--surface-alt);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin: 14px 0 10px;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-
-.mobile-network-panel.cellular-active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(224,123,0,.18);
-}
-
-.mobile-network-panel.wifi-active {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(21,101,192,.12);
-}
-
-.mobile-network-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.mobile-net-icon {
-  font-size: 1.2rem;
-}
-
-.mobile-network-header strong {
-  font-size: .92rem;
-  flex: 1;
-}
-
-.mobile-net-badge {
-  font-size: .75rem;
-  padding: 3px 9px;
-  border-radius: 20px;
-  background: var(--accent-light);
-  color: var(--accent);
-  font-weight: 700;
-  white-space: nowrap;
-  transition: background var(--transition), color var(--transition);
-}
-
-/* ── Network mode radio options ── */
-.mobile-net-options {
+#tab-dialer {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.net-option-label {
-  display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: .88rem;
-  cursor: pointer;
-  padding: 7px 10px;
-  border-radius: 7px;
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  transition: border-color var(--transition), background var(--transition);
+  padding-top: 12px;
+  overflow: hidden;       /* dialer is full-height no-scroll on purpose */
 }
 
-.net-option-label:hover {
-  border-color: var(--accent);
-  background: var(--accent-light);
-}
-
-.net-option-label input[type="radio"] {
-  accent-color: var(--accent);
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.net-option-label input[type="radio"]:checked + .net-option-icon,
-.net-option-label input[type="radio"]:checked + .net-option-icon + span {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.net-option-icon {
-  font-size: 1.05rem;
-}
-
-/* ── Mobile net details (type / downlink / rtt) ── */
-.mobile-net-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  margin-bottom: 10px;
-}
-
-/* ── Refresh button ── */
-.net-refresh-btn {
-  padding: 7px 16px;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 7px;
-  color: var(--text-primary);
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition), border-color var(--transition);
-}
-
-.net-refresh-btn:hover {
-  background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-/* ── Detected networks list ── */
-.network-list-section {
-  margin-top: 10px;
-}
-
-.network-list-title {
-  font-size: .78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-
-.network-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.network-list-item {
-  font-size: .84rem;
-  padding: 7px 12px;
-  border-radius: 7px;
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
-.network-list-item.selected {
-  background: var(--green-light);
-  border-color: var(--green);
-  color: var(--green);
-  font-weight: 600;
-}
-
-.network-list-item.placeholder {
-  font-style: italic;
-  color: var(--text-secondary);
-}
-
-/* ─────────────────────────────────────────────
-   CALL / DIALER PANEL
-   ───────────────────────────────────────────── */
-.call-panel {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 20px 18px 24px;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-
-.call-panel.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(224,123,0,.15), var(--shadow-lg);
-}
-
-/* ── Panel header ── */
-.call-panel-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.call-panel-icon {
-  font-size: 1.4rem;
-}
-
-.call-panel-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  flex: 1;
-}
-
-/* Call network badge (shown in header) */
-.call-network-badge {
-  font-size: .75rem;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.call-network-badge.mobile   { background: var(--accent-light); color: var(--accent); }
-.call-network-badge.wifi     { background: var(--blue-light);   color: var(--blue);   }
-.call-network-badge.auto     { background: var(--surface-alt);  color: var(--text-secondary); }
-.call-network-badge.offline  { background: var(--red-light);    color: var(--red);    }
-
-/* ── Primary number display box ── */
 .dialer-display {
-  background: var(--surface-alt);
-  border: 1.5px solid var(--border);
+  width: 100%;
+  max-width: 400px;
+  background: var(--dialer-bg);
+  border: 2px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 18px 20px 14px;
   text-align: center;
-  min-height: 62px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  transition: border-color .15s, box-shadow .15s;
+  position: relative;
   overflow: hidden;
-  transition: border-color var(--transition), box-shadow var(--transition);
 }
 
-.dialer-display:focus-within,
-.dialer-display.has-number {
-  border-color: var(--accent);
+/* flash animation triggered by JS */
+@keyframes display-flash {
+  0%   { background: var(--accent-light); }
+  100% { background: var(--dialer-bg); }
 }
-
-/* Flash animation for key-press feedback */
-@keyframes displayFlash {
-  0%   { box-shadow: 0 0 0 0 rgba(224,123,0,0); }
-  30%  { box-shadow: 0 0 0 5px rgba(224,123,0,.35); }
-  100% { box-shadow: 0 0 0 0 rgba(224,123,0,0); }
-}
-
 .dialer-display.flash {
-  animation: displayFlash .28s ease forwards;
+  animation: display-flash .18s ease-out;
 }
 
 .dialer-number {
-  font-size: 1.7rem;
+  font-family: var(--font-mono);
+  font-size: 1.9rem;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 1.5px;
-  color: var(--text-primary);
+  color: var(--text);
+  letter-spacing: .06em;
   word-break: break-all;
-  transition: color var(--transition);
+  transition: color .15s;
 }
 
 .dialer-number.placeholder {
-  color: var(--text-secondary);
-  font-weight: 400;
-  font-size: 1.4rem;
+  color: var(--text-2);
+  font-size: 2rem;
 }
 
-/* ── Live readout beneath display ── */
+/* Live readout label beneath display */
 .dialed-number-readout {
-  font-size: .8rem;
+  width: 100%;
+  max-width: 400px;
   text-align: center;
-  color: var(--text-secondary);
-  min-height: 18px;
-  margin-bottom: 14px;
-  transition: opacity var(--transition);
-  opacity: 0;
+  font-size: .82rem;
+  color: var(--text-2);
+  min-height: 20px;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  letter-spacing: .04em;
+  transition: color .15s;
+}
+.dialed-number-readout.active {
+  color: var(--accent);
 }
 
-.dialed-number-readout.active { opacity: 1; }
+/* Call status text */
+.call-status {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  min-height: 22px;
+  padding: 2px 0;
+  transition: color .2s;
+}
+.call-status.calling  { color: var(--yellow); }
+.call-status.connected{ color: var(--green);  }
+.call-status.ended    { color: var(--red);    }
+.call-status.idle     { color: var(--text-2); }
 
-/* ── Keypad grid ── */
-.keypad {
+/* Mic permission status */
+.mic-permission-status {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  font-size: .78rem;
+  color: var(--text-2);
+  min-height: 20px;
+  margin-bottom: 10px;
+}
+.mic-permission-status.granted { color: var(--green);  }
+.mic-permission-status.denied  { color: var(--red);    }
+.mic-permission-status.pending { color: var(--yellow); }
+
+/* ─────────────────────────────────────────────
+   DIAL PAD  (keypad)
+   ───────────────────────────────────────────── */
+.dial-pad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-bottom: 14px;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
 }
 
-.keypad.locked .pad-key {
+.dial-pad.locked .pad-key {
   opacity: .45;
   pointer-events: none;
 }
 
-.keypad-btn {
+.pad-key {
+  background: var(--pad-key-bg);
+  border-radius: 50%;
+  aspect-ratio: 1 / 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 14px 8px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-alt);
-  color: var(--text-primary);
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
+  gap: 1px;
+  font-family: inherit;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  transition: background .1s, transform .08s, box-shadow .1s;
   user-select: none;
-  transition: background var(--transition), border-color var(--transition),
-              transform 0.08s ease, box-shadow var(--transition);
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
-.keypad-btn sub {
-  font-size: .5rem;
-  font-weight: 600;
-  letter-spacing: .5px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.keypad-btn:hover:not(:disabled) {
-  background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.keypad-btn:active:not(:disabled) {
+.pad-key:active,
+.pad-key:focus-visible {
+  background: var(--pad-key-active);
   transform: scale(.93);
-  box-shadow: 0 1px 6px rgba(224,123,0,.22);
+  box-shadow: none;
+  outline: none;
 }
 
 /* Orange accent in dark theme */
-body.dark-theme .keypad-btn {
-  background: #1c2128;
-  border-color: #ff8c0033;
+.dark-theme .pad-key {
+  border-color: var(--accent-dark);
 }
-
-body.dark-theme .keypad-btn:hover:not(:disabled) {
+.dark-theme .pad-key:active {
   background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
-/* ── Dialer action bar ── */
-.dialer-actions {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 14px;
-  align-items: center;
-}
-
-.dialer-action-btn {
-  flex: 1;
-  padding: 11px 8px;
-  border-radius: var(--radius);
-  border: 1.5px solid var(--border);
-  background: var(--surface-alt);
-  color: var(--text-primary);
-  font-size: .9rem;
+.pad-digit {
+  font-size: 1.6rem;
   font-weight: 700;
-  cursor: pointer;
-  transition: background var(--transition), border-color var(--transition),
-              color var(--transition), box-shadow var(--transition);
+  color: var(--pad-key-text);
+  line-height: 1;
 }
 
-.dialer-action-btn:disabled {
-  opacity: .4;
-  cursor: not-allowed;
+.pad-sub {
+  font-size: .55rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--text-2);
+  text-transform: uppercase;
+  line-height: 1;
 }
 
-/* Call button */
-.call-btn {
-  background: var(--green-light);
-  border-color: var(--green);
-  color: var(--green);
-}
-.call-btn:hover:not(:disabled) {
-  background: var(--green);
-  color: #fff;
-  box-shadow: 0 3px 12px rgba(46,125,50,.28);
-}
-
-/* End button */
-.end-btn {
-  background: var(--red-light);
-  border-color: var(--red);
-  color: var(--red);
-}
-.end-btn:hover:not(:disabled) {
-  background: var(--red);
-  color: #fff;
-  box-shadow: 0 3px 12px rgba(198,40,40,.28);
-}
-
-/* Backspace & clear */
-.backspace-btn:hover:not(:disabled),
-.clear-btn:hover:not(:disabled) {
-  background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-/* ── Call status ── */
-.call-status {
-  font-size: .85rem;
-  padding: 8px 12px;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--surface-alt);
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  transition: background var(--transition), border-color var(--transition),
-              color var(--transition);
-}
-
-.call-status.calling {
-  background: var(--accent-light);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.call-status.connected {
-  background: var(--green-light);
-  border-color: var(--green);
-  color: var(--green);
-  font-weight: 600;
-}
-
-.call-status.ended {
-  background: var(--red-light);
-  border-color: var(--red);
-  color: var(--red);
-}
-
-/* ── Mic permission status ── */
-.mic-permission-status {
-  font-size: .82rem;
-  padding: 7px 12px;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--surface-alt);
-  color: var(--text-secondary);
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  transition: background var(--transition), border-color var(--transition),
-              color var(--transition);
-}
-
-.mic-permission-status.granted {
-  background: var(--green-light);
-  border-color: var(--green);
-  color: var(--green);
-  font-weight: 600;
-}
-
-.mic-permission-status.denied {
-  background: var(--red-light);
-  border-color: var(--red);
-  color: var(--red);
-  font-weight: 600;
-}
-
-.mic-permission-status.pending {
-  background: var(--blue-light);
-  border-color: var(--blue);
-  color: var(--blue);
+.pad-key--symbol .pad-digit {
+  font-size: 1.8rem;
 }
 
 /* ─────────────────────────────────────────────
-   RESPONSIVE
+   CALL ACTION BUTTONS
    ───────────────────────────────────────────── */
-@media (max-width: 520px) {
-  .app-title { font-size: 1.45rem; }
-
-  .dialer-number { font-size: 1.3rem; }
-
-  .keypad-btn {
-    padding: 12px 6px;
-    font-size: 1.1rem;
-  }
-
-  .dialer-actions { flex-wrap: wrap; }
-
-  .dialer-action-btn { flex: 1 1 40%; }
-
-  .mobile-net-options { gap: 6px; }
-
-  .net-option-label { padding: 6px 8px; font-size: .82rem; }
+.call-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 340px;
+  margin: 14px auto 0;
 }
 
-@media (max-width: 380px) {
-  .container { padding: 14px 10px 36px; }
+.call-btn {
+  border-radius: var(--radius-pill);
+  font-size: .95rem;
+  font-weight: 700;
+  padding: 0 24px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .15s, transform .1s, opacity .15s;
+  white-space: nowrap;
+}
 
-  .keypad { gap: 7px; }
+.call-btn:active { transform: scale(.94); }
 
-  .call-panel { padding: 14px 12px 18px; }
+.call-btn--call {
+  background: var(--green);
+  color: #fff;
+  flex: 1;
+}
+.call-btn--call:hover  { background: #219a38; }
+.call-btn--call:disabled {
+  opacity: .45;
+  pointer-events: none;
+}
+
+.call-btn--end {
+  background: var(--red);
+  color: #fff;
+  flex: 1;
+}
+.call-btn--end:hover  { background: #b02a37; }
+.call-btn--end:disabled {
+  opacity: .45;
+  pointer-events: none;
+}
+
+.call-btn--clear {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  justify-content: center;
+  font-size: 1.3rem;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.call-btn--clear:hover { background: var(--border); }
+
+/* ─────────────────────────────────────────────
+   CALL OVERLAY  (full-screen during active call)
+   ───────────────────────────────────────────── */
+.call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: linear-gradient(160deg, #0f2027 0%, #1a1a2e 60%, #203a43 100%);
+  color: #fff;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 32px 24px;
+  animation: overlay-in .28s ease;
+}
+.call-overlay.visible {
+  display: flex;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1);   }
+}
+
+.call-overlay-number {
+  font-family: var(--font-mono);
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-align: center;
+}
+
+.call-overlay-status {
+  font-size: 1.1rem;
+  color: rgba(255,255,255,.75);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .5; }
+}
+
+.call-network-badge {
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: var(--radius-pill);
+  padding: 4px 14px;
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.call-network-badge.mobile { background: rgba(255,140,58,.25); border-color: #ff8c3a; }
+.call-network-badge.wifi   { background: rgba(40,167,69,.22);  border-color: #28a745; }
+.call-network-badge.offline{ background: rgba(220,53,69,.25);  border-color: #dc3545; }
+
+.call-overlay-end {
+  margin-top: 24px;
+  background: var(--red);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 14px 40px;
+  box-shadow: 0 4px 20px rgba(220,53,69,.5);
+  transition: background .15s, transform .1s;
+}
+.call-overlay-end:active { transform: scale(.93); background: #b02a37; }
+
+/* ─────────────────────────────────────────────
+   NETWORK TAB — cards
+   ───────────────────────────────────────────── */
+#tab-network {
+  gap: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Online/Offline status card */
+.net-status-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow);
+  transition: border-color .3s;
+}
+.net-status-card.online  { border-color: var(--green); }
+.net-status-card.offline { border-color: var(--red);   }
+
+.net-status-icon { font-size: 1.8rem; line-height: 1; }
+
+.net-status-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  flex: 1;
+}
+.net-status-card.online  .net-status-text { color: var(--green); }
+.net-status-card.offline .net-status-text { color: var(--red);   }
+
+/* Probe chip */
+.net-probe-chip {
+  font-size: .75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.net-probe-chip.verified   { background: rgba(40,167,69,.15); color: var(--green); border-color: var(--green); }
+.net-probe-chip.unverified { background: rgba(220,53,69,.13); color: var(--red);   border-color: var(--red);   }
+
+/* Connection details card */
+.net-info-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.net-info-title {
+  font-size: .82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.net-info-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.net-detail {
+  font-size: .82rem;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+}
+.net-detail strong { color: var(--text); }
+
+/* Network mode selector card */
+.net-mode-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.net-mode-card.cellular-active { border-color: var(--accent); }
+.net-mode-card.wifi-active     { border-color: var(--green);  }
+
+.net-mode-title {
+  font-size: .85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--accent);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.net-mode-badge {
+  font-size: .75rem;
+  font-weight: 700;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  letter-spacing: .04em;
+}
+
+.net-mode-radio {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.net-mode-radio:last-of-type { border-bottom: none; }
+
+.net-mode-radio input[type="radio"] {
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.net-mode-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.net-mode-icon { font-size: 1.2rem; }
+
+.net-mode-radio-label > span > strong {
+  display: block;
+  font-size: .92rem;
+  color: var(--text);
+}
+.net-mode-radio-label > span > small {
+  display: block;
+  font-size: .75rem;
+  color: var(--text-2);
+}
+
+/* Detail row chips */
+.net-detail-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.net-detail-row {
+  font-size: .78rem;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+}
+
+/* Detected networks list card */
+.net-list-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.net-list-title {
+  font-size: .82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.network-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.network-list-item {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: .88rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.network-list-item.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.network-list-item.placeholder {
+  color: var(--text-2);
+  font-style: italic;
+  font-size: .8rem;
+}
+.network-list-item.mobile {
+  border-color: var(--accent);
+}
+
+.scan-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 18px;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text);
+  transition: background .15s;
+}
+.scan-btn:hover { background: var(--border); }
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE TWEAKS  — wider phones / tablets
+   ───────────────────────────────────────────── */
+@media (min-width: 480px) {
+  .dial-pad {
+    gap: 14px;
+  }
+
+  .pad-key {
+    max-width: 90px;
+    margin: 0 auto;
+  }
+
+  .pad-digit { font-size: 1.8rem; }
+
+  .clock-time { font-size: 2.4rem; }
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    max-width: 600px;
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  .app-bar, .bottom-nav {
+    max-width: 600px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: 100%;
+  }
+
+  .clocks-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   ACCESSIBILITY — reduce motion
+   ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel,
+  .call-overlay,
+  .pad-key,
+  .call-btn {
+    transition: none;
+    animation: none;
+  }
+  .call-overlay-status { animation: none; }
 }
