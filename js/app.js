@@ -1,494 +1,486 @@
-// ============================================================
-// Global Time Clock — app.js
-// Pure vanilla JS: clocks, theme, mute, connectivity,
-// mobile network, dialer, caller ID name, call audio,
-// keyboard input
-// ============================================================
+/* ==========================================================================
+   app.js  —  Global Time Clock · Clockstopper
+   All application logic: clocks, theme, mute, connectivity, dialer,
+   caller-ID name, call-duration timer, keyboard input, and microphone
+   permission pre-check.
+   ========================================================================== */
 
-// ── State ────────────────────────────────────────────────────
-let isMuted               = false;
-let isOnline              = navigator.onLine;
-let connectivityPanelOpen = false;
-let preferredNetwork      = 'wifi';   // 'wifi' | 'cellular'
-let mobileNetworkAvailable = false;
-let callActive            = false;
-let micStream             = null;
-let audioCtx              = null;
-let dialedNumber          = '';
-let callerIdName          = '';       // Custom caller ID name string
+'use strict';
 
-// ── Fixed time zones ─────────────────────────────────────────
+/* --------------------------------------------------------------------------
+   STATE
+   -------------------------------------------------------------------------- */
+let isMuted              = false;
+let preferredNetwork     = 'wifi';        // 'wifi' | 'cellular'
+let callerIdName         = '';
+let dialedNumber         = '';
+let isInCall             = false;
+let callStartTime        = null;
+let callDurationInterval = null;
+let micPermissionStatus  = 'prompt';      // 'granted' | 'prompt' | 'denied'
+let micPermissionObj     = null;          // PermissionStatus object (for change listener)
+
+/* --------------------------------------------------------------------------
+   FIXED TIME ZONES
+   -------------------------------------------------------------------------- */
 const TIME_ZONES = [
-  { label: 'Eastern Time',  iana: 'America/New_York'    },
-  { label: 'Central Time',  iana: 'America/Chicago'     },
-  { label: 'Western Time',  iana: 'America/Los_Angeles' },
+  { label: 'Eastern Time',  tz: 'America/New_York'    },
+  { label: 'Central Time',  tz: 'America/Chicago'     },
+  { label: 'Western Time',  tz: 'America/Los_Angeles' },
 ];
 
-// ============================================================
-// CLOCK RENDERING
-// ============================================================
-
-function renderClocks() {
+/* --------------------------------------------------------------------------
+   CLOCK RENDERING
+   -------------------------------------------------------------------------- */
+function buildClockCards() {
   const grid = document.getElementById('clocksGrid');
   if (!grid) return;
-  grid.innerHTML = '';
 
-  TIME_ZONES.forEach(tz => {
+  TIME_ZONES.forEach(({ label, tz }) => {
     const card = document.createElement('div');
     card.className = 'clock-card';
-    card.dataset.iana = tz.iana;
-
-    const label = document.createElement('div');
-    label.className = 'clock-label';
-    label.textContent = tz.label;
-
-    const display = document.createElement('div');
-    display.className = 'clock-display';
-    display.id = 'clock-' + tz.iana.replace(/\//g, '-');
-
-    card.appendChild(label);
-    card.appendChild(display);
+    card.innerHTML = `
+      <div class="clock-label">${label}</div>
+      <div class="clock-time" data-tz="${tz}">--:--:--</div>
+      <div class="clock-date" data-tz-date="${tz}"></div>
+    `;
     grid.appendChild(card);
   });
 }
 
-function updateClocks() {
+function tickClocks() {
   const now = new Date();
-  TIME_ZONES.forEach(tz => {
-    const el = document.getElementById('clock-' + tz.iana.replace(/\//g, '-'));
-    if (!el) return;
+
+  document.querySelectorAll('.clock-time[data-tz]').forEach(el => {
     el.textContent = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz.iana,
-      hour:     '2-digit',
-      minute:   '2-digit',
-      second:   '2-digit',
-      hour12:   true,
+      timeZone : el.dataset.tz,
+      hour     : '2-digit',
+      minute   : '2-digit',
+      second   : '2-digit',
+      hour12   : true,
+    }).format(now);
+  });
+
+  document.querySelectorAll('.clock-date[data-tz-date]').forEach(el => {
+    el.textContent = new Intl.DateTimeFormat('en-US', {
+      timeZone : el.dataset.tzDate,
+      weekday  : 'short',
+      month    : 'short',
+      day      : 'numeric',
+      year     : 'numeric',
     }).format(now);
   });
 }
 
-// ============================================================
-// THEME
-// ============================================================
-
+/* --------------------------------------------------------------------------
+   THEME
+   -------------------------------------------------------------------------- */
 function toggleTheme() {
   document.body.classList.toggle('dark-theme');
 }
 
-// ============================================================
-// MUTE
-// ============================================================
-
+/* --------------------------------------------------------------------------
+   MUTE
+   -------------------------------------------------------------------------- */
 function toggleMute() {
   isMuted = !isMuted;
   const btn = document.getElementById('muteBtn');
   if (btn) {
-    btn.classList.toggle('muted', isMuted);
-    btn.textContent = isMuted ? '🔇 Muted' : '🔔 Mute';
+    btn.textContent   = isMuted ? '🔇 Unmute' : '🔔 Mute';
+    btn.setAttribute('aria-pressed', String(isMuted));
   }
 }
 
-// ============================================================
-// CONNECTIVITY PANEL
-// ============================================================
-
+/* --------------------------------------------------------------------------
+   CONNECTIVITY PANEL
+   -------------------------------------------------------------------------- */
 function toggleConnectivityPanel() {
-  connectivityPanelOpen = !connectivityPanelOpen;
   const panel = document.getElementById('connectivityPanel');
-  if (panel) panel.classList.toggle('expanded', connectivityPanelOpen);
-  if (connectivityPanelOpen) {
-    updateNetworkInfo();
-    scanNetworks();
-    detectMobileNetwork();
-  }
-}
-
-function initConnectivity() {
-  window.addEventListener('online',  () => { isOnline = true;  updateConnectivityUI(); });
-  window.addEventListener('offline', () => { isOnline = false; updateConnectivityUI(); });
-  updateConnectivityUI();
-  probeConnectivity();
-  updateNetworkInfo();
-  detectMobileNetwork();
-
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (conn) {
-    conn.addEventListener('change', () => {
-      updateNetworkInfo();
-      detectMobileNetwork();
-    });
-  }
-}
-
-function updateConnectivityUI() {
-  const indicator = document.getElementById('wifiStatus');
-  if (!indicator) return;
-  if (isOnline) {
-    indicator.className = 'wifi-status online';
-    indicator.textContent = 'Online';
-  } else {
-    indicator.className = 'wifi-status offline';
-    indicator.textContent = 'Offline';
+  if (!panel) return;
+  panel.classList.toggle('expanded');
+  const btn = document.getElementById('connectivityToggleBtn');
+  if (btn) {
+    const isExpanded = panel.classList.contains('expanded');
+    btn.setAttribute('aria-expanded', String(isExpanded));
+    btn.textContent = isExpanded ? '📶 Network Status ▴' : '📶 Network Status ▾';
   }
 }
 
 function probeConnectivity() {
-  const status = document.getElementById('connectivityProbeStatus');
-  if (!status) return;
-  status.className = 'probe-status';
-  status.textContent = 'Probing…';
+  const statusEl = document.getElementById('connectivityProbeStatus');
+  if (!statusEl) return;
 
-  fetch('https://www.google.com/favicon.ico', {
-    method: 'HEAD',
-    mode:   'no-cors',
-    cache:  'no-store',
+  if (!navigator.onLine) {
+    statusEl.textContent = '⚠️ Offline — no network connection detected.';
+    return;
+  }
+
+  statusEl.textContent = '🔄 Probing internet connectivity…';
+
+  fetch('https://www.gstatic.com/generate_204', {
+    method : 'HEAD',
+    cache  : 'no-store',
+    signal : AbortSignal.timeout(5000),
   })
-    .then(() => {
-      status.className  = 'probe-status verified';
-      status.textContent = 'Internet verified';
+    .then(r => {
+      statusEl.textContent = r.ok || r.status === 204
+        ? '✅ Internet reachable'
+        : `⚠️ Probe returned HTTP ${r.status}`;
     })
     .catch(() => {
-      status.className  = 'probe-status unverified';
-      status.textContent = 'Probe failed';
+      statusEl.textContent = '⚠️ Internet probe failed — limited or no connectivity.';
     });
 }
 
-function updateNetworkInfo() {
+function refreshNetworkInfo() {
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (!conn) return;
-  const typeIndicator = document.getElementById('networkTypeIndicator');
-  if (typeIndicator && !callActive) {
-    const t  = conn.type          || 'unknown';
-    const et = conn.effectiveType || '';
-    typeIndicator.textContent =
-      t === 'cellular'
-        ? `Mobile (${et.toUpperCase()})`
-        : t.charAt(0).toUpperCase() + t.slice(1);
+  const wifiStatus = document.getElementById('wifiStatus');
+
+  if (!conn) {
+    if (wifiStatus) wifiStatus.textContent = 'Network info: unavailable in this browser.';
+    return;
+  }
+
+  const type          = conn.type          || 'unknown';
+  const effectiveType = conn.effectiveType || 'unknown';
+  const downlink      = conn.downlink      != null ? `${conn.downlink} Mbps` : 'unknown';
+
+  if (wifiStatus) {
+    wifiStatus.textContent = `Type: ${type} | Effective: ${effectiveType} | Downlink: ${downlink}`;
   }
 }
-
-function detectMobileNetwork() {
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  const mobileOpt = document.getElementById('mobileNetworkOption');
-  mobileNetworkAvailable = !!(conn && conn.type === 'cellular');
-
-  if (mobileOpt) {
-    mobileOpt.classList.remove('available', 'unavailable', 'selected');
-    if (mobileNetworkAvailable) {
-      mobileOpt.classList.add('available');
-      if (preferredNetwork === 'cellular') mobileOpt.classList.add('selected');
-    } else {
-      mobileOpt.classList.add('unavailable');
-    }
-  }
-}
-
-function scanNetworks() {
-  const list = document.getElementById('networkList');
-  if (!list) return;
-  list.innerHTML = '<li class="network-list-item">Network scan not available in this browser.</li>';
-}
-
-// ── Mobile network selection ──────────────────────────────────
 
 function selectMobileNetwork() {
   preferredNetwork = 'cellular';
-  detectMobileNetwork();
-  const typeIndicator = document.getElementById('networkTypeIndicator');
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  const et   = (conn && conn.effectiveType) ? conn.effectiveType.toUpperCase() : '';
-  if (typeIndicator) {
-    typeIndicator.className  = 'network-type-indicator cellular' +
-      (et === '4G' ? ' fourG' : et === '3G' ? ' threeG' : '');
-    typeIndicator.textContent = `Mobile${et ? ' (' + et + ')' : ''}`;
-  }
+  const indicator = document.getElementById('networkTypeIndicator');
+  if (indicator) indicator.textContent = 'Network: Mobile/Cellular';
+  const option = document.getElementById('mobileNetworkOption');
+  if (option) option.classList.add('selected');
 }
 
-// ============================================================
-// CALLER ID NAME
-// ============================================================
-
-/**
- * Reads the value from #callerIdNameInput, saves it to the `callerIdName`
- * state variable, and updates #callerIdNameDisplay so the user can see
- * exactly what the recipient's caller ID will show.
- *
- * Called by the "Set Name" button and also by pressing Enter while the
- * input is focused (see keyboard handler at bottom).
- */
+/* --------------------------------------------------------------------------
+   CALLER ID NAME
+   -------------------------------------------------------------------------- */
 function setCallerIdName() {
   const input   = document.getElementById('callerIdNameInput');
   const display = document.getElementById('callerIdNameDisplay');
   if (!input) return;
 
-  // Trim whitespace but preserve internal spacing (e.g. "John Smith")
-  const val = input.value.trim();
-  callerIdName = val;
-
-  // Style the input to confirm a value is saved
-  input.classList.toggle('has-value', val.length > 0);
-
-  // Update the live confirmation display
+  callerIdName = input.value.trim();
   if (display) {
-    if (val) {
-      display.textContent = `Caller ID: "${val}"`;
-      display.classList.add('active');
-    } else {
-      display.textContent = 'No caller ID name set';
-      display.classList.remove('active');
-    }
+    display.textContent = callerIdName
+      ? `Caller ID: "${callerIdName}"`
+      : 'Caller ID: (not set — number will be shown)';
   }
 }
 
-// ============================================================
-// DIALER
-// ============================================================
+/* --------------------------------------------------------------------------
+   DIALER
+   -------------------------------------------------------------------------- */
+function updateDialerDisplay() {
+  const display = document.getElementById('dialerDisplay');
+  const readout = document.getElementById('dialedNumberReadout');
+  if (display) display.textContent = dialedNumber || '';
+  if (readout) readout.textContent = dialedNumber
+    ? `Dialing: ${dialedNumber}`
+    : 'Enter a number above';
+}
 
 function dialDigit(digit) {
-  if (dialedNumber.length >= 20) return;
   dialedNumber += String(digit);
   updateDialerDisplay();
 }
 
-/**
- * @param {boolean} clearAll  true = wipe entire number; false = remove last digit
- */
-function clearDialed(clearAll) {
-  if (clearAll || dialedNumber.length <= 1) {
-    dialedNumber = '';
-  } else {
+function clearDialed() {
+  if (dialedNumber.length > 0) {
     dialedNumber = dialedNumber.slice(0, -1);
   }
   updateDialerDisplay();
 }
 
-function updateDialerDisplay() {
-  const display = document.getElementById('dialerDisplay');
-  const readout = document.getElementById('dialedNumberReadout');
+/* --------------------------------------------------------------------------
+   CALL DURATION TIMER
+   -------------------------------------------------------------------------- */
+function formatDuration(totalSeconds) {
+  const h  = Math.floor(totalSeconds / 3600);
+  const m  = Math.floor((totalSeconds % 3600) / 60);
+  const s  = totalSeconds % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0
+    ? `${String(h).padStart(2, '0')}:${mm}:${ss}`
+    : `${mm}:${ss}`;
+}
 
-  if (display) {
-    display.textContent = dialedNumber || '';
-    display.classList.toggle('has-number', dialedNumber.length > 0);
+function startCallDurationTimer() {
+  callStartTime = Date.now();
+  callDurationInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+    const statusEl = document.getElementById('callStatus');
+    if (statusEl) {
+      statusEl.textContent = `📞 Call connected — ${formatDuration(elapsed)}`;
+    }
+  }, 1000);
+}
+
+function stopCallDurationTimer() {
+  if (callDurationInterval) {
+    clearInterval(callDurationInterval);
+    callDurationInterval = null;
   }
-  if (readout) {
-    readout.textContent = dialedNumber.length > 0 ? `Dialing: ${dialedNumber}` : '';
-    readout.classList.toggle('active', dialedNumber.length > 0);
+  callStartTime = null;
+}
+
+/* --------------------------------------------------------------------------
+   MICROPHONE PERMISSION PRE-CHECK
+   -------------------------------------------------------------------------- */
+
+/**
+ * Reflects the current microphone permission state in the UI:
+ *
+ *  'granted' → green badge; call button enabled
+ *  'prompt'  → amber badge (will ask at dial-time); call button enabled
+ *  'denied'  → red badge with inline warning; call button gets .btn--disabled
+ *
+ * Also toggles aria-disabled on #callBtn so screen-readers and assistive
+ * technology surface the disabled state correctly.
+ */
+function applyMicPermissionUI(state) {
+  micPermissionStatus = state;
+
+  const statusEl = document.getElementById('micPermissionStatus');
+  const callBtn  = document.getElementById('callBtn');
+
+  if (!statusEl) return;
+
+  // Clear previous state classes
+  statusEl.classList.remove(
+    'mic-status--granted',
+    'mic-status--prompt',
+    'mic-status--denied'
+  );
+
+  switch (state) {
+    case 'granted':
+      statusEl.textContent = '🎤 Microphone: Granted';
+      statusEl.classList.add('mic-status--granted');
+      if (callBtn) {
+        callBtn.classList.remove('btn--disabled');
+        callBtn.setAttribute('aria-disabled', 'false');
+      }
+      break;
+
+    case 'prompt':
+      statusEl.textContent = '🎤 Microphone: Will ask when you dial';
+      statusEl.classList.add('mic-status--prompt');
+      if (callBtn) {
+        callBtn.classList.remove('btn--disabled');
+        callBtn.setAttribute('aria-disabled', 'false');
+      }
+      break;
+
+    case 'denied':
+      statusEl.textContent =
+        '🚫 Microphone access denied — call audio unavailable. ' +
+        'Enable microphone in your browser or device settings to place calls.';
+      statusEl.classList.add('mic-status--denied');
+      if (callBtn) {
+        callBtn.classList.add('btn--disabled');
+        callBtn.setAttribute('aria-disabled', 'true');
+      }
+      break;
+
+    default:
+      statusEl.textContent = '🎤 Microphone: Unknown';
+      if (callBtn) {
+        callBtn.classList.remove('btn--disabled');
+        callBtn.setAttribute('aria-disabled', 'false');
+      }
   }
 }
 
-// ============================================================
-// CALL AUDIO
-// ============================================================
-
-function requestMicPermission() {
-  return navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(stream => {
-      micStream = stream;
-      const micStatus = document.getElementById('micPermissionStatus');
-      if (micStatus) {
-        micStatus.textContent = 'Microphone: Granted';
-        micStatus.className   = 'mic-permission-status granted';
-      }
-      return stream;
-    })
-    .catch(err => {
-      const micStatus = document.getElementById('micPermissionStatus');
-      if (micStatus) {
-        micStatus.textContent = 'Microphone: Denied';
-        micStatus.className   = 'mic-permission-status denied';
-      }
-      throw err;
-    });
-}
-
-function initiateCall() {
-  if (callActive) return;
-  if (!dialedNumber) {
-    const status = document.getElementById('callStatus');
-    if (status) status.textContent = 'Enter a number first.';
+/**
+ * Queries navigator.permissions for the 'microphone' permission on page load
+ * so the UI reflects the actual state before the user attempts to dial.
+ *
+ * Registers a `permissionchange` event handler on the returned PermissionStatus
+ * object so mid-session updates (the user grants or revokes permission via
+ * browser settings while the app is open) are reflected immediately without
+ * requiring a page reload.
+ *
+ * Gracefully degrades: if the Permissions API is unavailable (older Android
+ * WebView, Firefox with missing 'microphone' support) it falls back to
+ * 'prompt' so the user can still attempt to dial.
+ */
+async function initMicPermissionCheck() {
+  if (!navigator.permissions || typeof navigator.permissions.query !== 'function') {
+    // Permissions API unavailable — assume prompt so users can still dial
+    applyMicPermissionUI('prompt');
     return;
   }
 
-  requestMicPermission()
-    .then(() => {
-      callActive = true;
-      audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    micPermissionObj = await navigator.permissions.query({ name: 'microphone' });
+    applyMicPermissionUI(micPermissionObj.state);
 
-      const conn    = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-      const netType = preferredNetwork === 'cellular'
-        ? (conn ? conn.type || 'cellular' : 'cellular')
-        : 'wifi';
-      const et = (conn && conn.effectiveType) ? conn.effectiveType.toUpperCase() : '';
-
-      updateCallUI(true, netType, et);
-    })
-    .catch(() => {
-      const status = document.getElementById('callStatus');
-      if (status) status.textContent = 'Microphone permission required to place calls.';
+    // Live update: fires when the user changes the permission mid-session
+    micPermissionObj.addEventListener('change', () => {
+      applyMicPermissionUI(micPermissionObj.state);
     });
+  } catch (err) {
+    // Some browsers throw for unrecognised permission names
+    console.warn('[MicPermission] navigator.permissions.query failed:', err);
+    applyMicPermissionUI('prompt');
+  }
+}
+
+/* --------------------------------------------------------------------------
+   OUTGOING CALL
+   -------------------------------------------------------------------------- */
+async function initiateCall() {
+  if (!dialedNumber) return;
+
+  // Guard: do not attempt the call if mic is definitively denied
+  if (micPermissionStatus === 'denied') {
+    const statusEl = document.getElementById('callStatus');
+    if (statusEl) {
+      statusEl.textContent =
+        '🚫 Cannot place call — microphone permission is denied. ' +
+        'Update your browser/device settings and try again.';
+    }
+    return;
+  }
+
+  const statusEl = document.getElementById('callStatus');
+  if (statusEl) statusEl.textContent = '📡 Connecting…';
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // If getUserMedia succeeded the permission is now 'granted'
+    applyMicPermissionUI('granted');
+
+    isInCall = true;
+    startCallDurationTimer();
+
+    if (statusEl) statusEl.textContent = '📞 Call connected — 00:00';
+
+    // Store stream reference so endCall() can stop the tracks
+    window._activeCallStream = stream;
+
+    const indicator = document.getElementById('networkTypeIndicator');
+    if (indicator) {
+      indicator.textContent = preferredNetwork === 'cellular'
+        ? 'Network: Mobile/Cellular'
+        : 'Network: WiFi';
+    }
+
+    console.log(
+      `[Call] Dialing: ${dialedNumber} | CallerID: "${callerIdName}" | Network: ${preferredNetwork}`
+    );
+  } catch (err) {
+    isInCall = false;
+    if (statusEl) {
+      statusEl.textContent = err.name === 'NotAllowedError'
+        ? '🚫 Microphone permission denied — cannot place call.'
+        : `⚠️ Call failed: ${err.message}`;
+    }
+    // Reflect the newly-denied state (user clicked "Block" on the prompt)
+    if (err.name === 'NotAllowedError') {
+      applyMicPermissionUI('denied');
+    }
+  }
 }
 
 function endCall() {
-  if (!callActive) return;
-  callActive = false;
+  if (!isInCall && !dialedNumber) return;
 
-  if (micStream) {
-    micStream.getTracks().forEach(t => t.stop());
-    micStream = null;
-  }
-  if (audioCtx) {
-    audioCtx.close();
-    audioCtx = null;
+  stopCallDurationTimer();
+  isInCall = false;
+
+  if (window._activeCallStream) {
+    window._activeCallStream.getTracks().forEach(t => t.stop());
+    window._activeCallStream = null;
   }
 
-  updateCallUI(false, '', '');
+  const statusEl = document.getElementById('callStatus');
+  if (statusEl) statusEl.textContent = '📵 Call ended.';
+
+  dialedNumber = '';
+  updateDialerDisplay();
+
+  const indicator = document.getElementById('networkTypeIndicator');
+  if (indicator) indicator.textContent = '';
 }
 
-function updateCallUI(active, netType, effectiveType) {
-  const panel   = document.getElementById('callPanel');
-  const status  = document.getElementById('callStatus');
-  const typeInd = document.getElementById('networkTypeIndicator');
-  const cidDisp = document.getElementById('callerIdNameDisplay');
+/* --------------------------------------------------------------------------
+   KEYBOARD INPUT
+   -------------------------------------------------------------------------- */
+function initKeyboardInput() {
+  document.addEventListener('keydown', e => {
+    // Pass through when a text field has focus (e.g. callerIdNameInput)
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
 
-  if (panel) panel.classList.toggle('active', active);
+    const key = e.key;
 
-  if (status) {
-    if (active) {
-      // Show the custom caller ID name in the call status so the user
-      // knows what the recipient will see on their caller ID display.
-      const cid = callerIdName ? ` — showing as "${callerIdName}"` : '';
-      status.textContent = `Calling ${dialedNumber}${cid}…`;
-    } else {
-      status.textContent = 'Call ended.';
-    }
-  }
-
-  if (typeInd) {
-    if (active) {
-      let cls   = 'network-type-indicator';
-      let label = '';
-      if (netType === 'cellular' || preferredNetwork === 'cellular') {
-        cls += ' cellular';
-        if (effectiveType === '4G')      { cls += ' fourG';  label = '4G LTE'; }
-        else if (effectiveType === '3G') { cls += ' threeG'; label = '3G';     }
-        else { label = effectiveType ? `Mobile (${effectiveType})` : 'Cellular'; }
-      } else {
-        cls  += ' wifi';
-        label = 'WiFi';
-      }
-      typeInd.className   = cls;
-      typeInd.textContent = label;
-    } else {
-      typeInd.className   = 'network-type-indicator';
-      typeInd.textContent = '';
-    }
-  }
-
-  // Keep the caller ID display visible and accurate during/after the call
-  if (cidDisp) {
-    if (active && callerIdName) {
-      cidDisp.textContent = `Caller ID: "${callerIdName}"`;
-      cidDisp.classList.add('active');
-    } else if (!active && callerIdName) {
-      // Retain the saved name display after the call ends
-      cidDisp.textContent = `Caller ID: "${callerIdName}"`;
-      cidDisp.classList.add('active');
-    }
-  }
-}
-
-// ============================================================
-// KEYBOARD INPUT FOR DIALER
-// ============================================================
-
-/**
- * Map a KeyboardEvent.key to a dialer digit string.
- * Returns null if the key should not be handled by the dialer.
- */
-function keyToDialerDigit(key) {
-  if (/^[0-9]$/.test(key)) return key;
-  if (key === '*' || key === '#' || key === '+') return key;
-  return null;
-}
-
-/**
- * Briefly flash the on-screen keypad button that corresponds to `digit`
- * to give visual feedback when a hardware/software key is pressed.
- */
-function flashKeypadButton(digit) {
-  const buttons = document.querySelectorAll('.keypad-btn');
-  for (const btn of buttons) {
-    if (btn.textContent.trim() === String(digit)) {
-      btn.classList.add('key-flash');
-      setTimeout(() => btn.classList.remove('key-flash'), 200);
-      break;
-    }
-  }
-}
-
-function initKeyboardDialer() {
-  document.addEventListener('keydown', function handleDialerKey(e) {
-    // Never intercept keys while the user is typing in a text field
-    const tag = document.activeElement && document.activeElement.tagName.toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-
-    const digit = keyToDialerDigit(e.key);
-
-    if (digit !== null) {
+    if (/^[0-9]$/.test(key) || key === '*' || key === '#' || key === '+') {
       e.preventDefault();
-      dialDigit(digit);
-      flashKeypadButton(digit);
-      return;
-    }
-
-    if (e.key === 'Backspace') {
+      dialDigit(key);
+    } else if (key === 'Backspace') {
       e.preventDefault();
-      clearDialed(false);
-      // Flash backspace/clear button if present
-      const clearBtn = document.querySelector('.keypad-clear-btn, .keypad-backspace-btn');
-      if (clearBtn) {
-        clearBtn.classList.add('key-flash');
-        setTimeout(() => clearBtn.classList.remove('key-flash'), 200);
-      }
-      return;
-    }
-
-    if (e.key === 'Enter') {
+      clearDialed();
+    } else if (key === 'Enter') {
       e.preventDefault();
       initiateCall();
-      return;
-    }
-
-    if (e.key === 'Escape') {
+    } else if (key === 'Escape') {
       e.preventDefault();
       endCall();
-      return;
     }
   });
 }
 
-// ============================================================
-// BOOTSTRAP
-// ============================================================
+/* --------------------------------------------------------------------------
+   CONNECTIVITY EVENTS
+   -------------------------------------------------------------------------- */
+function initConnectivityEvents() {
+  window.addEventListener('online', () => {
+    const wifiStatus = document.getElementById('wifiStatus');
+    if (wifiStatus) wifiStatus.textContent = '🟢 Back online';
+    probeConnectivity();
+    refreshNetworkInfo();
+  });
 
-document.addEventListener('DOMContentLoaded', () => {
-  renderClocks();
-  updateClocks();
-  setInterval(updateClocks, 1000);
+  window.addEventListener('offline', () => {
+    const wifiStatus = document.getElementById('wifiStatus');
+    if (wifiStatus) wifiStatus.textContent = '🔴 Offline';
+    const probeStatus = document.getElementById('connectivityProbeStatus');
+    if (probeStatus) probeStatus.textContent = '⚠️ No network connection.';
+  });
 
-  initConnectivity();
-  initKeyboardDialer();
-  updateDialerDisplay();
-
-  // Allow pressing Enter inside the caller ID name input to save the name
-  const callerIdInput = document.getElementById('callerIdNameInput');
-  if (callerIdInput) {
-    callerIdInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        setCallerIdName();
-        callerIdInput.blur();
-      }
-    });
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) {
+    conn.addEventListener('change', refreshNetworkInfo);
   }
-});
+}
+
+/* --------------------------------------------------------------------------
+   BOOT
+   -------------------------------------------------------------------------- */
+function init() {
+  buildClockCards();
+  tickClocks();
+  setInterval(tickClocks, 1000);
+
+  refreshNetworkInfo();
+  probeConnectivity();
+  initConnectivityEvents();
+
+  updateDialerDisplay();
+  initKeyboardInput();
+
+  // Microphone permission pre-check — async, non-blocking
+  initMicPermissionCheck();
+}
+
+document.addEventListener('DOMContentLoaded', init);
