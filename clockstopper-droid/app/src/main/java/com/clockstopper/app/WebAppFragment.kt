@@ -1,67 +1,63 @@
 package com.clockstopper.app
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
+import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.clockstopper.app.databinding.FragmentWebAppBinding
+import com.clockstopper.app.domain.TimeFormatter
 
 /**
- * Root Fragment that hosts the ClockStopper web application inside a [WebView].
+ * Fragment that hosts the Clockstopper WebView UI.
  *
- * The web app is bundled under `src/main/assets/` and loaded via the
- * `file:///android_asset/` URI scheme, so no network access is required at
- * runtime.
+ * ## Architecture
+ * All timing business logic lives in the platform-agnostic domain layer
+ * ([com.clockstopper.app.domain]).  This Fragment owns only two concerns:
  *
- * WebView state preservation
- * ──────────────────────────
- * [WebView.saveState] / [WebView.restoreState] are called during the Fragment's
- * own save/restore cycle so the current page and scroll position survive
- * configuration changes.  Note: WebView history cannot be fully serialised
- * across process death — users will be returned to the asset index in that
- * rare case, which is acceptable for a single-page stopwatch app.
+ * 1. **Android lifecycle** – inflate the layout, configure the [WebView], and
+ *    observe [StopwatchViewModel] LiveData to keep the web front-end in sync.
+ * 2. **JavaScript bridge** – expose a `NativeBridge` object to the web page so
+ *    that button taps inside the WebView invoke the ViewModel's action handlers
+ *    rather than duplicating timing logic in JavaScript.
  *
- * Back navigation
- * ───────────────
- * When the WebView has history (the user navigated within the SPA), the
- * hardware/gesture back action moves through that history before popping the
- * Fragment back-stack.  This is coordinated via [NavigationHost.navigateBack]
- * in [MainActivity].  Fragments that embed a WebView should override
- * [handleBackPress] if they need custom in-page back handling.
+ * The web page (`assets/index.html`) therefore becomes a **pure rendering layer**:
+ * it displays whatever the native domain layer tells it and forwards user gestures
+ * back to Kotlin.
+ *
+ * ### JS → Native (JavaScript calls Kotlin)
+ * ```javascript
+ * NativeBridge.startStop();
+ * NativeBridge.lap();
+ * NativeBridge.reset();
+ * ```
+ *
+ * ### Native → JS (Kotlin pushes display updates)
+ * ```javascript
+ * // Called by the fragment when the ViewModel emits a new display string:
+ * updateDisplay(timeString, lapsJson);
+ * ```
  */
 class WebAppFragment : Fragment() {
 
-    // View-binding reference — nullable because the View can be destroyed while
-    // the Fragment is on the back-stack.
+    // -----------------------------------------------------------------------
+    // ViewModel & View Binding
+    // -----------------------------------------------------------------------
+
+    private val viewModel: StopwatchViewModel by viewModels()
+
     private var _binding: FragmentWebAppBinding? = null
     private val binding get() = _binding!!
 
-    // Saved WebView state bundle — populated in onSaveInstanceState and consumed
-    // in onViewCreated so the WebView survives configuration changes.
-    private var webViewBundle: Bundle? = null
-
-    // -------------------------------------------------------------------------
-    // Factory
-    // -------------------------------------------------------------------------
-
-    companion object {
-        /** URL of the bundled asset loaded on a fresh launch. */
-        private const val ASSET_URL = "file:///android_asset/index.html"
-
-        /** Tag used when this Fragment is added to the back-stack. */
-        const val TAG = "WebAppFragment"
-
-        fun newInstance(): WebAppFragment = WebAppFragment()
-    }
-
-    // -------------------------------------------------------------------------
-    // Lifecycle — View creation / teardown
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // Fragment lifecycle
+    // -----------------------------------------------------------------------
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -72,93 +68,131 @@ class WebAppFragment : Fragment() {
         return binding.root
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         configureWebView(binding.webView)
-
-        // Restore WebView history if we have a saved state (configuration change),
-        // otherwise perform a fresh load of the bundled asset.
-        val stateToRestore = webViewBundle ?: savedInstanceState?.getBundle(KEY_WEB_STATE)
-        if (stateToRestore != null) {
-            binding.webView.restoreState(stateToRestore)
-        } else {
-            binding.webView.loadUrl(ASSET_URL)
-        }
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        _binding?.let { b ->
-            val state = Bundle()
-            b.webView.saveState(state)
-            outState.putBundle(KEY_WEB_STATE, state)
-        }
+        observeViewModel()
     }
 
     override fun onDestroyView() {
-        // Capture WebView state before the View hierarchy is torn down so we
-        // can restore it the next time onViewCreated is called (e.g. after the
-        // Fragment returns from the back-stack).
-        _binding?.let { b ->
-            webViewBundle = Bundle().also { b.webView.saveState(it) }
-        }
-        _binding = null
         super.onDestroyView()
+        _binding = null
     }
 
-    // -------------------------------------------------------------------------
-    // Back navigation — in-page WebView history
-    // -------------------------------------------------------------------------
-
-    /**
-     * Called by [MainActivity] before it pops the Fragment back-stack.
-     *
-     * @return `true` if the WebView consumed the back event (navigated within
-     *         the SPA history), `false` if the Fragment back-stack should be popped.
-     */
-    fun handleBackPress(): Boolean {
-        val wv = _binding?.webView ?: return false
-        return if (wv.canGoBack()) {
-            wv.goBack()
-            true
-        } else {
-            false
-        }
-    }
-
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     // WebView configuration
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
 
+    @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView(webView: WebView) {
-        // Stay inside the WebView — no browser intent for asset:// links.
         webView.webViewClient = WebViewClient()
 
-        // Enable JS dialogs, console logging, and progress events.
-        webView.webChromeClient = WebChromeClient()
-
         with(webView.settings) {
-            javaScriptEnabled   = true
-            domStorageEnabled   = true          // localStorage for lap data
-            allowFileAccess     = true          // read bundled assets
-            cacheMode           = WebSettings.LOAD_DEFAULT
-            setSupportZoom(false)
-            builtInZoomControls = false
-            displayZoomControls = false
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            // Restrict mixed-content; assets are served from file:// so this is safe.
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            // Disable unnecessary features that increase attack surface.
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
         }
 
-        // Enable remote debugging via chrome://inspect in debug builds only.
-        if (BuildConfig.DEBUG) {
-            WebView.setWebContentsDebuggingEnabled(true)
+        // Expose the bridge under the name "NativeBridge" so the web page can call
+        // NativeBridge.startStop() etc. without knowing anything about Android.
+        webView.addJavascriptInterface(JsBridge(), "NativeBridge")
+
+        // Load the bundled web front-end from assets.
+        webView.loadUrl("file:///android_asset/index.html")
+    }
+
+    // -----------------------------------------------------------------------
+    // ViewModel observation
+    // -----------------------------------------------------------------------
+
+    private fun observeViewModel() {
+        // Push display-time updates into the WebView whenever the domain layer emits.
+        viewModel.displayTime.observe(viewLifecycleOwner) { timeString ->
+            val lapsJson = buildLapsJson()
+            pushDisplayUpdate(timeString, lapsJson)
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Constants
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // Native → JS bridge
+    // -----------------------------------------------------------------------
 
-    private companion object {
-        const val KEY_WEB_STATE = "webViewState"
+    /**
+     * Serialise the current lap list to a JSON array string so it can be passed
+     * into JavaScript without pulling in a JSON library.
+     *
+     * Example output: `["Lap 1  00:05.00","Lap 2  00:03.21"]`
+     */
+    private fun buildLapsJson(): String {
+        val laps = viewModel.laps.value ?: emptyList()
+        return "[" + laps.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" } + "]"
+    }
+
+    /**
+     * Call the web page's `updateDisplay` function on the UI thread.
+     *
+     * The function signature expected in `assets/js/app.js`:
+     * ```javascript
+     * function updateDisplay(timeString, lapsJson) { … }
+     * ```
+     */
+    private fun pushDisplayUpdate(timeString: String, lapsJson: String) {
+        val js = "javascript:updateDisplay('$timeString', $lapsJson)"
+        binding.webView.post {
+            binding.webView.loadUrl(js)
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // JS → Native bridge
+    // -----------------------------------------------------------------------
+
+    /**
+     * Object exposed to JavaScript as `window.NativeBridge`.
+     *
+     * Each method is annotated with [@JavascriptInterface] so the WebView's
+     * JavaScript engine is aware it is a safe cross-layer call.
+     *
+     * **All methods are called on a background thread by the WebView engine**;
+     * they delegate immediately to the ViewModel (which is thread-safe via
+     * `viewModelScope` / `LiveData`) rather than touching any View directly.
+     */
+    private inner class JsBridge {
+
+        /** Toggle start/stop on the domain-layer stopwatch. */
+        @JavascriptInterface
+        fun startStop() {
+            requireActivity().runOnUiThread { viewModel.onStartStop() }
+        }
+
+        /** Record a lap split. */
+        @JavascriptInterface
+        fun lap() {
+            requireActivity().runOnUiThread { viewModel.onLap() }
+        }
+
+        /** Reset the stopwatch to zero. */
+        @JavascriptInterface
+        fun reset() {
+            requireActivity().runOnUiThread { viewModel.onReset() }
+        }
+
+        /**
+         * Format a raw millisecond value using [TimeFormatter] from the domain layer.
+         *
+         * Exposed so the web page can format arbitrary durations (e.g. lap rows)
+         * consistently with the native display, without duplicating the formatting
+         * logic in JavaScript.
+         *
+         * @param ms Raw millisecond value to format.
+         * @return Formatted string, e.g. `"01:23.45"`.
+         */
+        @JavascriptInterface
+        fun formatTime(ms: Long): String = TimeFormatter.format(ms)
     }
 }
