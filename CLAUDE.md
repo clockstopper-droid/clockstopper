@@ -71,12 +71,23 @@ clockstopper/
 │       ├── callAudio.test.js           # Outgoing call audio routing and MediaDevices API tests
 │       └── micMute.test.js             # Mic mute button toggle, track enabled state, and in-call mute UI tests
 ├── README.md           # Project documentation
-└── .gitignore          # Android/IntelliJ artifacts excluded
+└── .gitignore          # Web-project-appropriate ignore rules (see .gitignore conventions below)
 ```
 
-> **Note:** The `.gitignore` file contains Android/Gradle/IntelliJ patterns. The repository has been used as the basis for an Android WebView application, so these entries are directly relevant to the Android packaging layer as well as any IntelliJ/Android Studio IDE artifacts.
+> **Note:** The `.gitignore` file has been updated to contain **web-project-appropriate rules** rather than Android/Gradle/IntelliJ patterns. Since the web app source is the primary repository content and Android packaging is a separate concern, the `.gitignore` now targets artifacts relevant to the web layer (e.g., OS metadata files, editor/IDE config, browser test artifacts) rather than Android build outputs. Any Android/Gradle/IntelliJ exclusion patterns belong in the Android wrapper project's own `.gitignore`, not in this web source repository.
 
 > **Test suite note:** The `tests/` directory and all contents are part of the web app source layer and are committed to the repository. Tests are run in-browser via `tests/runner.html` or by executing `runner.js` in a compatible JS environment. No Node.js, npm, or build toolchain is required to run the test suite.
+
+---
+
+## .gitignore Conventions
+
+The `.gitignore` is maintained as a **web-project-appropriate** ignore file. Key conventions:
+
+- **Included (ignored):** OS metadata files (`.DS_Store`, `Thumbs.db`), editor/IDE configs (`.vscode/`, `.idea/`), temporary files, local environment overrides, and any browser test output artifacts.
+- **Excluded from ignore rules:** Android build outputs, Gradle caches, IntelliJ Android Studio artifacts — these belong in the Android wrapper project's own `.gitignore`, not here.
+- The `.gitignore` should not reference Android, Gradle, or mobile build toolchain patterns unless the Android wrapper source is colocated in this repository.
+- All web source files (`Index.html`, `Css/`, `js/`, `tests/`, `README.md`) are always tracked and never ignored.
 
 ---
 
@@ -113,13 +124,4 @@ Each file targets one application feature domain. Tests use DOM stubs/mocks for 
 - **Call duration timer tests** (`callDurationTimer.test.js`): Verify timer starts on call connect, increments each second, formats as `MM:SS` / `HH:MM:SS`, and stops on call end.
 - **Network type badge tests** (`networkTypeBadge.test.js`): Verify badge shows correct label for each network type, is visible only during active call, and updates on network change events.
 - **Mic permission tests** (`micPermission.test.js`): Verify pre-check runs on page load, correct status (`granted`/`prompt`/`denied`) is reflected in `#micPermissionStatus`, and fallback probe is triggered when Permissions API is unavailable.
-- **Connectivity tests** (`connectivity.test.js`): Verify online/offline event handling, probe execution, exponential backoff delay progression, backoff reset on success, and status timestamp display.
-- **Mobile network tests** (`mobileNetwork.test.js`): Verify cellular type detection, mobile network option display, and network preference selection.
-- **Call volume tests** (`callVolume.test.js`): Verify indicator appears during call, reflects correct volume level, updates on `VolumeUp`/`VolumeDown` key events, and hides after call ends.
-- **Call audio tests** (`callAudio.test.js`): Verify `getUserMedia()` is called on dial, audio is routed through selected network, and call state transitions correctly.
-- **Mic mute tests** (`micMute.test.js`): Verify mute button is shown only during an active call, that toggling the button sets `MediaStreamTrack.enabled` to `false` (muted) and `true` (unmuted), that the button's visual state reflects the current mute state, and that the mic track remains live (call not ended) while muted.
-
-### Test Conventions
-
-- All test files use the runner's `describe`/`it` API — no global test framework assumptions.
-- Browser APIs unavailable in the test environment (`navigator.connection`, `navigator.media
+- **Connectivity tests** (`connectivity.test.js`): Verify online/offline event handling, probe execution, exponential backoff delay progression, backoff reset on success
