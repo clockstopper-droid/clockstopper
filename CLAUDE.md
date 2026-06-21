@@ -8,6 +8,8 @@ The app updates all displayed clocks every second. The three time zone clocks ar
 
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
+A **feature test suite** has been defined and implemented, providing structured automated and manual test coverage for all major application features.
+
 ---
 
 ## Tech Stack
@@ -36,6 +38,7 @@ The application has been **constructed as a mobile dialing app targeting Android
 | Typography | System/sans-serif fonts only — no decorative, Old English, blackletter, or display fonts used anywhere in the app |
 | Android Packaging | Android WebView wrapper (WebView-based native Android app) |
 | Runtime | Browser (standalone) + Android WebView (mobile deployment) |
+| Test Suite | Vanilla JS test runner (`tests/runner.js`) + feature test files (`tests/features/`) — no external test framework dependency |
 
 ---
 
@@ -48,11 +51,79 @@ clockstopper/
 │   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles, call volume indicator styles
 ├── js/
 │   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic, dark theme localStorage persistence, call volume indicator logic
+├── tests/
+│   ├── runner.js        # Vanilla JS test runner — discovers and executes all feature test files, reports pass/fail counts, requires no external framework
+│   ├── runner.html      # Browser-based test harness page — loads runner.js and all test files, displays results in-browser
+│   └── features/        # Per-feature test files, one file per major app feature
+│       ├── clocks.test.js              # Time zone clock display and update tests
+│       ├── theme.test.js               # Dark/light theme toggle and localStorage persistence tests
+│       ├── mute.test.js                # Mute button behavior tests
+│       ├── dialer.test.js              # Dialer digit entry, display, and keyboard input tests
+│       ├── backspace.test.js           # Backspace short-tap and long-press clear tests
+│       ├── callerIdName.test.js        # Caller ID name input and save tests
+│       ├── callDurationTimer.test.js   # Call duration timer start/stop/format tests
+│       ├── networkTypeBadge.test.js    # Network type badge display and update tests
+│       ├── micPermission.test.js       # Microphone permission pre-check UI state tests
+│       ├── connectivity.test.js        # Connectivity panel, probe, backoff, and timestamp tests
+│       ├── mobileNetwork.test.js       # Mobile network detection and selection tests
+│       ├── callVolume.test.js          # Call volume indicator display and hardware key tests
+│       └── callAudio.test.js           # Outgoing call audio routing and MediaDevices API tests
 ├── README.md           # Project documentation
 └── .gitignore          # Android/IntelliJ artifacts excluded
 ```
 
 > **Note:** The `.gitignore` file contains Android/Gradle/IntelliJ patterns. The repository has been used as the basis for an Android WebView application, so these entries are directly relevant to the Android packaging layer as well as any IntelliJ/Android Studio IDE artifacts.
+
+> **Test suite note:** The `tests/` directory and all contents are part of the web app source layer and are committed to the repository. Tests are run in-browser via `tests/runner.html` or by executing `runner.js` in a compatible JS environment. No Node.js, npm, or build toolchain is required to run the test suite.
+
+---
+
+## Feature Test Suite
+
+A structured test suite covering all major application features is located in `tests/`. The suite uses a **custom vanilla JS test runner** with no external framework dependencies, consistent with the project's no-build-tools philosophy.
+
+### Test Runner (`tests/runner.js`)
+
+- Discovers and runs all registered test files/suites.
+- Reports per-suite and aggregate pass/fail/skip counts.
+- Outputs results to the browser console and to the `tests/runner.html` page DOM.
+- Supports synchronous and `async`/`Promise`-based test cases.
+- Provides `describe()`, `it()`, `beforeEach()`, `afterEach()`, and `assert` helpers matching conventional test API shape.
+- No dependency on Jasmine, Mocha, Jest, or any other external test framework.
+
+### Test Harness (`tests/runner.html`)
+
+- Standalone HTML page that loads `Index.html` content (or a minimal DOM stub) alongside the test runner and all feature test files.
+- Can be opened directly in a browser — no server required.
+- Displays pass/fail results inline in the page as well as in the browser console.
+- Compatible with Android WebView for on-device test execution if needed.
+
+### Feature Test Files (`tests/features/`)
+
+Each file targets one application feature domain. Tests use DOM stubs/mocks for browser APIs that are unavailable in pure JS environments (e.g., `navigator.connection`, `navigator.mediaDevices`, `localStorage`). Key test patterns:
+
+- **Clock tests** (`clocks.test.js`): Verify that three clock elements are rendered, that displayed time updates each second, and that correct IANA time zones are used.
+- **Theme tests** (`theme.test.js`): Verify dark/light class toggle, `localStorage` read on load, `localStorage` write on toggle, and default theme fallback.
+- **Mute tests** (`mute.test.js`): Verify mute button toggles muted state and that audio is suppressed when muted.
+- **Dialer tests** (`dialer.test.js`): Verify digit entry updates display, keyboard input dispatches correctly, `*`/`#`/`+` are accepted, and `Escape` clears the dialed number.
+- **Backspace tests** (`backspace.test.js`): Verify short tap removes last digit, long-press clears entire number, and `pointercancel` aborts long-press.
+- **Caller ID name tests** (`callerIdName.test.js`): Verify name input is saved to state, displayed correctly, and submitted with call metadata.
+- **Call duration timer tests** (`callDurationTimer.test.js`): Verify timer starts on call connect, increments each second, formats as `MM:SS` / `HH:MM:SS`, and stops on call end.
+- **Network type badge tests** (`networkTypeBadge.test.js`): Verify badge shows correct label for each network type, is visible only during active call, and updates on network change events.
+- **Mic permission tests** (`micPermission.test.js`): Verify pre-check runs on page load, correct status (`granted`/`prompt`/`denied`) is reflected in `#micPermissionStatus`, and fallback probe is triggered when Permissions API is unavailable.
+- **Connectivity tests** (`connectivity.test.js`): Verify online/offline event handling, probe execution, exponential backoff delay progression, backoff reset on success, and status timestamp display.
+- **Mobile network tests** (`mobileNetwork.test.js`): Verify cellular type detection, mobile network option display, and network preference selection.
+- **Call volume tests** (`callVolume.test.js`): Verify indicator appears during call, reflects correct volume level, updates on `VolumeUp`/`VolumeDown` key events, and hides after call ends.
+- **Call audio tests** (`callAudio.test.js`): Verify `getUserMedia()` is called on dial, audio is routed through selected network, and call state transitions correctly.
+
+### Test Conventions
+
+- All test files use the runner's `describe`/`it` API — no global test framework assumptions.
+- Browser APIs unavailable in the test environment (`navigator.connection`, `navigator.mediaDevices`, `localStorage`, `AudioContext`) are **mocked/stubbed inline** within each test file's `beforeEach` or at module scope.
+- Tests do **not** require a live network, microphone, or audio device — all external dependencies are stubbed.
+- Test files are **read-only with respect to `app.js` and `Style.css`** — they import/reference app logic but do not modify source files.
+- Async tests use `async`/`await` or return a `Promise` to the runner for correct async handling.
+- Each test file is independently runnable in isolation (no inter-file dependencies).
 
 ---
 
@@ -63,72 +134,4 @@ The application has been packaged as an **Android WebView-based mobile dialing a
 - The web app (`Index.html`, `Css/Style.css`, `js/app.js`) serves as the UI layer loaded inside an Android `WebView`.
 - The Android wrapper grants necessary permissions (microphone, network state) via the Android manifest, complementing the browser-level `getUserMedia()` permission requests.
 - The dialer UI, keypad, connectivity panel, call audio system, caller ID name input, call duration timer, microphone permission pre-check, network type badge, backspace long-press clear, and call volume indicator are all functional within the Android WebView environment.
-- Mobile-specific CSS breakpoints and touch-friendly keypad sizing ensure a native-feeling experience on Android screen sizes.
-- The `.gitignore` Android/Gradle/IntelliJ entries are intentional and directly applicable to the Android project artifacts generated during packaging.
-- Keyboard input support is compatible with Android WebView's software keyboard — physical keyboard events and soft keyboard input events both dispatch `keydown` events that the dialer listener handles.
-- The microphone permission pre-check is particularly important in the Android WebView context, where mic permissions must be granted both at the Android manifest level and at the browser/WebView level; the pre-check UI surfaces which layer is blocking access if mic is unavailable.
-- The network type badge reads `navigator.connection` data which is available in Android WebView when the `ACCESS_NETWORK_STATE` permission is granted in the Android manifest.
-- The backspace long-press uses pointer/touch events which are natively supported in Android WebView; the implementation avoids context menu triggers on long-press by calling `preventDefault()` where appropriate.
-- The connectivity probe with exponential backoff is compatible with Android WebView's network stack; probe fetch requests respect the WebView's network permissions and connectivity state.
-- **`localStorage` is available in Android WebView** and the dark theme preference persisted via `localStorage` works correctly across WebView sessions; no special WebView configuration is required for `localStorage` access in this context.
-- **Hardware volume key events** (`VolumeUp`/`VolumeDown`) are intercepted within the Android WebView environment; the Android wrapper may need to forward these key events to the WebView or configure the WebView to handle media volume keys so that the call volume indicator receives and responds to volume changes correctly. The `MODIFY_AUDIO_SETTINGS` or equivalent Android permission may be relevant for volume control integration.
-
----
-
-## Fixed Time Zones
-
-The application displays **exactly three clocks**, hardcoded in `app.js`. There is no user-facing add/remove clock functionality.
-
-| Clock Label | IANA Time Zone |
-|---|---|
-| Eastern Time | `America/New_York` |
-| Central Time | `America/Chicago` |
-| Western Time | `America/Los_Angeles` |
-
-These are rendered on page load and cannot be changed by the user at runtime. The `addTimezone()` / `removeTimezone()` functions and the `#tzInput` text input have been **removed** from the application.
-
----
-
-## Visual Style Conventions
-
-- **No neon lighting effects.** All neon glow, neon `text-shadow`, neon `box-shadow` glow, neon border-glow, and neon color palette entries have been removed from `Style.css` and `app.js`. This was an explicit cleanup task and must not be reintroduced.
-- **No decorative header or Old English font.** The application header element and any Old English, blackletter, or decorative display font (`MedievalSharp`, `UnifrakturMaguntia`, `Old English Text MT`, or similar) have been removed from `Index.html` and `Style.css`. These must not be reintroduced. Headings and labels use the standard system/sans-serif typeface.
-- **Dark theme** uses a clean, flat dark background with **orange accent** colors on keypad buttons and interactive controls only.
-- Buttons and interactive elements use solid, flat styling — no glow, bloom, or luminescence effects.
-- Clock card and panel borders use subtle, non-glowing contrast to separate sections.
-- Microphone permission pre-check status indicators use color-coded flat styling (e.g., green for granted, yellow/amber for prompt, red for denied) consistent with the dark theme — no neon or glow effects on these indicators.
-- The **network type badge** (`#networkTypeIndicator`) uses flat, color-coded badge styling consistent with the dark theme — no glow or neon effects. Badge color or label varies by network type (e.g., WiFi, 4G, 3G, 2G, Cellular, Unknown) and is visible only during an active call.
-- **Connectivity status timestamps** in the connectivity panel use flat, muted text styling (e.g., smaller font size, subdued color) consistent with the dark theme — no decorative or neon styling on timestamp text.
-- **Typography is strictly utilitarian** — only system fonts or a clean sans-serif stack are used. No Google Fonts, web font imports, or decorative typefaces of any kind are permitted.
-- The **call volume indicator** uses flat, non-glowing visual styling consistent with the dark theme — a simple bar, level meter, or numeric readout with orange accent coloring; no glow or neon effects. The indicator is visible only during an active call.
-
----
-
-## Call Volume Indicator
-
-A call volume indicator is displayed during an active call, showing the current call/media volume level and updating in real time when the user presses the device's hardware volume up/down buttons.
-
-### Implementation Details
-
-- The volume indicator UI element (e.g., `#callVolumeIndicator` or similar) is rendered within the call UI and is shown only while a call is active.
-- Volume level is read from the call audio element's `.volume` property (range `0.0`–`1.0`) or an equivalent `AudioContext` gain node value.
-- **Hardware volume key events** are handled via `keydown` event listeners on `document` (or the Android WebView key event bridge), intercepting `VolumeUp` and `VolumeDown` key codes to adjust and display the current volume.
-- On each volume change (hardware button press or programmatic change), the indicator updates immediately to reflect the new level — no polling is used.
-- The indicator displays the volume as a visual representation (e.g., a stepped bar/meter, percentage, or icon with level) using flat, orange-accented styling consistent with the dark theme.
-- Volume key default browser scroll behavior is suppressed via `preventDefault()` on the volume key events to prevent unintended page scrolling on Android.
-- The volume indicator is hidden or removed from the call UI when the call ends.
-- Volume indicator styling is defined in `Style.css`; volume key event handling and audio volume adjustment logic are implemented in `app.js`.
-
----
-
-## Theme Persistence via localStorage
-
-The user's dark/light theme preference is **persisted across sessions** using the browser's `localStorage` API.
-
-### Implementation Details
-
-- A **`localStorage` key** (e.g., `darkTheme` or `theme`) stores the current theme preference as a string value (e.g., `'true'`/`'false'`, or `'dark'`/`'light'`).
-- On **page load**, `app.js` reads the stored key from `localStorage` and applies the appropriate CSS class to the document (e.g., adds or removes the dark theme class) before the first render, preventing a flash of unstyled/wrong-theme content.
-- On **every theme toggle**, `app.js` writes the new preference to `localStorage` immediately after updating the DOM class, keeping the stored value always in sync with the current state.
-- If no value is stored in `localStorage` (first visit or cleared storage), the app falls back to a defined **default theme** (dark or light as specified by the implementation).
-- The `localStorage` read/write is handled within the theme toggle logic in `
+-
