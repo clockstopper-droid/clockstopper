@@ -4,7 +4,7 @@
 
 **Global Time Clock** is a lightweight, client-side web application that displays three fixed world clocks: **Eastern Time**, **Central Time**, and **Western (Pacific) Time**. It is a pure frontend application with no backend dependencies, build tools, or frameworks — designed to run directly in a browser by opening `Index.html`.
 
-The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. There is **no decorative header or Old English / blackletter font** — the application header and any Old English, blackletter, or decorative serif display fonts have been removed from the UI; headings and labels use the standard flat dark-theme typeface consistent with the rest of the app. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends. A **network type badge** is displayed in `#networkTypeIndicator` during an active call, showing the current network type (e.g., WiFi, 4G, 3G, 2G, Cellular, or Unknown) so the user can see at a glance which network is carrying the active call.
+The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. There is **no decorative header or Old English / blackletter font** — the application header and any Old English, blackletter, or decorative serif display fonts have been removed from the UI; headings and labels use the standard flat dark-theme typeface consistent with the rest of the app. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends. A **network type badge** is displayed in `#networkTypeIndicator` during an active call, showing the current network type (e.g., WiFi, 4G, 3G, 2G, Cellular, or Unknown) so the user can see at a glance which network is carrying the active call. The **Backspace button supports long-press to clear** — tapping Backspace removes the last dialed digit, while pressing and holding Backspace for a defined duration (long-press threshold) clears the entire dialed number at once, providing a fast erase shortcut for mobile users.
 
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
@@ -28,6 +28,7 @@ The application has been **constructed as a mobile dialing app targeting Android
 | Call Duration Timer | `setInterval`-based elapsed time counter; starts on call connect, stops on call end; displays in `#callStatus` formatted as `MM:SS` (or `HH:MM:SS` for calls ≥ 1 hour) |
 | Network Type Badge | `navigator.connection.type` / `effectiveType` read at call connect time and on `change` events; displayed in `#networkTypeIndicator` during active call; updates dynamically if network changes mid-call |
 | Keyboard Input | `keydown` event listener on `document`; maps key values to `dialDigit()`, `clearDialed()`, `initiateCall()`, `endCall()` |
+| Backspace Long-Press | `pointerdown`/`pointerup`/`pointercancel` (or `mousedown`/`touchstart` equivalents) event listeners on the Backspace button; `setTimeout` detects long-press threshold; short tap → `clearLastDigit()`, long hold → `clearDialed()` (full clear) |
 | Typography | System/sans-serif fonts only — no decorative, Old English, blackletter, or display fonts used anywhere in the app |
 | Android Packaging | Android WebView wrapper (WebView-based native Android app) |
 | Runtime | Browser (standalone) + Android WebView (mobile deployment) |
@@ -42,7 +43,7 @@ clockstopper/
 ├── Css/
 │   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic
+│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic
 ├── README.md           # Project documentation
 └── .gitignore          # Android/IntelliJ artifacts excluded
 ```
@@ -57,12 +58,13 @@ The application has been packaged as an **Android WebView-based mobile dialing a
 
 - The web app (`Index.html`, `Css/Style.css`, `js/app.js`) serves as the UI layer loaded inside an Android `WebView`.
 - The Android wrapper grants necessary permissions (microphone, network state) via the Android manifest, complementing the browser-level `getUserMedia()` permission requests.
-- The dialer UI, keypad, connectivity panel, call audio system, caller ID name input, call duration timer, microphone permission pre-check, and network type badge are all functional within the Android WebView environment.
+- The dialer UI, keypad, connectivity panel, call audio system, caller ID name input, call duration timer, microphone permission pre-check, network type badge, and backspace long-press clear are all functional within the Android WebView environment.
 - Mobile-specific CSS breakpoints and touch-friendly keypad sizing ensure a native-feeling experience on Android screen sizes.
 - The `.gitignore` Android/Gradle/IntelliJ entries are intentional and directly applicable to the Android project artifacts generated during packaging.
 - Keyboard input support is compatible with Android WebView's software keyboard — physical keyboard events and soft keyboard input events both dispatch `keydown` events that the dialer listener handles.
 - The microphone permission pre-check is particularly important in the Android WebView context, where mic permissions must be granted both at the Android manifest level and at the browser/WebView level; the pre-check UI surfaces which layer is blocking access if mic is unavailable.
 - The network type badge reads `navigator.connection` data which is available in Android WebView when the `ACCESS_NETWORK_STATE` permission is granted in the Android manifest.
+- The backspace long-press uses pointer/touch events which are natively supported in Android WebView; the implementation avoids context menu triggers on long-press by calling `preventDefault()` where appropriate.
 
 ---
 
@@ -90,6 +92,24 @@ These are rendered on page load and cannot be changed by the user at runtime. Th
 - Microphone permission pre-check status indicators use color-coded flat styling (e.g., green for granted, yellow/amber for prompt, red for denied) consistent with the dark theme — no neon or glow effects on these indicators.
 - The **network type badge** (`#networkTypeIndicator`) uses flat, color-coded badge styling consistent with the dark theme — no glow or neon effects. Badge color or label varies by network type (e.g., WiFi, 4G, 3G, 2G, Cellular, Unknown) and is visible only during an active call.
 - **Typography is strictly utilitarian** — only system fonts or a clean sans-serif stack are used. No Google Fonts, web font imports, or decorative typefaces of any kind are permitted.
+
+---
+
+## Backspace Button Long-Press to Clear
+
+The Backspace button on the dialer keypad supports two distinct behaviors based on press duration:
+
+- **Short tap (default):** Removes the last entered digit from the dialed number string — equivalent to a single `clearLastDigit()` operation.
+- **Long press (hold):** Clears the entire dialed number string at once — equivalent to `clearDialed()` — providing a fast erase shortcut particularly useful on mobile where re-tapping Backspace many times is cumbersome.
+
+Key implementation details:
+- A **long-press threshold** (e.g., 600–800ms, defined as a constant in `app.js`) determines when a hold becomes a long-press.
+- **`pointerdown`** (or `touchstart`/`mousedown`) on the Backspace button starts a `setTimeout` set to the long-press threshold. If the timeout fires before release, `clearDialed()` is called and a flag is set to suppress the normal short-tap action.
+- **`pointerup`** and **`pointercancel`** (or `touchend`/`mouseup`) cancel the pending timeout if it has not yet fired; if the long-press did not trigger, `clearLastDigit()` is called as the normal tap action.
+- `preventDefault()` is called on the `pointerdown`/`touchstart` event to suppress the browser's native long-press context menu on Android WebView, ensuring the long-press is handled exclusively by the app.
+- The long-press clear provides **no additional visual feedback** beyond the number display clearing — no animation or special indicator is required, keeping the UI consistent with the flat dark theme.
+- The keyboard `Backspace` key (from physical or software keyboard) continues to call `clearLastDigit()` only — the long-press behavior is specific to the on-screen Backspace button and is not replicated in the keyboard handler.
+- All long-press state (timeout handle, triggered flag) is managed as local closure variables within the Backspace button's event listener setup in `app.js`, with no impact on broader app state.
 
 ---
 
@@ -128,35 +148,4 @@ Key implementation details:
   - `granted` — mic is available; `#micPermissionStatus` shows a positive/green indicator; dialing is unblocked.
   - `prompt` — mic permission has not been decided yet; `#micPermissionStatus` shows an informational/amber indicator advising the user that they will be prompted when a call is initiated.
   - `denied` — mic access is blocked; `#micPermissionStatus` shows a warning/red indicator with guidance on how to re-enable mic access in device settings.
-- **Permission change listener:** A `permissionchange` event listener is attached to the `PermissionStatus` object returned by `navigator.permissions.query()` so that `#micPermissionStatus` updates dynamically if the user changes mic permission in device settings while the app is open.
-- **`#micPermissionStatus` element** displays human-readable status text and a visual state indicator; the text and styling update reactively to reflect the current permission state.
-- **Dialer guard:** When `initiateCall()` is invoked and mic permission is `denied`, the call is blocked and `#micPermissionStatus` (or `#callStatus`) surfaces an actionable error rather than silently failing.
-- The pre-check and its UI state are initialized in `app.js` as part of the page load setup sequence, after DOM elements are available.
-- This feature is purely additive — it does not change the behavior of `getUserMedia()` calls made during actual call initiation; it only provides earlier, more informative feedback to the user.
-
----
-
-## Caller ID Name Feature
-
-The application allows the user to set a **custom caller ID name** — any words or text of their choosing — that will appear on the recipient's caller ID display instead of the caller's raw phone number.
-
-Key implementation details:
-- A dedicated **caller ID name input field** (`#callerIdNameInput`) allows the user to type any free-text string (words, a business name, a personal name, etc.).
-- A **save/set button** (`#setCallerIdNameBtn`) commits the entered name to the `callerIdName` state variable in `app.js`.
-- The saved `callerIdName` string is used when `initiateCall()` is invoked, submitting the name as the caller identity for outgoing calls — **this is the text the recipient will see on their caller ID**.
-- A **caller ID name display** (`#callerIdNameDisplay`) shows the currently active caller ID name so the user can confirm what recipients will see.
-- The caller ID name is stored in app-level JavaScript state (not persisted to `localStorage` or any backend) — it resets on page reload.
-- If no caller ID name is set, outgoing calls fall back to default behavior (number display or system default).
-- There is no character restriction enforced on the caller ID name input — the user may enter any words or characters they wish to display to recipients.
-
----
-
-## Call Duration Timer
-
-During an active call, a **live elapsed time counter** is displayed in `#callStatus` to show the user how long the current call has been in progress.
-
-Key implementation details:
-- The timer starts when `initiateCall()` successfully connects a call, recording the call start time (via `Date.now()` or equivalent).
-- A `setInterval` (1000ms cadence) calculates elapsed seconds and updates `#callStatus` with the formatted duration string.
-- **Format:** `MM:SS` for calls under one hour; `HH:MM:SS` for calls of one hour or longer.
-- The timer interval is **cleared and reset** when `endCall()` is
+- **Permission change listener:** A `perm

@@ -8,117 +8,75 @@
 </head>
 <body class="dark-theme">
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       CLOCK PANEL — three fixed world clocks
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="clockPanel">
-    <div class="clock-card" id="clock-eastern">
-      <div class="clock-label">Eastern Time</div>
-      <div class="clock-time" id="time-eastern">--:--:--</div>
-      <div class="clock-date" id="date-eastern">---</div>
-    </div>
-    <div class="clock-card" id="clock-central">
-      <div class="clock-label">Central Time</div>
-      <div class="clock-time" id="time-central">--:--:--</div>
-      <div class="clock-date" id="date-central">---</div>
-    </div>
-    <div class="clock-card" id="clock-western">
-      <div class="clock-label">Western Time</div>
-      <div class="clock-time" id="time-western">--:--:--</div>
-      <div class="clock-date" id="date-western">---</div>
-    </div>
+  <!-- ── Clock Panel ─────────────────────────────────────────────────── -->
+  <section id="clockPanel">
+    <div id="clockContainer"></div>
+  </section>
+
+  <!-- ── Connectivity Panel ──────────────────────────────────────────── -->
+  <section id="connectivityPanel">
+    <h2>Network</h2>
+    <div id="connectivityStatus" class="status-online">Checking…</div>
+    <button onclick="probeConnectivity()">Check Connection</button>
+  </section>
+
+  <!-- ── Microphone Permission Status ────────────────────────────────── -->
+  <div id="micPermissionStatus" class="mic-status mic-unknown">
+    Checking microphone permission…
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       THEME & MUTE CONTROLS
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="controls">
-    <button id="themeToggle" aria-label="Toggle dark/light theme">Theme</button>
-    <button id="muteToggle" aria-label="Toggle mute">Mute</button>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       CONNECTIVITY PANEL
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="connectivityPanel">
-    <div id="connectivityStatus">Checking connection…</div>
-    <div id="networkTypeDisplay"></div>
-    <div id="networkList"></div>
-    <div id="mobileNetworkOption">
-      <label>
-        <input type="checkbox" id="preferMobileNetwork" />
-        Prefer mobile network for calls
-      </label>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       MICROPHONE PERMISSION PRE-CHECK
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="micPermissionSection">
-    <div id="micPermissionStatus">Checking microphone permission…</div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       CALLER ID NAME
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="callerIdSection">
-    <label for="callerIdNameInput">Caller ID Name</label>
-    <input
-      type="text"
-      id="callerIdNameInput"
-      placeholder="Your display name for recipients"
-      autocomplete="off"
-    />
+  <!-- ── Caller ID Name ──────────────────────────────────────────────── -->
+  <section id="callerIdPanel">
+    <h2>Caller ID Name</h2>
+    <input type="text" id="callerIdNameInput" placeholder="Your display name for recipients" />
     <button id="setCallerIdNameBtn">Save</button>
-    <div id="callerIdNameDisplay"></div>
-  </div>
+    <div id="callerIdNameDisplay">No caller ID name set.</div>
+  </section>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       DIALER PANEL
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="dialerPanel">
-
+  <!-- ── Dialer ───────────────────────────────────────────────────────── -->
+  <section id="callPanel">
     <!-- Number display box -->
-    <div id="dialDisplay">
-      <div id="dialNumber"></div>
-    </div>
-
-    <!-- Live readout -->
-    <div id="dialReadout">Number being dialed: <span id="dialReadoutSpan">—</span></div>
+    <div id="dialerDisplay" class="dialer-display"></div>
+    <!-- Live readout beneath display -->
+    <div id="dialReadout" class="dial-readout"></div>
 
     <!-- Keypad -->
     <div id="keypad">
-      <button class="key-btn" data-digit="1">1</button>
-      <button class="key-btn" data-digit="2">2</button>
-      <button class="key-btn" data-digit="3">3</button>
-      <button class="key-btn" data-digit="4">4</button>
-      <button class="key-btn" data-digit="5">5</button>
-      <button class="key-btn" data-digit="6">6</button>
-      <button class="key-btn" data-digit="7">7</button>
-      <button class="key-btn" data-digit="8">8</button>
-      <button class="key-btn" data-digit="9">9</button>
-      <button class="key-btn" data-digit="*">*</button>
-      <button class="key-btn" data-digit="0">0</button>
-      <button class="key-btn" data-digit="#">#</button>
+      <button class="key-btn" onclick="dialDigit('1')">1</button>
+      <button class="key-btn" onclick="dialDigit('2')">2</button>
+      <button class="key-btn" onclick="dialDigit('3')">3</button>
+      <button class="key-btn" onclick="dialDigit('4')">4</button>
+      <button class="key-btn" onclick="dialDigit('5')">5</button>
+      <button class="key-btn" onclick="dialDigit('6')">6</button>
+      <button class="key-btn" onclick="dialDigit('7')">7</button>
+      <button class="key-btn" onclick="dialDigit('8')">8</button>
+      <button class="key-btn" onclick="dialDigit('9')">9</button>
+      <button class="key-btn" onclick="dialDigit('*')">*</button>
+      <button class="key-btn" onclick="dialDigit('0')">0</button>
+      <button class="key-btn" onclick="dialDigit('#')">#</button>
     </div>
 
-    <!-- Dialer actions -->
-    <div id="dialerActions">
-      <button id="backspaceBtn" aria-label="Backspace">⌫</button>
-      <button id="callBtn" aria-label="Call">Call</button>
-      <button id="endCallBtn" aria-label="End call" style="display:none;">End</button>
+    <!-- Backspace — NO onclick; long-press handler wired in app.js -->
+    <button id="backspaceBtn" class="key-btn backspace-btn" aria-label="Backspace">⌫</button>
+
+    <!-- Call controls -->
+    <div id="callControls">
+      <button id="callBtn"    onclick="initiateCall()">Call</button>
+      <button id="endCallBtn" onclick="endCall()">End</button>
     </div>
 
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════
-       CALL PANEL
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="callPanel">
+    <!-- Status / call duration timer -->
     <div id="callStatus"></div>
-    <div id="networkTypeIndicator" style="display:none;"></div>
-  </div>
+
+    <!-- Network type badge (visible during active call only) -->
+    <span id="networkTypeIndicator" style="display:none;"></span>
+  </section>
+
+  <!-- ── Controls ─────────────────────────────────────────────────────── -->
+  <section id="controls">
+    <button id="muteBtn"  onclick="toggleMute()">Mute</button>
+    <button id="themeBtn" onclick="toggleTheme()">Toggle Theme</button>
+  </section>
 
   <script src="js/app.js"></script>
 </body>
