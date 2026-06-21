@@ -1,286 +1,203 @@
-/* =============================================================
-   Global Time Clock — app.js
-   All application logic lives here (no modules, no frameworks).
-   addTimezone(), removeTimezone(), and toggleTheme() are kept
-   globally scoped so HTML onclick attributes can reach them.
-   ============================================================= */
+// ---------------------------------------------------------
+// Global Time Clock — app.js
+// All functions are globally scoped for use in HTML onclick
+// ---------------------------------------------------------
 
-/* ---------------------------------------------------------
-   State
-   --------------------------------------------------------- */
-const timezones = [
-  'UTC',
-  'America/New_York',
-  'America/Los_Angeles',
-  'Europe/London',
-  'Asia/Tokyo',
+// Array of active timezone objects: { tz: string, muted: boolean }
+let timezones = [
+  { tz: 'UTC', muted: false },
+  { tz: 'America/New_York', muted: false },
+  { tz: 'America/Los_Angeles', muted: false },
+  { tz: 'Europe/London', muted: false },
+  { tz: 'Asia/Tokyo', muted: false },
 ];
 
-/* ---------------------------------------------------------
-   Theme Management
-   --------------------------------------------------------- */
-
-/** Key used to persist the user's theme preference. */
-const THEME_KEY = 'clockstopper_theme';
-
-/** Emoji icons shown on the toggle button for each mode. */
-const THEME_ICONS = { dark: '☀️', light: '🌙' };
+// ---------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------
 
 /**
- * Apply a theme ('dark' or 'light') to the document and
- * update the toggle button icon accordingly.
- * @param {'dark'|'light'} theme
+ * Render all clock cards from scratch into #clocksGrid.
  */
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    document.body.classList.add('dark');
-  } else {
-    document.body.classList.remove('dark');
-  }
-
-  const btn = document.getElementById('themeToggle');
-  if (btn) {
-    // When dark mode is ON the button offers to switch to light (☀️)
-    // When light mode is ON the button offers to switch to dark (🌙)
-    btn.textContent = THEME_ICONS[theme];
-    btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
-  }
-}
-
-/**
- * Toggle between dark and light themes, then persist the
- * choice to localStorage so it survives page refreshes.
- * Globally scoped — called by onclick in Index.html.
- */
-function toggleTheme() {
-  const isDark = document.body.classList.contains('dark');
-  const next   = isDark ? 'light' : 'dark';
-  applyTheme(next);
-  try {
-    localStorage.setItem(THEME_KEY, next);
-  } catch (_) {
-    // localStorage may be unavailable in some private-browsing modes
-  }
-}
-
-/**
- * Read the persisted theme preference (if any) and apply it
- * before the first paint so there is no flash of wrong theme.
- */
-function initTheme() {
-  let saved = null;
-  try {
-    saved = localStorage.getItem(THEME_KEY);
-  } catch (_) { /* ignore */ }
-
-  // Default to dark if no preference has been saved yet
-  const theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
-  applyTheme(theme);
-}
-
-/* ---------------------------------------------------------
-   Clock Rendering
-   --------------------------------------------------------- */
-
-/**
- * Build and return a clock card DOM element for the given
- * IANA time zone string.
- * @param {string} tz  — e.g. "America/New_York"
- * @returns {HTMLElement}
- */
-function createClockCard(tz) {
-  // Derive a friendly city/region label from the IANA key
-  const parts  = tz.split('/');
-  const city   = parts[parts.length - 1].replace(/_/g, ' ');
-  const region = parts.length > 1 ? parts[0] : '';
-
-  const card = document.createElement('div');
-  card.classList.add('clock-card');
-  card.dataset.tz = tz;
-
-  card.innerHTML = `
-    <span class="tz-label">${region ? region + ' &middot; ' : ''}${tz === 'UTC' ? 'Universal' : ''}</span>
-    <span class="tz-city">${city}</span>
-    <div  class="clock-time" id="time-${sanitizeId(tz)}">--:--:--</div>
-    <div  class="clock-date" id="date-${sanitizeId(tz)}">---</div>
-    <button class="btn-remove" onclick="removeTimezone('${tz}')">Remove</button>
-  `;
-
-  return card;
-}
-
-/**
- * Convert an IANA time zone string into a valid DOM id fragment
- * by replacing non-alphanumeric characters with underscores.
- * @param {string} tz
- * @returns {string}
- */
-function sanitizeId(tz) {
-  return tz.replace(/[^a-zA-Z0-9]/g, '_');
-}
-
-/**
- * Render all time zone cards into #clocksGrid from scratch.
- * Called once on startup.
- */
-function renderAllClocks() {
+function renderClocks() {
   const grid = document.getElementById('clocksGrid');
   grid.innerHTML = '';
-  timezones.forEach(tz => grid.appendChild(createClockCard(tz)));
+
+  timezones.forEach(function (entry) {
+    const card = document.createElement('div');
+    card.className = 'clock-card' + (entry.muted ? ' muted' : '');
+    card.id = 'card-' + entry.tz.replace(/\//g, '_');
+
+    // Zone label
+    const label = document.createElement('div');
+    label.className = 'clock-label';
+    label.textContent = entry.tz;
+
+    // Time display
+    const timeEl = document.createElement('div');
+    timeEl.className = 'clock-time';
+    timeEl.id = 'time-' + entry.tz.replace(/\//g, '_');
+
+    // Muted indicator
+    const mutedBadge = document.createElement('div');
+    mutedBadge.className = 'muted-badge';
+    mutedBadge.textContent = '⏸ Paused';
+
+    // Button row
+    const btnRow = document.createElement('div');
+    btnRow.className = 'clock-btn-row';
+
+    const muteBtn = document.createElement('button');
+    muteBtn.className = 'btn-mute' + (entry.muted ? ' active' : '');
+    muteBtn.textContent = entry.muted ? '▶ Resume' : '⏸ Mute';
+    muteBtn.title = entry.muted ? 'Resume this clock' : 'Pause this clock';
+    muteBtn.setAttribute('aria-pressed', String(entry.muted));
+    muteBtn.onclick = function () { toggleMute(entry.tz); };
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.textContent = '✕ Remove';
+    removeBtn.title = 'Remove this clock';
+    removeBtn.onclick = function () { removeTimezone(entry.tz); };
+
+    btnRow.appendChild(muteBtn);
+    btnRow.appendChild(removeBtn);
+
+    card.appendChild(label);
+    card.appendChild(timeEl);
+    card.appendChild(mutedBadge);
+    card.appendChild(btnRow);
+    grid.appendChild(card);
+  });
+
+  // Populate all times immediately after render
+  updateClocks();
 }
 
-/* ---------------------------------------------------------
-   Clock Update Loop
-   --------------------------------------------------------- */
+// ---------------------------------------------------------
+// Clock update loop
+// ---------------------------------------------------------
 
 /**
- * Format the current time for a given IANA time zone and
- * update the matching DOM elements.
- * @param {string} tz
- */
-function updateClock(tz) {
-  const now = new Date();
-
-  const timeStr = new Intl.DateTimeFormat('en-GB', {
-    timeZone:    tz,
-    hour:        '2-digit',
-    minute:      '2-digit',
-    second:      '2-digit',
-    hour12:      false,
-  }).format(now);
-
-  const dateStr = new Intl.DateTimeFormat('en-GB', {
-    timeZone:  tz,
-    weekday:   'short',
-    day:       'numeric',
-    month:     'short',
-    year:      'numeric',
-  }).format(now);
-
-  const safeId   = sanitizeId(tz);
-  const timeEl   = document.getElementById(`time-${safeId}`);
-  const dateEl   = document.getElementById(`date-${safeId}`);
-  if (timeEl) timeEl.textContent = timeStr;
-  if (dateEl) dateEl.textContent = dateStr;
-}
-
-/**
- * Update every active clock — called by setInterval every second.
+ * Update every non-muted clock's displayed time.
+ * Muted clocks are skipped — their last-shown time is frozen.
  */
 function updateClocks() {
-  timezones.forEach(updateClock);
+  const now = new Date();
+
+  timezones.forEach(function (entry) {
+    if (entry.muted) return; // frozen — do not update
+
+    const el = document.getElementById('time-' + entry.tz.replace(/\//g, '_'));
+    if (!el) return;
+
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: entry.tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+      el.textContent = formatter.format(now);
+    } catch (e) {
+      el.textContent = 'Invalid timezone';
+    }
+  });
 }
 
-/* ---------------------------------------------------------
-   Add / Remove Time Zones
-   --------------------------------------------------------- */
+// Start the 1-second tick
+setInterval(updateClocks, 1000);
+
+// ---------------------------------------------------------
+// Public API — must remain globally scoped
+// ---------------------------------------------------------
 
 /**
- * Validate an IANA time zone string by attempting to use it
- * with Intl.DateTimeFormat.
- * @param {string} tz
- * @returns {boolean}
- */
-function isValidTimezone(tz) {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-/**
- * Read the value from #tzInput, validate it, add it to the
- * timezones array, and inject a new card into the grid.
- * Globally scoped — called by onclick in Index.html.
+ * Add a new timezone clock card.
+ * Called via onclick in Index.html.
  */
 function addTimezone() {
   const input = document.getElementById('tzInput');
-  const tz    = input.value.trim();
+  const tz = input.value.trim();
 
   if (!tz) {
-    flashInput(input, 'Please enter a time zone (e.g. Europe/Paris).');
+    alert('Please enter a time zone (e.g. America/New_York).');
     return;
   }
 
-  if (!isValidTimezone(tz)) {
-    flashInput(input, `"${tz}" is not a recognised IANA time zone.`);
+  // Validate by attempting to use the IANA key
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
+  } catch (e) {
+    alert('"' + tz + '" is not a valid IANA time zone identifier.');
     return;
   }
 
-  if (timezones.includes(tz)) {
-    flashInput(input, `"${tz}" is already displayed.`);
+  // Prevent duplicates
+  const alreadyExists = timezones.some(function (entry) {
+    return entry.tz === tz;
+  });
+  if (alreadyExists) {
+    alert('"' + tz + '" is already displayed.');
     return;
   }
 
-  timezones.push(tz);
-
-  const grid = document.getElementById('clocksGrid');
-  const card = createClockCard(tz);
-  grid.appendChild(card);
-
-  // Populate the new card immediately (no 1-second wait)
-  updateClock(tz);
-
+  timezones.push({ tz: tz, muted: false });
   input.value = '';
-  input.focus();
+  renderClocks();
 }
 
 /**
- * Remove a time zone card from the grid and from the state array.
- * Globally scoped — called by onclick attributes inside clock cards.
- * @param {string} tz
+ * Remove a clock card by its IANA time zone string.
+ * Called via onclick generated in renderClocks().
  */
 function removeTimezone(tz) {
-  const idx = timezones.indexOf(tz);
-  if (idx !== -1) timezones.splice(idx, 1);
+  timezones = timezones.filter(function (entry) {
+    return entry.tz !== tz;
+  });
+  renderClocks();
+}
 
-  const grid = document.getElementById('clocksGrid');
-  const card = grid.querySelector(`.clock-card[data-tz="${tz}"]`);
+/**
+ * Toggle the muted (paused) state of a clock.
+ * Called via onclick generated in renderClocks().
+ */
+function toggleMute(tz) {
+  const entry = timezones.find(function (e) { return e.tz === tz; });
+  if (!entry) return;
+
+  entry.muted = !entry.muted;
+
+  // Update card class
+  const card = document.getElementById('card-' + tz.replace(/\//g, '_'));
   if (card) {
-    // Animate out before removing
-    card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-    card.style.opacity    = '0';
-    card.style.transform  = 'scale(0.92)';
-    setTimeout(() => card.remove(), 220);
+    card.classList.toggle('muted', entry.muted);
+  }
+
+  // Update mute button label, title, and aria-pressed
+  const muteBtn = card ? card.querySelector('.btn-mute') : null;
+  if (muteBtn) {
+    muteBtn.textContent = entry.muted ? '▶ Resume' : '⏸ Mute';
+    muteBtn.title      = entry.muted ? 'Resume this clock' : 'Pause this clock';
+    muteBtn.setAttribute('aria-pressed', String(entry.muted));
+    muteBtn.classList.toggle('active', entry.muted);
   }
 }
 
-/* ---------------------------------------------------------
-   UI Helpers
-   --------------------------------------------------------- */
-
 /**
- * Briefly highlight the input in orange and show an alert-style
- * message to give the user feedback on an invalid entry.
- * @param {HTMLInputElement} inputEl
- * @param {string}           message
+ * Toggle dark theme on <body>.
+ * Called via onclick in Index.html.
  */
-function flashInput(inputEl, message) {
-  inputEl.style.borderColor = 'var(--accent)';
-  inputEl.style.boxShadow   = '0 0 0 3px rgba(249,115,22,0.35)';
-  alert(message);
-  setTimeout(() => {
-    inputEl.style.borderColor = '';
-    inputEl.style.boxShadow   = '';
-  }, 1200);
-  inputEl.focus();
+function toggleTheme() {
+  document.body.classList.toggle('dark-theme');
 }
 
-/* ---------------------------------------------------------
-   Boot
-   --------------------------------------------------------- */
-(function init() {
-  // Apply saved (or default dark) theme before rendering
-  initTheme();
-
-  // Render initial clock cards
-  renderAllClocks();
-
-  // Populate times right away so there is no blank first second
-  updateClocks();
-
-  // Tick every second
-  setInterval(updateClocks, 1000);
-})();
+// ---------------------------------------------------------
+// Initialise
+// ---------------------------------------------------------
+renderClocks();

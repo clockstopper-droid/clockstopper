@@ -1,68 +1,10 @@
-/* ============================================================
-   CSS Custom Properties — Light Theme (default)
-   ============================================================ */
-:root {
-  --bg-page:          #f0f2f5;
-  --bg-container:     #ffffff;
-  --bg-card:          #ffffff;
-  --bg-card-hover:    #f7f8fa;
-  --bg-input:         #ffffff;
+/* ==========================================================
+   Global Time Clock — Style.css
+   ========================================================== */
 
-  --text-primary:     #1a1a2e;
-  --text-secondary:   #555577;
-  --text-time:        #1a1a2e;
-  --text-muted:       #888899;
-
-  --border-card:      #e2e4ea;
-  --border-input:     #c8cad4;
-
-  --accent:           #f97316;   /* orange — keypad / primary action */
-  --accent-hover:     #ea6a05;
-  --accent-text:      #ffffff;
-
-  --shadow-card:      0 2px 8px rgba(0, 0, 0, 0.07);
-  --shadow-card-hover:0 6px 20px rgba(0, 0, 0, 0.13);
-  --shadow-btn:       0 2px 8px rgba(249, 115, 22, 0.35);
-  --shadow-btn-hover: 0 4px 16px rgba(249, 115, 22, 0.55);
-
-  --radius-card:      14px;
-  --radius-btn:       10px;
-  --radius-input:     10px;
-
-  --transition:       0.22s ease;
-}
-
-/* ============================================================
-   Dark Theme
-   ============================================================ */
-body.dark {
-  --bg-page:          #0f1117;
-  --bg-container:     #161922;
-  --bg-card:          #1e2230;
-  --bg-card-hover:    #252a3a;
-  --bg-input:         #1e2230;
-
-  --text-primary:     #e8eaf0;
-  --text-secondary:   #9da3b8;
-  --text-time:        #f0f2ff;
-  --text-muted:       #5a607a;
-
-  --border-card:      #2c3045;
-  --border-input:     #2c3045;
-
-  --accent:           #f97316;
-  --accent-hover:     #fb8c3a;
-  --accent-text:      #ffffff;
-
-  --shadow-card:      0 2px 12px rgba(0, 0, 0, 0.45);
-  --shadow-card-hover:0 6px 24px rgba(0, 0, 0, 0.65);
-  --shadow-btn:       0 2px 10px rgba(249, 115, 22, 0.45);
-  --shadow-btn-hover: 0 4px 20px rgba(249, 115, 22, 0.65);
-}
-
-/* ============================================================
-   Reset & Base
-   ============================================================ */
+/* ----------------------------------------------------------
+   Reset / Base
+   ---------------------------------------------------------- */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -70,347 +12,319 @@ body.dark {
 }
 
 body {
-  background-color: var(--bg-page);
-  color: var(--text-primary);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f0f2f5;
+  color: #222;
   min-height: 100vh;
-  transition: background-color var(--transition), color var(--transition);
+  transition: background 0.3s, color 0.3s;
 }
 
-/* ============================================================
-   Layout — Container
-   ============================================================ */
+/* ----------------------------------------------------------
+   Layout
+   ---------------------------------------------------------- */
 .container {
-  max-width: 1100px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 32px 20px 60px;
+  padding: 2rem 1rem 3rem;
 }
 
-/* ============================================================
-   Header Bar
-   ============================================================ */
-.header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 28px;
-  gap: 12px;
+h1 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  letter-spacing: 0.03em;
 }
 
-.header-bar h1 {
-  font-size: clamp(1.5rem, 4vw, 2.2rem);
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  transition: color var(--transition);
-}
-
-/* ============================================================
-   Theme Toggle Button
-   ============================================================ */
-.theme-toggle {
-  background: var(--bg-card);
-  border: 2px solid var(--border-card);
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  font-size: 1.25rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition:
-    background-color var(--transition),
-    border-color var(--transition),
-    transform 0.18s ease,
-    box-shadow var(--transition);
-  box-shadow: var(--shadow-card);
-  line-height: 1;
-}
-
-.theme-toggle:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-btn);
-  transform: rotate(20deg) scale(1.08);
-}
-
-.theme-toggle:active {
-  transform: rotate(20deg) scale(0.96);
-}
-
-/* ============================================================
-   Controls — Input + Add Button
-   ============================================================ */
-.controls {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 32px;
-  flex-wrap: wrap;
-}
-
-.controls input[type="text"] {
-  flex: 1 1 220px;
-  padding: 12px 16px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 2px solid var(--border-input);
-  border-radius: var(--radius-input);
-  font-size: 0.97rem;
-  outline: none;
-  transition:
-    border-color var(--transition),
-    background-color var(--transition),
-    box-shadow var(--transition);
-}
-
-.controls input[type="text"]::placeholder {
-  color: var(--text-muted);
-}
-
-.controls input[type="text"]:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
-}
-
-/* ---- Add Clock / primary orange button ---- */
-.btn-add {
-  padding: 12px 26px;
-  background: var(--accent);
-  color: var(--accent-text);
-  border: none;
-  border-radius: var(--radius-btn);
-  font-size: 0.97rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-  box-shadow: var(--shadow-btn);
-  transition:
-    background-color var(--transition),
-    box-shadow var(--transition),
-    transform 0.14s ease;
-}
-
-.btn-add:hover {
-  background: var(--accent-hover);
-  box-shadow: var(--shadow-btn-hover);
-  transform: translateY(-2px);
-}
-
-.btn-add:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-btn);
-}
-
-/* ============================================================
+/* ----------------------------------------------------------
    Clocks Grid
-   ============================================================ */
+   ---------------------------------------------------------- */
 .clocks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
 }
 
-/* ============================================================
+/* ----------------------------------------------------------
    Clock Card
-   ============================================================ */
+   ---------------------------------------------------------- */
 .clock-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-card);
-  padding: 24px 20px 20px;
+  background: #ffffff;
+  border: 1px solid #dde1e7;
+  border-radius: 10px;
+  padding: 1.1rem 1rem 0.9rem;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  position: relative;
-  box-shadow: var(--shadow-card);
-  transition:
-    background-color var(--transition),
-    border-color var(--transition),
-    box-shadow var(--transition),
-    transform 0.18s ease;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+  transition: background 0.3s, border-color 0.3s, opacity 0.3s;
 }
 
-.clock-card:hover {
-  background: var(--bg-card-hover);
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-3px);
-}
-
-/* Top accent bar */
-.clock-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 18px;
-  right: 18px;
-  height: 3px;
-  background: var(--accent);
-  border-radius: 0 0 4px 4px;
-  opacity: 0.85;
-}
-
-/* ---- Timezone label ---- */
-.clock-card .tz-label {
+.clock-label {
   font-size: 0.78rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  margin-top: 8px;
-  text-align: center;
-  word-break: break-word;
-}
-
-/* ---- City / region name ---- */
-.clock-card .tz-city {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-align: center;
-  transition: color var(--transition);
-}
-
-/* ---- Live time display ---- */
-.clock-card .clock-time {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-time);
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  margin: 6px 0 2px;
-  transition: color var(--transition);
-}
-
-/* ---- Date line ---- */
-.clock-card .clock-date {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  transition: color var(--transition);
-}
-
-/* ---- Remove button ---- */
-.clock-card .btn-remove {
-  margin-top: 14px;
-  padding: 6px 18px;
-  background: transparent;
-  color: var(--accent);
-  border: 2px solid var(--accent);
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  letter-spacing: 0.03em;
-  transition:
-    background-color var(--transition),
-    color var(--transition),
-    box-shadow var(--transition),
-    transform 0.14s ease;
-}
-
-.clock-card .btn-remove:hover {
-  background: var(--accent);
-  color: var(--accent-text);
-  box-shadow: var(--shadow-btn);
-  transform: scale(1.04);
-}
-
-.clock-card .btn-remove:active {
-  transform: scale(0.98);
-}
-
-/* ============================================================
-   Keypad — numeric input grid displayed below controls
-   ============================================================ */
-.keypad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 32px;
-  max-width: 280px;
-}
-
-.keypad-key {
-  padding: 13px 8px;
-  background: var(--accent);
-  color: var(--accent-text);
-  border: none;
-  border-radius: 9px;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: center;
-  box-shadow: var(--shadow-btn);
-  letter-spacing: 0.01em;
-  transition:
-    background-color var(--transition),
-    box-shadow var(--transition),
-    transform 0.12s ease;
-  user-select: none;
-}
-
-.keypad-key:hover {
-  background: var(--accent-hover);
-  box-shadow: var(--shadow-btn-hover);
-  transform: translateY(-2px) scale(1.04);
-}
-
-.keypad-key:active {
-  transform: translateY(0) scale(0.97);
-  box-shadow: var(--shadow-btn);
-}
-
-/* Wide key spans full row (e.g. backspace / clear) */
-.keypad-key.wide {
-  grid-column: span 3;
-  font-size: 0.88rem;
   letter-spacing: 0.06em;
+  color: #555;
+  word-break: break-all;
 }
 
-/* Secondary key (muted style) */
-.keypad-key.secondary {
-  background: transparent;
-  color: var(--accent);
-  border: 2px solid var(--accent);
-  box-shadow: none;
+.clock-time {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #111;
+  min-height: 1.4em;
+  transition: color 0.3s;
 }
 
-.keypad-key.secondary:hover {
-  background: var(--accent);
-  color: var(--accent-text);
-  box-shadow: var(--shadow-btn);
+/* ----------------------------------------------------------
+   Muted (Paused) State
+   ---------------------------------------------------------- */
+
+/* Badge shown only when card is muted */
+.muted-badge {
+  display: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #888;
+  text-transform: uppercase;
 }
 
-/* ============================================================
+.clock-card.muted .muted-badge {
+  display: block;
+}
+
+/* Dim the card visually when paused */
+.clock-card.muted {
+  opacity: 0.65;
+  border-style: dashed;
+}
+
+/* Dim the time text when frozen */
+.clock-card.muted .clock-time {
+  color: #999;
+}
+
+/* ----------------------------------------------------------
+   Clock Card — Button Row
+   ---------------------------------------------------------- */
+.clock-btn-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.clock-btn-row button {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.clock-btn-row button:active {
+  transform: scale(0.96);
+}
+
+/* Mute button — default (light theme) */
+.btn-mute {
+  background: #e8eaf0;
+  color: #444;
+}
+
+.btn-mute:hover {
+  background: #d5d8e2;
+}
+
+/* Mute button — active/pressed state (clock is paused) */
+.btn-mute.active {
+  background: #fff3e0;
+  color: #bf6000;
+  border: 1px solid #f5a623;
+}
+
+.btn-mute.active:hover {
+  background: #ffe0b2;
+}
+
+/* Remove button */
+.btn-remove {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+.btn-remove:hover {
+  background: #f5c6c2;
+}
+
+/* ----------------------------------------------------------
+   Controls (Add Clock / Toggle Theme)
+   ---------------------------------------------------------- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.controls input {
+  padding: 0.55rem 0.9rem;
+  font-size: 0.95rem;
+  border: 2px solid #c0c5cf;
+  border-radius: 7px;
+  outline: none;
+  min-width: 220px;
+  background: #fff;
+  color: #222;
+  transition: border-color 0.2s, background 0.3s, color 0.3s;
+}
+
+.controls input:focus {
+  border-color: #5b8dee;
+}
+
+.controls button {
+  padding: 0.55rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  background: #5b8dee;
+  color: #fff;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.controls button:hover {
+  background: #3a6fdb;
+}
+
+.controls button:active {
+  transform: scale(0.97);
+}
+
+/* ----------------------------------------------------------
+   Dark Theme
+   ---------------------------------------------------------- */
+body.dark-theme {
+  background: #1a1a1a;
+  color: #e8e8e8;
+}
+
+body.dark-theme h1 {
+  color: #f0f0f0;
+}
+
+/* Clock cards */
+body.dark-theme .clock-card {
+  background: #2a2a2a;
+  border-color: #3a3a3a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-theme .clock-label {
+  color: #aaa;
+}
+
+body.dark-theme .clock-time {
+  color: #f0f0f0;
+}
+
+/* Muted card in dark theme */
+body.dark-theme .clock-card.muted {
+  opacity: 0.55;
+  border-color: #555;
+}
+
+body.dark-theme .clock-card.muted .clock-time {
+  color: #666;
+}
+
+body.dark-theme .muted-badge {
+  color: #666;
+}
+
+/* Mute button — dark theme default */
+body.dark-theme .btn-mute {
+  background: #3a3a3a;
+  color: #ccc;
+}
+
+body.dark-theme .btn-mute:hover {
+  background: #484848;
+}
+
+/* Mute button — active/pressed in dark theme — orange accent */
+body.dark-theme .btn-mute.active {
+  background: #3d2800;
+  color: #ff9800;
+  border: 1px solid #ff9800;
+}
+
+body.dark-theme .btn-mute.active:hover {
+  background: #4e3300;
+}
+
+/* Remove button — dark theme */
+body.dark-theme .btn-remove {
+  background: #3d1c1c;
+  color: #ff6b6b;
+}
+
+body.dark-theme .btn-remove:hover {
+  background: #522626;
+}
+
+/* Controls area — dark theme with orange accent */
+body.dark-theme .controls input {
+  background: #2a2a2a;
+  color: #e8e8e8;
+  border-color: #555;
+}
+
+body.dark-theme .controls input:focus {
+  border-color: #ff9800;
+}
+
+body.dark-theme .controls button {
+  background: #ff9800;
+  color: #1a1a1a;
+}
+
+body.dark-theme .controls button:hover {
+  background: #e68900;
+}
+
+/* ----------------------------------------------------------
    Responsive
-   ============================================================ */
-@media (max-width: 600px) {
-  .container {
-    padding: 20px 14px 48px;
+   ---------------------------------------------------------- */
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.4rem;
   }
 
   .clocks-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    grid-template-columns: 1fr;
   }
 
-  .clock-card .clock-time {
-    font-size: 1.55rem;
+  .controls input {
+    width: 100%;
+    min-width: unset;
   }
 
   .controls {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .btn-add {
+  .controls button {
     width: 100%;
-  }
-}
-
-@media (max-width: 380px) {
-  .clocks-grid {
-    grid-template-columns: 1fr;
   }
 }
