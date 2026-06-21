@@ -5,8 +5,8 @@
  * The application is now Android-only.
  *
  * The bundled JavaScript used inside the Android WebView lives at:
- *     app/src/main/assets/js/app.js
+ *     clockstopper-droid/app/src/main/assets/js/app.js
  *
  * Do not add code here; this stub exists only to satisfy any tooling
- * that expects the file to be present at the repository root.
+ * that expects the file to be present at this path.
  */
