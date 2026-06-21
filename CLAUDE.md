@@ -1,7 +1,7 @@
 # Clockstopper Android Project Context
 
 ## Project Overview
-Android application project ("Clockstopper") with a structured Gradle build configuration and a functional Activity entry point with navigation scaffolding. A domain layer has been extracted to encapsulate core business logic independently of the Android platform. UI components have been migrated to Android-compatible equivalents (Fragments, Views, etc.) wired into the navigation architecture.
+Android application project ("Clockstopper") with a structured Gradle build configuration and a functional Activity entry point with navigation scaffolding. A domain layer has been extracted to encapsulate core business logic independently of the Android platform. UI components have been migrated to Android-compatible equivalents (Fragments, Views, etc.) wired into the navigation architecture. App launch and runtime behavior have been validated on an Android emulator.
 
 ## Repository
 - **Org/Repo:** `clockstopper-droid/clockstopper`
@@ -82,8 +82,14 @@ clockstopper/
 - Designed to be testable via standard JUnit unit tests (no Android instrumentation required)
 - Acts as the authoritative source of business rules; UI and data layers depend on the domain, not the other way around
 
+### Runtime Validation
+- App launch and runtime behavior have been validated on an Android emulator (as of PR #5)
+- The navigation graph, Fragment destinations, and NavController wiring have been confirmed to function correctly at runtime
+- MainActivity successfully hosts the NavHostFragment and the initial Fragment destination renders as expected
+- No runtime crashes or navigation failures observed during emulator validation
+
 ## Conventions & Patterns
-- **Total files committed in setup:** 23 files (initial scaffold) + 7 files (manifest/activity/navigation scaffolding) + 12 files (domain layer extraction) + 24 files (UI component migration)
+- **Total files committed in setup:** 23 files (initial scaffold) + 7 files (manifest/activity/navigation scaffolding) + 12 files (domain layer extraction) + 24 files (UI component migration) + 10 files (emulator validation)
 - **PR workflow:** Tasks create feature branches, commit changes, and open PRs against `main_queued`
 - **Branch naming:** `feat/<kebab-case-description>-<short-id>-queued`
 - **Language:** Kotlin
@@ -94,6 +100,7 @@ clockstopper/
 - **Repository Pattern:** Data access is abstracted behind interfaces defined in the domain layer; implementations are provided by the data layer
 - **Use Cases:** Business operations are encapsulated in dedicated use case classes rather than embedded in ViewModels or Fragments
 - **Fragment Convention:** New screens should be implemented as Fragments registered as destinations in the navigation graph; navigation between screens uses NavController actions
+- **Validation Convention:** Runtime behavior should be validated on an Android emulator after significant structural changes (navigation wiring, Fragment migration, architecture changes)
 
 ## Android Configuration (to be confirmed from actual build files)
 - Standard Android project layout following AOSP/Gradle conventions
@@ -109,3 +116,4 @@ clockstopper/
 - Domain layer unit tests should live in `app/src/test/` and require no Android instrumentation
 - UI components have been migrated to Android-compatible equivalents; all screen content lives in Fragments under `ui/`, not in `MainActivity`
 - When adding new UI features, create a Fragment + XML layout pair, register it in the navigation graph, and wire it to the domain layer via use cases
+- App launch and end-to-end navigation have been verified at runtime on an emulator; the current state of the codebase is considered runtime-stable
