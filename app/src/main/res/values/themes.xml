@@ -1,20 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    themes.xml
+    ──────────
+    Application theme declarations for Clockstopper.
+
+    Theme.ClockStopper
+    ──────────────────
+    Extends Material DayNight (automatically follows system dark/light mode).
+    The app's own palette (defined in colors.xml) overrides the Material
+    colour role attributes so the brand colours are applied everywhere Material
+    components are used.
+
+    windowBackground is set to colorBackground (#121212) for a seamless dark
+    launch experience — no white flash between the splash and the first frame.
+-->
 <resources>
 
-    <!--
-        Base application theme.
-        Inherits Material3 with a teal brand primary colour.
-        The status bar is transparent so the stopwatch time display can
-        extend edge-to-edge on modern devices.
-    -->
-    <style name="Theme.Clockstopper" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/brand_primary</item>
-        <item name="colorOnPrimary">@color/brand_on_primary</item>
-        <item name="colorPrimaryContainer">@color/brand_primary_container</item>
-        <item name="colorSurface">@color/brand_surface</item>
-        <item name="colorOnSurface">@color/brand_on_surface</item>
-        <!-- Keep the window background consistent across day/night modes. -->
-        <item name="android:windowBackground">@color/brand_surface</item>
+    <!-- Base application theme -->
+    <style name="Theme.ClockStopper" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+
+        <!-- Brand colours wired into Material colour roles -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryVariant</item>
+        <item name="colorOnPrimary">@color/colorOnPrimary</item>
+
+        <item name="colorSecondary">@color/colorSecondary</item>
+        <item name="colorOnSecondary">@color/colorOnSecondary</item>
+
+        <!-- Window background — prevents the white-flash on cold start -->
+        <item name="android:windowBackground">@color/background</item>
+
+        <!-- Status bar / navigation bar tinting -->
+        <item name="android:statusBarColor">@color/colorPrimaryVariant</item>
+        <item name="android:navigationBarColor">@color/colorBackground</item>
+
     </style>
 
 </resources>

@@ -1,75 +1,58 @@
 package com.clockstopper.app
 
-import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.clockstopper.app.databinding.ItemLapBinding
-import com.clockstopper.app.domain.LapAnalyzer
 import com.clockstopper.app.domain.LapSummary
-import com.clockstopper.app.domain.TimeFormatter
-import com.google.android.material.color.MaterialColors
 
 /**
- * RecyclerView adapter that displays the lap history list.
+ * LapAdapter
+ * ──────────
+ * [ListAdapter] that binds a list of [LapSummary] domain objects to rows in the
+ * lap-list [RecyclerView] in [StopwatchFragment].
  *
- * Each row shows:
- *  - Lap number label ("Lap N")
- *  - Lap split formatted as MM:SS.mmm
- *  - Cumulative elapsed time formatted as MM:SS.mmm
+ * Uses [DiffUtil] for efficient incremental updates: only newly added (or
+ * changed) items trigger a partial rebind, keeping scrolling smooth even when
+ * the list grows long.
  *
- * The fastest lap split is coloured with [colorPrimary]; the slowest with
- * [colorError]; all other laps use the default [colorOnSurface].
- *
- * Uses [ListAdapter] + [DiffUtil] for efficient, animated list updates.
+ * Layout
+ * ──────
+ * Each row is inflated from `item_lap.xml` and bound via [ItemLapBinding]
+ * (ViewBinding).  The row shows:
+ *   - Lap number          e.g. "Lap 3"
+ *   - Split time          e.g. "00:12.34"
+ *   - Cumulative time     e.g. "01:05.67"
  */
-class LapAdapter : ListAdapter<Pair<LapSummary, LapAnalyzer.Rank>, LapAdapter.LapViewHolder>(DIFF) {
+class LapAdapter : ListAdapter<LapSummary, LapAdapter.LapViewHolder>(DIFF_CALLBACK) {
 
-    // ── ViewHolder ───────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // ViewHolder
+    // -----------------------------------------------------------------------
 
     inner class LapViewHolder(
-        private val binding: ItemLapBinding
+        private val binding: ItemLapBinding,
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(item: Pair<LapSummary, LapAnalyzer.Rank>) {
-            val (lap, rank) = item
-
-            binding.tvLapNumber.text = itemView.context.getString(
-                R.string.lap_number_template,
-                lap.lapNumber
-            )
-            binding.tvLapSplit.text      = TimeFormatter.formatSplit(lap.splitMs)
-            binding.tvLapCumulative.text = TimeFormatter.formatSplit(lap.cumulativeMs)
-
-            // Highlight best/worst laps using theme-aware colours.
-            val splitColour = when (rank) {
-                LapAnalyzer.Rank.BEST   -> MaterialColors.getColor(
-                    itemView, com.google.android.material.R.attr.colorPrimary
-                )
-                LapAnalyzer.Rank.WORST  -> MaterialColors.getColor(
-                    itemView, com.google.android.material.R.attr.colorError
-                )
-                LapAnalyzer.Rank.NORMAL -> MaterialColors.getColor(
-                    itemView, com.google.android.material.R.attr.colorOnSurface
-                )
-            }
-            binding.tvLapSplit.setTextColor(splitColour)
-            binding.tvLapNumber.setTextColor(
-                // Tint the lap label to match the split colour for best/worst.
-                if (rank == LapAnalyzer.Rank.NORMAL)
-                    MaterialColors.getColor(itemView, com.google.android.material.R.attr.colorOnSurface)
-                else splitColour
-            )
+        fun bind(summary: LapSummary) {
+            binding.tvLapNumber.text =
+                binding.root.context.getString(R.string.lap_number_label, summary.lapNumber)
+            binding.tvLapSplit.text = summary.formattedSplit
+            binding.tvLapCumulative.text = summary.formattedCumulative
         }
     }
 
-    // ── Adapter overrides ────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // Adapter overrides
+    // -----------------------------------------------------------------------
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LapViewHolder {
         val binding = ItemLapBinding.inflate(
-            LayoutInflater.from(parent.context), parent, false
+            LayoutInflater.from(parent.context),
+            parent,
+            false,
         )
         return LapViewHolder(binding)
     }
@@ -78,19 +61,17 @@ class LapAdapter : ListAdapter<Pair<LapSummary, LapAnalyzer.Rank>, LapAdapter.La
         holder.bind(getItem(position))
     }
 
-    // ── DiffUtil ─────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // DiffUtil callback
+    // -----------------------------------------------------------------------
 
     companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<Pair<LapSummary, LapAnalyzer.Rank>>() {
-            override fun areItemsTheSame(
-                old: Pair<LapSummary, LapAnalyzer.Rank>,
-                new: Pair<LapSummary, LapAnalyzer.Rank>
-            ) = old.first.lapNumber == new.first.lapNumber
+        private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<LapSummary>() {
+            override fun areItemsTheSame(oldItem: LapSummary, newItem: LapSummary): Boolean =
+                oldItem.lapNumber == newItem.lapNumber
 
-            override fun areContentsTheSame(
-                old: Pair<LapSummary, LapAnalyzer.Rank>,
-                new: Pair<LapSummary, LapAnalyzer.Rank>
-            ) = old == new
+            override fun areContentsTheSame(oldItem: LapSummary, newItem: LapSummary): Boolean =
+                oldItem == newItem
         }
     }
 }

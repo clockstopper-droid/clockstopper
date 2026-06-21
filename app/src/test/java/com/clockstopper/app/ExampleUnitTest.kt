@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Baseline JVM unit test — verifies the test runner is configured correctly.
+ * ExampleUnitTest — placeholder JVM unit test.
  * Run with:  ./gradlew test
  */
 class ExampleUnitTest {

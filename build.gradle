@@ -1,0 +1,21 @@
+/*
+ * build.gradle (project-level)
+ * ────────────────────────────
+ * Top-level build file.  Defines plugin versions available to all sub-modules.
+ *
+ * Do NOT add application-specific dependencies here; those belong in
+ * app/build.gradle.
+ */
+buildscript {
+    ext {
+        // Android Gradle Plugin version — keep in sync with gradle-wrapper.properties
+        agp_version = '8.2.2'
+        kotlin_version = '1.9.22'
+    }
+}
+
+plugins {
+    id 'com.android.application'          version "$agp_version" apply false
+    id 'com.android.library'              version "$agp_version" apply false
+    id 'org.jetbrains.kotlin.android'     version "$kotlin_version" apply false
+}

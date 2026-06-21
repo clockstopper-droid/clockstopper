@@ -1,5 +1,7 @@
 package com.clockstopper.app
 
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -9,133 +11,135 @@ import com.clockstopper.app.domain.LapSummary
 import com.clockstopper.app.domain.StopwatchEngine
 import com.clockstopper.app.domain.StopwatchState
 import com.clockstopper.app.domain.TimeFormatter
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 /**
- * ViewModel for the stopwatch screen.
+ * StopwatchViewModel
+ * ──────────────────
+ * Jetpack [ViewModel] that bridges the domain layer ([StopwatchEngine]) and the
+ * UI layer ([StopwatchFragment]).
  *
- * Bridges the platform-agnostic [StopwatchEngine] and [LapAnalyzer] domain
- * objects to the UI layer via [LiveData].  A coroutine tick loop drives
- * display updates every [TICK_INTERVAL_MS] milliseconds while the engine is
- * running; no updates are emitted while paused or idle.
+ * Responsibilities
+ * ────────────────
+ * 1. Own a [StopwatchEngine] instance that survives configuration changes.
+ * 2. Drive a periodic ticker (16 ms ≈ 60 fps) that polls the engine's elapsed
+ *    time and posts updated [LiveData] values to the Fragment.
+ * 3. Expose [LiveData] streams for the formatted elapsed time, the running
+ *    state, and the derived lap list — so the Fragment is purely reactive and
+ *    contains zero business logic.
+ * 4. Translate user-intent commands (start/stop/lap/reset) into engine calls.
  *
- * All public methods are safe to call from the main thread.
+ * Threading model
+ * ───────────────
+ * All mutations happen on the main thread.  The ticker is a [Handler] posting
+ * to the main looper; it is cancelled in [onCleared] to avoid leaks.
+ *
+ * The ViewModel does NOT use coroutines for the ticker intentionally — a
+ * Handler is simpler, has no allocation overhead on each tick, and keeps the
+ * domain layer free of coroutine dependencies.
  */
 class StopwatchViewModel : ViewModel() {
 
-    // ── Domain objects ───────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // Domain engine
+    // -----------------------------------------------------------------------
 
-    /** Authoritative stopwatch engine.  Injected-friendly via constructor for tests. */
     private val engine = StopwatchEngine()
 
-    // ── LiveData ─────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // LiveData streams exposed to the Fragment
+    // -----------------------------------------------------------------------
 
-    /** Formatted elapsed-time string (HH:MM:SS.mmm). */
-    private val _elapsedTime = MutableLiveData("00:00:00.000")
+    /** Formatted elapsed time string, e.g. `"01:23.45"`. */
+    private val _elapsedTime = MutableLiveData(TimeFormatter.ZERO)
     val elapsedTime: LiveData<String> = _elapsedTime
 
-    /** Formatted current-lap label, e.g. "Lap 2  –  00:12.345". */
-    private val _currentLapLabel = MutableLiveData<String?>(null)
-    val currentLapLabel: LiveData<String?> = _currentLapLabel
+    /** `true` while the stopwatch is actively counting. */
+    private val _isRunning = MutableLiveData(false)
+    val isRunning: LiveData<Boolean> = _isRunning
 
-    /** Lap rows ready for the RecyclerView adapter (ranked, most-recent first). */
-    private val _laps = MutableLiveData<List<Pair<LapSummary, LapAnalyzer.Rank>>>(emptyList())
-    val laps: LiveData<List<Pair<LapSummary, LapAnalyzer.Rank>>> = _laps
+    /** Derived lap summary list — newest lap first, ready for RecyclerView. */
+    private val _laps = MutableLiveData<List<LapSummary>>(emptyList())
+    val laps: LiveData<List<LapSummary>> = _laps
 
-    /** Current stopwatch lifecycle state. */
-    private val _state = MutableLiveData(StopwatchState.IDLE)
-    val state: LiveData<StopwatchState> = _state
+    // -----------------------------------------------------------------------
+    // Ticker
+    // -----------------------------------------------------------------------
 
-    // ── Coroutine tick loop ──────────────────────────────────────────────────
+    private val mainHandler = Handler(Looper.getMainLooper())
 
-    private var tickJob: Job? = null
+    /**
+     * Tick interval in milliseconds.  At ~16 ms the display updates at ≈60 fps,
+     * which is smooth enough for a centisecond-resolution display.
+     */
+    private val tickIntervalMs = 16L
 
-    /** Refresh interval while the stopwatch is running, in milliseconds. */
-    private val TICK_INTERVAL_MS = 30L
-
-    private fun startTicking() {
-        tickJob?.cancel()
-        tickJob = viewModelScope.launch {
-            while (isActive) {
-                publishDisplayState()
-                delay(TICK_INTERVAL_MS)
+    private val tickRunnable: Runnable = object : Runnable {
+        override fun run() {
+            if (_isRunning.value == true) {
+                publishState(engine.currentState())
+                mainHandler.postDelayed(this, tickIntervalMs)
             }
         }
     }
 
-    private fun stopTicking() {
-        tickJob?.cancel()
-        tickJob = null
-    }
-
-    // ── Commands (called by Fragment) ────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // User-intent commands
+    // -----------------------------------------------------------------------
 
     /**
-     * Toggles between RUNNING and PAUSED.
-     * If IDLE, transitions to RUNNING.
+     * Toggle start / pause.  Starts the ticker when transitioning to running;
+     * cancels it when pausing.
      */
     fun onStartStop() {
-        when (engine.state) {
-            StopwatchState.IDLE, StopwatchState.PAUSED -> {
-                engine.start()
-                startTicking()
-            }
-            StopwatchState.RUNNING -> {
-                engine.stop()
-                stopTicking()
-                publishDisplayState() // flush final values immediately
-            }
+        val state = engine.startStop()
+        publishState(state)
+        if (state.isRunning) {
+            mainHandler.postDelayed(tickRunnable, tickIntervalMs)
+        } else {
+            mainHandler.removeCallbacks(tickRunnable)
         }
-        _state.value = engine.state
     }
-
-    /** Records a lap split (only valid while RUNNING). */
-    fun onLap() {
-        if (engine.state != StopwatchState.RUNNING) return
-        engine.lap()
-        publishDisplayState()
-    }
-
-    /** Resets the stopwatch to IDLE and clears all laps. */
-    fun onReset() {
-        stopTicking()
-        engine.reset()
-        _state.value = engine.state
-        publishDisplayState()
-    }
-
-    // ── Internal helpers ─────────────────────────────────────────────────────
 
     /**
-     * Pushes the current engine state into all LiveData streams.
-     * Called both from the tick loop and immediately after any command.
+     * Record a lap split.  Only meaningful while the stopwatch is running;
+     * the Fragment is responsible for guarding the button state.
      */
-    private fun publishDisplayState() {
-        _elapsedTime.value = TimeFormatter.formatElapsed(engine.elapsedMs)
-
-        _currentLapLabel.value = when (engine.state) {
-            StopwatchState.IDLE -> null
-            else -> buildCurrentLapLabel()
-        }
-
-        // Rank the recorded laps (immutable list from engine).
-        val rankedLaps = LapAnalyzer.rank(engine.laps)
-        _laps.value = rankedLaps
+    fun onLap() {
+        val state = engine.lap()
+        publishState(state)
     }
 
-    private fun buildCurrentLapLabel(): String {
-        val lapNum  = engine.currentLapNumber
-        val splitFmt = TimeFormatter.formatSplit(engine.currentLapMs)
-        return "Lap $lapNum  –  $splitFmt"
+    /**
+     * Reset the stopwatch to the zeroed state.  Cancels any active ticker.
+     */
+    fun onReset() {
+        mainHandler.removeCallbacks(tickRunnable)
+        val state = engine.reset()
+        publishState(state)
     }
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // Internal
+    // -----------------------------------------------------------------------
 
+    /**
+     * Push a [StopwatchState] snapshot to all LiveData streams.
+     */
+    private fun publishState(state: StopwatchState) {
+        _elapsedTime.value = TimeFormatter.format(state.elapsedMs)
+        _isRunning.value = state.isRunning
+        _laps.value = LapAnalyzer.analyze(state.laps)
+    }
+
+    // -----------------------------------------------------------------------
+    // Lifecycle
+    // -----------------------------------------------------------------------
+
+    /**
+     * Cancel the ticker when the ViewModel is cleared to prevent memory leaks.
+     */
     override fun onCleared() {
-        stopTicking()
         super.onCleared()
+        mainHandler.removeCallbacks(tickRunnable)
     }
 }
