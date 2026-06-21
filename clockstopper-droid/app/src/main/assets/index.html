@@ -6,93 +6,156 @@
   <title>Global Time Clock</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="dark">
+<body>
 
-  <!-- ── Clocks ─────────────────────────────────────────────────────────── -->
-  <section id="clockSection" aria-label="World Clocks">
-    <div id="clockContainer"></div>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       CLOCK PANEL — three fixed world clocks
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="clockPanel" class="panel">
+    <div class="clock-grid">
+      <div class="clock-card" id="clock-eastern">
+        <div class="clock-label">Eastern</div>
+        <div class="clock-time" id="time-eastern">--:--:--</div>
+        <div class="clock-date" id="date-eastern">---</div>
+      </div>
+      <div class="clock-card" id="clock-central">
+        <div class="clock-label">Central</div>
+        <div class="clock-time" id="time-central">--:--:--</div>
+        <div class="clock-date" id="date-central">---</div>
+      </div>
+      <div class="clock-card" id="clock-western">
+        <div class="clock-label">Western</div>
+        <div class="clock-time" id="time-western">--:--:--</div>
+        <div class="clock-date" id="date-western">---</div>
+      </div>
+    </div>
   </section>
 
-  <!-- ── Controls ───────────────────────────────────────────────────────── -->
-  <div id="controls">
-    <button id="themeToggle"  aria-label="Toggle theme">🌙 Theme</button>
-    <button id="muteToggle"   aria-label="Toggle mute" aria-pressed="false">🔔 Mute</button>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       CONNECTIVITY PANEL
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="connectivityPanel" class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Network</span>
+      <span id="connectivityBadge" class="badge badge--offline">Offline</span>
+    </div>
+
+    <div class="connectivity-row">
+      <span class="conn-label">Status:</span>
+      <span id="connectivityStatus">Checking…</span>
+    </div>
+    <div class="connectivity-row">
+      <span class="conn-label">Type:</span>
+      <span id="connectionType">—</span>
+    </div>
+    <div class="connectivity-row conn-timestamp-row">
+      <span class="conn-label">Last change:</span>
+      <span id="connectivityTimestamp" class="conn-timestamp">—</span>
+    </div>
+
+    <!-- Network selection -->
+    <div class="network-select-row">
+      <label for="networkSelect" class="conn-label">Prefer:</label>
+      <select id="networkSelect" class="network-select">
+        <option value="auto">Auto</option>
+        <option value="wifi">WiFi</option>
+        <option value="mobile">Mobile / Cellular</option>
+      </select>
+    </div>
+
+    <button id="probeBtn" class="btn btn--secondary btn--sm">Re-check</button>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MICROPHONE PERMISSION STATUS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="micPermissionStatus" class="mic-permission-status" aria-live="polite">
+    <!-- Populated by app.js on page load -->
   </div>
 
-  <!-- ── Connectivity Panel ─────────────────────────────────────────────── -->
-  <section id="connectivityPanel" aria-label="Connectivity">
-    <h2>Connectivity</h2>
-
-    <div id="onlineStatus" class="status-online" aria-live="polite">Checking…</div>
-    <div id="networkInfo">Network: —</div>
-
-    <!--
-      #connectivityProbeStatus
-      ─────────────────────────
-      Populated dynamically by updateConnectivityUI() in app.js.
-      Structure injected at runtime:
-        <span class="probe-result-label"> ✅ Probe OK | ⚠️ Probe failed | — Probe pending </span>
-        <span class="probe-timestamp probe-success"> Last verified: H:MM:SS AM/PM </span>
-        <span class="probe-timestamp probe-failure"> Last failed:   H:MM:SS AM/PM </span>  (only when applicable)
-    -->
-    <div id="connectivityProbeStatus" aria-live="polite">— Probe pending</div>
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       CALLER ID NAME
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="callerIdPanel" class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Caller ID Name</span>
+    </div>
+    <div class="caller-id-row">
+      <input
+        type="text"
+        id="callerIdInput"
+        class="caller-id-input"
+        placeholder="Your display name…"
+        maxlength="64"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="callerIdSaveBtn" class="btn btn--primary btn--sm">Save</button>
+    </div>
+    <div id="callerIdSaved" class="caller-id-saved" aria-live="polite"></div>
   </section>
 
-  <!-- ── Mic Permission Pre-Check ───────────────────────────────────────── -->
-  <section id="micSection" aria-label="Microphone Permission">
-    <div id="micPermissionStatus" aria-live="polite">Checking microphone…</div>
-  </section>
-
-  <!-- ── Dialer ─────────────────────────────────────────────────────────── -->
-  <section id="dialerSection" aria-label="Dialer">
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       DIALER PANEL
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section id="dialerPanel" class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Dialer</span>
+      <!-- Network type badge — visible only during an active call -->
+      <span id="networkTypeIndicator" class="network-type-badge" hidden>—</span>
+    </div>
 
     <!-- Number display -->
-    <div id="numberDisplay" aria-label="Number being dialed" aria-live="polite"></div>
-    <div id="dialedNumberReadout" aria-live="polite"></div>
+    <div id="dialDisplay" class="dial-display" aria-label="Number being dialed" aria-live="polite">
+      <span id="dialNumber" class="dial-number">&nbsp;</span>
+    </div>
+    <div id="dialReadout" class="dial-readout" aria-live="polite"></div>
 
-    <!-- Caller ID name -->
-    <div id="callerIdSection">
-      <label for="callerIdNameInput">Caller ID Name:</label>
-      <input id="callerIdNameInput" type="text" placeholder="Your display name" maxlength="64" />
-      <button id="saveCallerIdName">Save</button>
-      <div id="callerIdNameDisplay" aria-live="polite"></div>
+    <!-- Call status / duration timer -->
+    <div id="callStatus" class="call-status" aria-live="polite"></div>
+
+    <!-- ─── Volume indicator — visible only during an active call ─── -->
+    <div id="volumeIndicator" class="volume-indicator" hidden aria-label="Call volume" aria-live="polite">
+      <span class="volume-icon">🔊</span>
+      <div class="volume-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80">
+        <div id="volumeBarFill" class="volume-bar-fill"></div>
+      </div>
+      <span id="volumePercent" class="volume-percent">80%</span>
     </div>
 
     <!-- Keypad -->
-    <div id="keypad" role="group" aria-label="Dial pad">
-      <button data-digit="1"  class="key-btn">1</button>
-      <button data-digit="2"  class="key-btn">2 <span class="key-sub">ABC</span></button>
-      <button data-digit="3"  class="key-btn">3 <span class="key-sub">DEF</span></button>
-
-      <button data-digit="4"  class="key-btn">4 <span class="key-sub">GHI</span></button>
-      <button data-digit="5"  class="key-btn">5 <span class="key-sub">JKL</span></button>
-      <button data-digit="6"  class="key-btn">6 <span class="key-sub">MNO</span></button>
-
-      <button data-digit="7"  class="key-btn">7 <span class="key-sub">PQRS</span></button>
-      <button data-digit="8"  class="key-btn">8 <span class="key-sub">TUV</span></button>
-      <button data-digit="9"  class="key-btn">9 <span class="key-sub">WXYZ</span></button>
-
-      <button data-digit="*"  class="key-btn">&#42;</button>
-      <button data-digit="0"  class="key-btn">0</button>
-      <button data-digit="#"  class="key-btn">&#35;</button>
-
-      <button data-digit="+"  class="key-btn key-plus">+</button>
-      <button id="backspaceBtn" class="key-btn key-backspace" aria-label="Backspace — hold to clear all">⌫</button>
+    <div class="keypad" id="keypad" role="group" aria-label="Dial pad">
+      <button class="key-btn" data-digit="1"  aria-label="1">1</button>
+      <button class="key-btn" data-digit="2"  aria-label="2 ABC">2<sub>ABC</sub></button>
+      <button class="key-btn" data-digit="3"  aria-label="3 DEF">3<sub>DEF</sub></button>
+      <button class="key-btn" data-digit="4"  aria-label="4 GHI">4<sub>GHI</sub></button>
+      <button class="key-btn" data-digit="5"  aria-label="5 JKL">5<sub>JKL</sub></button>
+      <button class="key-btn" data-digit="6"  aria-label="6 MNO">6<sub>MNO</sub></button>
+      <button class="key-btn" data-digit="7"  aria-label="7 PQRS">7<sub>PQRS</sub></button>
+      <button class="key-btn" data-digit="8"  aria-label="8 TUV">8<sub>TUV</sub></button>
+      <button class="key-btn" data-digit="9"  aria-label="9 WXYZ">9<sub>WXYZ</sub></button>
+      <button class="key-btn" data-digit="*"  aria-label="star">*</button>
+      <button class="key-btn" data-digit="0"  aria-label="0 plus">0<sub>+</sub></button>
+      <button class="key-btn" data-digit="#"  aria-label="hash">#</button>
     </div>
 
-    <!-- Call controls -->
-    <div id="callControls">
-      <button id="callBtn"    class="btn-call"    aria-label="Place call">📞 Call</button>
-      <button id="endCallBtn" class="btn-end-call" aria-label="End call" style="display:none;">🔴 End</button>
+    <!-- Action row -->
+    <div class="dialer-actions">
+      <button id="callBtn"    class="btn btn--call"    aria-label="Call">&#9742;</button>
+      <button id="backspaceBtn" class="btn btn--backspace" aria-label="Backspace">⌫</button>
+      <button id="endCallBtn" class="btn btn--end"     aria-label="End call" hidden>&#128994;</button>
+      <button id="muteBtn"    class="btn btn--mute"    aria-label="Mute" aria-pressed="false">🎙</button>
     </div>
-
-    <!-- Call status / duration timer -->
-    <div id="callStatus" aria-live="polite"></div>
-
-    <!-- Network type badge (visible during active call) -->
-    <div id="networkTypeIndicator" class="network-badge" style="display:none;" aria-live="polite"></div>
-
   </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       THEME TOGGLE
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="theme-toggle-row">
+    <button id="themeToggleBtn" class="btn btn--secondary btn--sm" aria-label="Toggle dark theme">
+      🌙 Dark
+    </button>
+  </div>
 
   <script src="js/app.js"></script>
 </body>

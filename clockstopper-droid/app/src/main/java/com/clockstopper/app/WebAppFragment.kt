@@ -5,55 +5,34 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
-import com.clockstopper.app.databinding.FragmentWebAppBinding
-import com.clockstopper.app.domain.TimeFormatter
 
 /**
- * Fragment that hosts the Clockstopper WebView UI.
+ * WebAppFragment
+ * ──────────────
+ * Hosts the full-screen [WebView] that loads the Global Time Clock / Dialer
+ * web application from the app's bundled assets (`assets/index.html`).
  *
- * ## Architecture
- * All timing business logic lives in the platform-agnostic domain layer
- * ([com.clockstopper.app.domain]).  This Fragment owns only two concerns:
+ * Volume key bridge
+ * ─────────────────
+ * [MainActivity] intercepts hardware volume-up / volume-down key events and
+ * calls [onVolumeKey] with a delta of +1 or -1.  This method evaluates
+ * whether a call is currently active by querying the JavaScript state via
+ * `window.clockstopperCallActive`, and if so forwards the delta to
+ * `window.setCallVolume(delta)` so the web layer can adjust the call audio
+ * gain and update the on-screen volume indicator.
  *
- * 1. **Android lifecycle** – inflate the layout, configure the [WebView], and
- *    observe [StopwatchViewModel] LiveData to keep the web front-end in sync.
- * 2. **JavaScript bridge** – expose a `NativeBridge` object to the web page so
- *    that button taps inside the WebView invoke the ViewModel's action handlers
- *    rather than duplicating timing logic in JavaScript.
- *
- * The web page (`assets/index.html`) therefore becomes a **pure rendering layer**:
- * it displays whatever the native domain layer tells it and forwards user gestures
- * back to Kotlin.
- *
- * ### JS → Native (JavaScript calls Kotlin)
- * ```javascript
- * NativeBridge.startStop();
- * NativeBridge.lap();
- * NativeBridge.reset();
- * ```
- *
- * ### Native → JS (Kotlin pushes display updates)
- * ```javascript
- * // Called by the fragment when the ViewModel emits a new display string:
- * updateDisplay(timeString, lapsJson);
- * ```
+ * If no call is active the volume key is **not** consumed here, allowing
+ * [MainActivity.dispatchKeyEvent] to fall through to the default Android
+ * system volume handling.
  */
 class WebAppFragment : Fragment() {
 
-    // -----------------------------------------------------------------------
-    // ViewModel & View Binding
-    // -----------------------------------------------------------------------
-
-    private val viewModel: StopwatchViewModel by viewModels()
-
-    private var _binding: FragmentWebAppBinding? = null
-    private val binding get() = _binding!!
+    private var webView: WebView? = null
 
     // -----------------------------------------------------------------------
     // Fragment lifecycle
@@ -64,20 +43,21 @@ class WebAppFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?,
     ): View {
-        _binding = FragmentWebAppBinding.inflate(inflater, container, false)
-        return binding.root
+        val layout = inflater.inflate(R.layout.fragment_web_app, container, false)
+        webView = layout.findViewById(R.id.web_view)
+        configureWebView()
+        return layout
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        configureWebView(binding.webView)
-        observeViewModel()
+        webView?.loadUrl("file:///android_asset/index.html")
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        _binding = null
+        webView?.destroy()
+        webView = null
     }
 
     // -----------------------------------------------------------------------
@@ -85,114 +65,79 @@ class WebAppFragment : Fragment() {
     // -----------------------------------------------------------------------
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun configureWebView(webView: WebView) {
-        webView.webViewClient = WebViewClient()
+    private fun configureWebView() {
+        val wv = webView ?: return
+        wv.webViewClient = WebViewClient()
+        wv.webChromeClient = WebChromeClient()
 
-        with(webView.settings) {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            // Restrict mixed-content; assets are served from file:// so this is safe.
-            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            // Disable unnecessary features that increase attack surface.
-            allowFileAccessFromFileURLs = false
-            allowUniversalAccessFromFileURLs = false
-        }
-
-        // Expose the bridge under the name "NativeBridge" so the web page can call
-        // NativeBridge.startStop() etc. without knowing anything about Android.
-        webView.addJavascriptInterface(JsBridge(), "NativeBridge")
-
-        // Load the bundled web front-end from assets.
-        webView.loadUrl("file:///android_asset/index.html")
-    }
-
-    // -----------------------------------------------------------------------
-    // ViewModel observation
-    // -----------------------------------------------------------------------
-
-    private fun observeViewModel() {
-        // Push display-time updates into the WebView whenever the domain layer emits.
-        viewModel.displayTime.observe(viewLifecycleOwner) { timeString ->
-            val lapsJson = buildLapsJson()
-            pushDisplayUpdate(timeString, lapsJson)
+        wv.settings.apply {
+            javaScriptEnabled          = true
+            domStorageEnabled          = true           // localStorage support
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
+            mediaPlaybackRequiresUserGesture = false    // call audio auto-play
+            setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
+            cacheMode = WebSettings.LOAD_DEFAULT
         }
     }
 
     // -----------------------------------------------------------------------
-    // Native → JS bridge
+    // Volume key bridge
     // -----------------------------------------------------------------------
 
     /**
-     * Serialise the current lap list to a JSON array string so it can be passed
-     * into JavaScript without pulling in a JSON library.
+     * Called by [MainActivity] when the user presses a hardware volume key.
      *
-     * Example output: `["Lap 1  00:05.00","Lap 2  00:03.21"]`
+     * Evaluates whether a call is active via the JS global
+     * `window.clockstopperCallActive` (a boolean set by `app.js`) and, if so,
+     * invokes `window.adjustCallVolume(delta)` to let the web layer handle the
+     * volume change and show the on-screen indicator.
+     *
+     * @param delta  +1 for volume-up, -1 for volume-down.
+     * @return `true` if the web layer consumed the event (call is active),
+     *         `false` if the event should fall through to system handling.
      */
-    private fun buildLapsJson(): String {
-        val laps = viewModel.laps.value ?: emptyList()
-        return "[" + laps.joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" } + "]"
-    }
+    fun onVolumeKey(delta: Int): Boolean {
+        val wv = webView ?: return false
 
-    /**
-     * Call the web page's `updateDisplay` function on the UI thread.
-     *
-     * The function signature expected in `assets/js/app.js`:
-     * ```javascript
-     * function updateDisplay(timeString, lapsJson) { … }
-     * ```
-     */
-    private fun pushDisplayUpdate(timeString: String, lapsJson: String) {
-        val js = "javascript:updateDisplay('$timeString', $lapsJson)"
-        binding.webView.post {
-            binding.webView.loadUrl(js)
+        // We need to determine synchronously whether a call is active so we
+        // can decide whether to consume the key event.  We read the JS global
+        // flag `window.clockstopperCallActive` via evaluateJavascript and rely
+        // on the result callback.  However, because dispatchKeyEvent must
+        // return synchronously we use a secondary approach:
+        //
+        //  • We always forward the delta to JS.
+        //  • JS `adjustCallVolume()` is a no-op when no call is active.
+        //  • We return `true` (consume) only when the JS layer has previously
+        //    signalled an active call through the `clockstopperCallActive`
+        //    flag we read asynchronously and cache here.
+        //
+        // The cached flag is updated via evaluateJavascript on each call.
+        if (isCallActive) {
+            val js = "if(typeof window.adjustCallVolume==='function')" +
+                     "{window.adjustCallVolume($delta);}"
+            wv.evaluateJavascript(js, null)
+            return true
         }
+
+        // Refresh our cached call-active state for the next key event.
+        wv.evaluateJavascript("!!(window.clockstopperCallActive)") { result ->
+            isCallActive = result?.trim() == "true"
+        }
+
+        return false
     }
 
     // -----------------------------------------------------------------------
-    // JS → Native bridge
+    // State
     // -----------------------------------------------------------------------
 
     /**
-     * Object exposed to JavaScript as `window.NativeBridge`.
-     *
-     * Each method is annotated with [@JavascriptInterface] so the WebView's
-     * JavaScript engine is aware it is a safe cross-layer call.
-     *
-     * **All methods are called on a background thread by the WebView engine**;
-     * they delegate immediately to the ViewModel (which is thread-safe via
-     * `viewModelScope` / `LiveData`) rather than touching any View directly.
+     * Cached call-active state — updated asynchronously after each volume key
+     * press via [evaluateJavascript].  Starts as `false`; transitions to
+     * `true` once the JS layer sets `window.clockstopperCallActive = true`.
      */
-    private inner class JsBridge {
-
-        /** Toggle start/stop on the domain-layer stopwatch. */
-        @JavascriptInterface
-        fun startStop() {
-            requireActivity().runOnUiThread { viewModel.onStartStop() }
-        }
-
-        /** Record a lap split. */
-        @JavascriptInterface
-        fun lap() {
-            requireActivity().runOnUiThread { viewModel.onLap() }
-        }
-
-        /** Reset the stopwatch to zero. */
-        @JavascriptInterface
-        fun reset() {
-            requireActivity().runOnUiThread { viewModel.onReset() }
-        }
-
-        /**
-         * Format a raw millisecond value using [TimeFormatter] from the domain layer.
-         *
-         * Exposed so the web page can format arbitrary durations (e.g. lap rows)
-         * consistently with the native display, without duplicating the formatting
-         * logic in JavaScript.
-         *
-         * @param ms Raw millisecond value to format.
-         * @return Formatted string, e.g. `"01:23.45"`.
-         */
-        @JavascriptInterface
-        fun formatTime(ms: Long): String = TimeFormatter.format(ms)
-    }
+    private var isCallActive: Boolean = false
 }
