@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        Base application theme.
+        Inherits Material3 with a teal brand primary colour.
+        The status bar is transparent so the stopwatch time display can
+        extend edge-to-edge on modern devices.
+    -->
+    <style name="Theme.Clockstopper" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/brand_primary</item>
+        <item name="colorOnPrimary">@color/brand_on_primary</item>
+        <item name="colorPrimaryContainer">@color/brand_primary_container</item>
+        <item name="colorSurface">@color/brand_surface</item>
+        <item name="colorOnSurface">@color/brand_on_surface</item>
+        <!-- Keep the window background consistent across day/night modes. -->
+        <item name="android:windowBackground">@color/brand_surface</item>
+    </style>
+
+</resources>

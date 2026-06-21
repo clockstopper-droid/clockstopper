@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Seed colour for the Material3 dynamic colour / theme generation. -->
+    <!-- Teal-ish brand colour matching the web-app's primary UI hue. -->
+    <color name="brand_primary">#FF006D77</color>
+    <color name="brand_on_primary">#FFFFFFFF</color>
+    <color name="brand_primary_container">#FF9EF3F7</color>
+
+    <color name="brand_surface">#FFF8FDFF</color>
+    <color name="brand_on_surface">#FF1A1C1E</color>
+
+    <!-- Neutral backgrounds -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

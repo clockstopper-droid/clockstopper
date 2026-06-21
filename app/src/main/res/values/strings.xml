@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ── App ──────────────────────────────────────────────────────────── -->
+    <string name="app_name">Clockstopper</string>
+
+    <!-- ── Stopwatch display defaults ───────────────────────────────────── -->
+    <!-- Default value shown in the main elapsed-time TextView on launch. -->
+    <string name="default_time">00:00:00.000</string>
+    <!-- Default value shown in the current-lap label; normally overwritten at runtime. -->
+    <string name="default_lap_label">Lap 1  –  00:00.000</string>
+
+    <!-- ── Lap row template ──────────────────────────────────────────────── -->
+    <!--
+        Used by LapAdapter to format the lap-number column, e.g. "Lap 3".
+        %1$d is replaced with the 1-based lap index.
+    -->
+    <string name="lap_number_template">Lap %1$d</string>
+
+    <!-- ── Button labels ────────────────────────────────────────────────── -->
+    <string name="btn_start">Start</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_lap">Lap</string>
+    <string name="btn_reset">Reset</string>
+
+    <!-- ── Accessibility / content descriptions ─────────────────────────── -->
+    <string name="cd_elapsed_time">Elapsed time</string>
+    <string name="cd_current_lap">Current lap time</string>
+    <string name="cd_lap_list">Lap history</string>
+    <string name="cd_btn_start">Start stopwatch</string>
+    <string name="cd_btn_stop">Stop stopwatch</string>
+    <string name="cd_btn_resume">Resume stopwatch</string>
+    <string name="cd_btn_lap">Record lap</string>
+    <string name="cd_btn_reset">Reset stopwatch</string>
+
+</resources>

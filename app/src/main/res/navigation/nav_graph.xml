@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    nav_graph.xml
+    Jetpack Navigation graph.
+
+    Destinations:
+      stopwatchFragment  –  The main stopwatch screen (start destination).
+-->
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/stopwatchFragment">
+
+    <fragment
+        android:id="@+id/stopwatchFragment"
+        android:name="com.clockstopper.app.StopwatchFragment"
+        android:label="@string/app_name"
+        tools:layout="@layout/fragment_stopwatch" />
+
+</navigation>
