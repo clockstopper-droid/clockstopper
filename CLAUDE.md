@@ -4,7 +4,7 @@
 
 **Global Time Clock** is a lightweight, client-side web application that displays multiple world clocks simultaneously across different IANA time zones. It is a pure frontend application with no backend dependencies, build tools, or frameworks — designed to run directly in a browser by opening `Index.html`.
 
-The app updates all displayed clocks every second and allows users to dynamically add or remove time zones via a simple UI. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts/ticking sounds without removing clocks. A **WiFi/network connectivity status indicator** displays the current online/offline status of the browser.
+The app updates all displayed clocks every second and allows users to dynamically add or remove time zones via a simple UI. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts/ticking sounds without removing clocks. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe.
 
 ---
 
@@ -16,7 +16,8 @@ The app updates all displayed clocks every second and allows users to dynamicall
 | Styling | CSS3 (custom, no framework) |
 | Logic | Vanilla JavaScript (ES6+) |
 | Time Zone Handling | Native `Intl.DateTimeFormat` API (IANA time zones) |
-| Connectivity Detection | Native `navigator.onLine` API + `online`/`offline` window events |
+| Connectivity Detection | Native `navigator.onLine` API + `online`/`offline` window events + fetch-based probe |
+| Network Information | `navigator.connection` / `NetworkInformation` API (where available) |
 | Runtime | Browser only — no Node.js, no build step |
 
 ---
@@ -27,7 +28,7 @@ The app updates all displayed clocks every second and allows users to dynamicall
 clockstopper/
 ├── Index.html          # Entry point — main HTML shell
 ├── Css/
-│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity indicator
+│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel
 ├── js/
 │   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection
 ├── README.md           # Project documentation
@@ -48,21 +49,29 @@ This is a **single-page, no-framework, pure JavaScript application**. There is n
 Index.html
   └── #clocksGrid              → Dynamic container where clock cards are injected
   └── #tzInput                 → Text input for new IANA time zone strings
-  └── #wifiStatus              → Static element for WiFi/connectivity status indicator
+  └── #connectivityPanel       → Enhanced connectivity panel container (replaces simple #wifiStatus)
+  └── #wifiStatus              → Status indicator element within the connectivity panel
+  └── #networkList             → Dynamic list of detected/available networks within the panel
+  └── #connectivityProbeStatus → Displays result of fetch-based internet probe
   └── addTimezone()            → Called inline via button onclick
   └── toggleTheme()            → Called inline via theme toggle button onclick
   └── toggleMute()             → Called inline via mute button onclick
+  └── toggleConnectivityPanel()→ Called inline to expand/collapse the connectivity panel
 
 js/app.js
-  └── State management         → Tracks list of active time zones, mute state, connectivity state
+  └── State management         → Tracks list of active time zones, mute state, connectivity state, network info
   └── Clock rendering          → Generates DOM elements for each clock card
   └── Tick loop                → setInterval (every 1000ms) updates all clocks
   └── addTimezone()            → Validates and adds a new time zone
   └── removeTimezone()         → Removes a clock card by time zone identifier
   └── toggleTheme()            → Toggles dark-theme class on <body>
   └── toggleMute()             → Toggles muted state; updates mute button appearance
-  └── initConnectivity()       → Registers online/offline event listeners, sets initial state
-  └── updateConnectivityUI()   → Updates #wifiStatus element class and text to reflect online/offline
+  └── toggleConnectivityPanel()→ Expands/collapses the connectivity panel
+  └── initConnectivity()       → Registers online/offline event listeners, sets initial state, starts probe
+  └── updateConnectivityUI()   → Updates connectivity panel classes and text to reflect online/offline
+  └── probeConnectivity()      → Fetch-based probe to verify actual internet access beyond navigator.onLine
+  └── updateNetworkInfo()      → Reads navigator.connection and updates network detail display
+  └── scanNetworks()           → Attempts to enumerate available networks (where browser API permits)
 
 Css/Style.css
   └── .container               → Page wrapper, centered layout
@@ -71,9 +80,17 @@ Css/Style.css
   └── .dark-theme              → Dark background with orange accent keypad/controls
   └── .mute-btn                → Mute button base styles
   └── .mute-btn.muted          → Visual state for muted/active mute
+  └── .connectivity-panel      → Enhanced connectivity panel container styles
+  └── .connectivity-panel.expanded → Expanded/visible state of the panel
   └── .wifi-status             → Connectivity indicator base styles
   └── .wifi-status.online      → Visual state for online/connected
   └── .wifi-status.offline     → Visual state for offline/disconnected
+  └── .network-list            → Styles for the list of available/detected networks
+  └── .network-list-item       → Individual network entry styles
+  └── .network-list-item.selected → Visual state for currently selected/active network
+  └── .probe-status            → Styles for the fetch-probe result indicator
+  └── .probe-status.verified   → Visual state when internet access is confirmed via probe
+  └── .probe-status.unverified → Visual state when probe fails despite navigator.onLine = true
   └── Responsive rules         → Mobile-friendly breakpoints
 ```
 
@@ -107,6 +124,25 @@ Window online/offline events + navigator.onLine
     → updateConnectivityUI()
         → Add/remove .online / .offline CSS classes on #wifiStatus element
         → Update indicator text/icon to reflect current connectivity state
+        → Trigger probeConnectivity() to verify actual internet access
+
+probeConnectivity()
+    → fetch() request to a known lightweight endpoint
+        → On success: mark #connectivityProbeStatus as .verified
+        → On failure: mark #connectivityProbeStatus as .unverified
+        → Updates panel display regardless of navigator.onLine value
+
+navigator.connection (NetworkInformation API)
+    → updateNetworkInfo()
+        → Read effectiveType, downlink, rtt, type properties if available
+        → Update network detail display in connectivity panel
+        → Register change event listener if API is available
+
+Connectivity Panel Toggle
+    → toggleConnectivityPanel()
+        → Toggle .expanded class on #connectivityPanel
+        → On expand: trigger updateNetworkInfo() and scanNetworks()
+        → CSS handles show/hide and animation via class-scoped rules
 ```
 
 ---
@@ -115,28 +151,30 @@ Window online/offline events + navigator.onLine
 
 ### `Index.html`
 - The **sole HTML file** and application entry point.
-- Defines the page structure: a heading, the `#clocksGrid` div (dynamically populated), the controls section, a **theme toggle button**, a **mute button**, and a **`#wifiStatus` connectivity indicator element**.
+- Defines the page structure: a heading, the `#clocksGrid` div (dynamically populated), the controls section, a **theme toggle button**, a **mute button**, and an **enhanced `#connectivityPanel`** containing the `#wifiStatus` indicator, `#networkList`, and `#connectivityProbeStatus` elements.
 - Loads `css/style.css` and `js/app.js` via relative paths.
-- Uses inline `onclick="addTimezone()"` on the Add Clock button, `onclick="toggleTheme()"` on the theme toggle button, and `onclick="toggleMute()"` on the mute button — all functions must be globally scoped in `app.js`.
-- The `#wifiStatus` element is a static element updated programmatically — it does not use an `onclick` handler.
+- Uses inline `onclick="addTimezone()"` on the Add Clock button, `onclick="toggleTheme()"` on the theme toggle button, `onclick="toggleMute()"` on the mute button, and `onclick="toggleConnectivityPanel()"` on the connectivity panel trigger — all functions must be globally scoped in `app.js`.
+- The `#wifiStatus`, `#networkList`, and `#connectivityProbeStatus` elements are updated programmatically — they do not use `onclick` handlers.
 - **Case sensitivity note:** The file is named `Index.html` (capital I). On case-sensitive file systems (Linux servers, some CI environments), references must match exactly.
 
 ### `js/app.js`
-- Contains **all application logic** including theme toggling, mute toggling, and connectivity detection.
-- Manages the time zone state array, mute state (`isMuted` boolean), connectivity state, DOM rendering, the update interval, add/remove operations, dark theme toggle, mute toggle, and WiFi status updates.
+- Contains **all application logic** including theme toggling, mute toggling, and the full connectivity/network detection system.
+- Manages the time zone state array, mute state (`isMuted` boolean), connectivity state, network info state, DOM rendering, the update interval, add/remove operations, dark theme toggle, mute toggle, connectivity panel updates, and network scanning.
 - Uses the `Intl.DateTimeFormat` API for locale-aware, time-zone-aware formatting — no external date libraries needed.
 - Uses `navigator.onLine` for the initial connectivity state on page load.
-- Registers `window` event listeners for `'online'` and `'offline'` events to reactively update the connectivity indicator.
-- `toggleTheme()` and `toggleMute()` must remain globally scoped as they are referenced via HTML `onclick` attributes.
-- `initConnectivity()` is called on page load (e.g., `DOMContentLoaded` or at script execution time) to set up listeners and render initial state.
+- Uses `navigator.connection` (NetworkInformation API) where available to surface network type, effective type, downlink speed, and RTT.
+- Implements `probeConnectivity()` using `fetch()` to a known lightweight endpoint to verify actual internet access, supplementing the unreliable `navigator.onLine` value.
+- Registers `window` event listeners for `'online'` and `'offline'` events to reactively update the connectivity panel.
+- `toggleTheme()`, `toggleMute()`, and `toggleConnectivityPanel()` must remain globally scoped as they are referenced via HTML `onclick` attributes.
+- `initConnectivity()` is called on page load (e.g., `DOMContentLoaded` or at script execution time) to set up listeners, render initial state, and run the initial probe.
 
 ### `Css/Style.css`
-- Handles all visual presentation including the **dark theme**, **mute button states**, and **connectivity indicator states**.
+- Handles all visual presentation including the **dark theme**, **mute button states**, and **enhanced connectivity panel**.
 - Implements a **CSS Grid** layout for the clock cards (`#clocksGrid`).
 - Dark theme is implemented via a `.dark-theme` class on `<body>`, using **orange as the primary accent color** for buttons (keypad/controls area).
 - Mute button uses a `.muted` class (toggled on the button element) to visually indicate the muted state.
-- Connectivity indicator (`#wifiStatus`) uses `.online` and `.offline` classes for visual differentiation (e.g., green for online, red for offline).
-- Dark theme styles for the connectivity indicator are scoped under `.dark-theme` for consistency with the theming system.
+- Connectivity panel uses `.expanded` class for show/hide toggling and animation; `.online`/`.offline` on `#wifiStatus`; `.verified`/`.unverified` on `#connectivityProbeStatus`; `.selected` on active network list items.
+- Dark theme styles for the connectivity panel are scoped under `.dark-theme` for consistency with the theming system.
 - Includes responsive/mobile-friendly rules.
 - **Case sensitivity note:** The folder is `Css/` and file is `Style.css` (both capitalized). References in HTML must match.
 
@@ -151,7 +189,7 @@ Window online/offline events + navigator.onLine
 - **Orange accent** is applied to the controls/keypad area (buttons, input borders, interactive elements) when dark theme is active.
 - The toggle is handled by `toggleTheme()` in `app.js`, called via an `onclick` button in `Index.html`.
 - Theme state is **not persisted** across page refreshes (no localStorage for theme preference currently).
-- The connectivity indicator's dark-theme appearance is also scoped under `.dark-theme` for visual consistency.
+- The connectivity panel's dark-theme appearance is also scoped under `.dark-theme` for visual consistency.
 
 ### Theme Color Palette (Dark Mode)
 | Element | Style |
@@ -162,6 +200,8 @@ Window online/offline events + navigator.onLine
 | Clock cards | Darker card background |
 | Connectivity indicator (online) | Green (dark-theme scoped) |
 | Connectivity indicator (offline) | Red (dark-theme scoped) |
+| Probe verified | Green (dark-theme scoped) |
+| Probe unverified | Amber/yellow (dark-theme scoped) |
 
 ---
 
@@ -180,97 +220,40 @@ Window online/offline events + navigator.onLine
 
 ## Connectivity Detection System
 
-### WiFi Status Indicator
+### Enhanced Connectivity Panel
 
-- A **`#wifiStatus` element** is present in `Index.html` and serves as a persistent visual indicator of the browser's network connectivity.
+- A **`#connectivityPanel`** container is present in `Index.html`, replacing the former simple `#wifiStatus` element as a standalone indicator.
+- The panel is **collapsible/expandable** via `toggleConnectivityPanel()`, which toggles an `.expanded` CSS class on the panel container.
+- The panel contains three sub-components:
+  1. **`#wifiStatus`** — Basic online/offline indicator driven by `navigator.onLine` and `window` `online`/`offline` events.
+  2. **`#connectivityProbeStatus`** — Fetch-based probe result indicating whether actual internet access is confirmed (`.verified`) or unconfirmed (`.unverified`), addressing the known limitation that `navigator.onLine` can return `true` without real WAN access.
+  3. **`#networkList`** — Dynamic list of available/detected networks populated by `scanNetworks()`; entries use `.selected` class to mark the active network.
 - Initial state is determined by `navigator.onLine` at page load time via `initConnectivity()` in `app.js`.
-- Reactively updates by listening to the `'online'` and `'offline'` events on the `window` object — no polling required.
-- `updateConnectivityUI()` in `app.js` applies `.online` or `.offline` CSS classes to the `#wifiStatus` element and updates its display text/icon accordingly.
-- CSS in `Style.css` handles all visual differentiation (e.g., color, icon) via the `.online` and `.offline` classes — no inline styles.
+- `probeConnectivity()` uses `fetch()` to a known lightweight endpoint and updates `#connectivityProbeStatus` independently of `navigator.onLine`.
+- `updateNetworkInfo()` reads from `navigator.connection` (NetworkInformation API) where available — gracefully degrades on unsupported browsers.
+- `scanNetworks()` attempts to enumerate available networks using browser APIs where permitted; degrades gracefully where not available.
+- All state changes are reflected via CSS class toggling — no inline styles.
 - Follows the same **CSS class toggle / state-driven UI pattern** used by the theme and mute systems.
-- Connectivity state is inherently live — no persistence needed or used.
-- No external libraries or APIs are used; relies entirely on the native browser `navigator.onLine` property and `window` events.
+- No external libraries or APIs are used; relies entirely on native browser capabilities (`navigator.onLine`, `navigator.connection`, `fetch()`, `window` events).
+
+### Connectivity API Availability Notes
+
+| API | Availability | Fallback Behavior |
+|---|---|---|
+| `navigator.onLine` | All modern browsers | Primary signal; known to be unreliable for WAN detection |
+| `window` `online`/`offline` events | All modern browsers | Primary reactive update mechanism |
+| `fetch()` probe | All modern browsers | Used to verify actual internet access |
+| `navigator.connection` (NetworkInformation) | Chrome/Android; not Safari/Firefox | Gracefully omitted if unavailable |
+| Network enumeration/selection | Very limited browser support | Panel degrades to status-only display |
 
 ---
 
 ## Coding Conventions
 
 - **No modules or imports** — all JavaScript is in a single global script file.
-- **Global functions** — `addTimezone()`, `removeTimezone()`, `toggleTheme()`, and `toggleMute()` must remain globally accessible because they are referenced in HTML `onclick` attributes.
+- **Global functions** — `addTimezone()`, `removeTimezone()`, `toggleTheme()`, `toggleMute()`, and `toggleConnectivityPanel()` must remain globally accessible because they are referenced in HTML `onclick` attributes.
 - **IANA time zone strings** — time zones are identified by standard IANA keys (e.g., `America/New_York`, `Asia/Tokyo`, `UTC`).
-- **Native browser APIs only** — `Intl.DateTimeFormat`, `navigator.onLine`, `window` events, `setInterval`, `document.getElementById`, `document.createElement` — no polyfills or libraries.
-- **State via boolean flags** — simple feature toggles (mute, theme) use boolean variables in `app.js` combined with CSS class toggling on relevant elements.
-- **Theme/state toggling via CSS class** — use `classList.toggle()` or `classList.add/remove()` pattern; avoid inline styles for stateful UI changes. This pattern applies to theme, mute, and connectivity indicator states.
-- **Event-driven reactive UI** — connectivity status uses native DOM events (`online`/`offline`) rather than polling, consistent with the app's preference for lightweight, native browser capabilities.
-- **File naming uses capitalized names** — `Index.html`, `Css/`, `Style.css` — be consistent when adding new files or referencing existing ones.
-- **No linting or formatting configuration** present — follow the existing style observed in `app.js`.
-
----
-
-## Supported Time Zones (Examples)
-
-As documented in `README.md` and shown in the UI:
-
-- `UTC`
-- `America/New_York`
-- `America/Los_Angeles`
-- `Europe/London`
-- `Europe/Paris`
-- `Asia/Tokyo`
-- `Asia/Shanghai`
-- `Australia/Sydney`
-
-Any valid **IANA time zone identifier** supported by the user's browser should work.
-
----
-
-## Development Workflow
-
-### Running Locally
-1. Clone the repository.
-2. Open `Index.html` directly in any modern web browser.
-3. No install step, no build step, no server required.
-
-### Making Changes
-- **HTML structure:** Edit `Index.html`.
-- **Styling:** Edit `Css/Style.css`.
-- **Logic/functionality:** Edit `js/app.js`.
-- Refresh the browser to see changes — no hot reload or build process.
-
-### Browser Compatibility
-- Requires a browser with `Intl.DateTimeFormat` and `timeZone` option support.
-- `navigator.onLine` and `window` `online`/`offline` events are supported in all modern browsers.
-- All modern browsers (Chrome, Firefox, Safari, Edge) are supported.
-- Internet Explorer is **not** supported.
-
----
-
-## Known Quirks & Gotchas
-
-| Issue | Detail |
-|---|---|
-| Case-sensitive filenames | `Index.html`, `Css/Style.css` use capital letters — match exactly on Linux systems |
-| Android `.gitignore` | The gitignore is Android/Gradle-oriented; irrelevant to this web project but harmless |
-| Global function scope | `addTimezone()`, `removeTimezone()`, `toggleTheme()`, and `toggleMute()` must not be wrapped in a module or block scope |
-| No persistence | Added time zones are lost on page refresh — no localStorage or backend storage |
-| No theme persistence | Dark/light theme preference is not saved across sessions — resets to default on refresh |
-| No mute persistence | Mute state is not saved across sessions — resets to unmuted on refresh |
-| No input sanitization UI feedback | Invalid IANA strings should be validated; check `app.js` for current error handling behavior |
-| Single JS file | All logic lives in `app.js` — keep this in mind to avoid scope conflicts when extending |
-| `navigator.onLine` limitations | `navigator.onLine` can return `true` even when the device has no actual internet access (e.g., connected to a local network with no WAN). It only reliably detects fully offline states. |
-
----
-
-## Extension Points
-
-When adding features, consider these integration points:
-
-- **LocalStorage persistence** — Save/restore the active time zone list across sessions.
-- **Theme preference persistence** — Save dark/light mode preference to `localStorage` and restore on load.
-- **Mute preference persistence** — Save mute state to `localStorage` and restore on load; follows same pattern as theme persistence.
-- **12/24-hour toggle** — Add a UI option passed into `Intl.DateTimeFormat` options.
-- **Clock card customization** — Add labels/nicknames per clock stored alongside the IANA key.
-- **Drag-to-reorder** — Reorder clock cards using HTML5 Drag and Drop API.
-- **Audio alerts/ticking** — Any future audio features should gate playback on the `isMuted` flag already in place.
-- **Additional theme variants** — The `.dark-theme` class pattern can be extended with other theme classes (e.g., `.high-contrast-theme`) following the same CSS scoping approach.
-- **Enhanced connectivity detection** — A fetch-based probe to a known endpoint could supplement `navigator.onLine` to detect cases where the device is connected to a network but has no actual internet access.
+- **Native browser APIs only** — `Intl.DateTimeFormat`, `navigator.onLine`, `navigator.connection`, `fetch()`, `window` events, `setInterval`, `document.getElementById`, `document.createElement` — no polyfills or libraries.
+- **State via boolean flags** — simple feature toggles (mute, theme, panel expanded) use boolean variables in `app.js` combined with CSS class toggling on relevant elements.
+- **Theme/state toggling via CSS class** — use `classList.toggle()` or `classList.add/remove()` pattern; avoid inline styles for stateful UI changes. This pattern applies to theme, mute, connectivity indicator states, panel expansion, probe status, and network selection states.
+- **Graceful degradation** — features relying
