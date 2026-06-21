@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#212121" />
+    <title>ClockStopper</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+    <header class="app-header">
+        <h1>ClockStopper</h1>
+    </header>
+
+    <main class="app-main">
+        <!-- Stopwatch display -->
+        <div class="display" id="display">00:00:00.000</div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="btnStartStop" class="btn btn--primary">Start</button>
+            <button id="btnLap"       class="btn btn--secondary" disabled>Lap</button>
+            <button id="btnReset"     class="btn btn--danger"    disabled>Reset</button>
+        </div>
+
+        <!-- Lap list -->
+        <section class="laps" id="lapsSection" hidden>
+            <h2 class="laps__title">Laps</h2>
+            <ol class="laps__list" id="lapList" reversed></ol>
+        </section>
+    </main>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
