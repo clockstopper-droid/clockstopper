@@ -1,0 +1,774 @@
+/* =============================================================
+   Global Time Clock — Style.css
+   Global styles, responsive layout, dark theme,
+   connectivity panel, mobile network panel, call / dialer UI.
+   ============================================================= */
+
+/* ─────────────────────────────────────────────
+   RESET & BASE
+   ───────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:            #f4f6f8;
+  --surface:       #ffffff;
+  --surface-alt:   #f0f2f5;
+  --border:        #d1d5db;
+  --text-primary:  #1a1a2e;
+  --text-secondary:#555e6e;
+  --accent:        #e07b00;
+  --accent-hover:  #c86e00;
+  --accent-light:  #fff3e0;
+  --green:         #2e7d32;
+  --green-light:   #e8f5e9;
+  --red:           #c62828;
+  --red-light:     #ffebee;
+  --blue:          #1565c0;
+  --blue-light:    #e3f2fd;
+  --radius:        10px;
+  --shadow:        0 2px 12px rgba(0,0,0,.10);
+  --shadow-lg:     0 6px 28px rgba(0,0,0,.15);
+  --transition:    0.22s ease;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background var(--transition), color var(--transition);
+}
+
+/* ─────────────────────────────────────────────
+   DARK THEME
+   ───────────────────────────────────────────── */
+body.dark-theme {
+  --bg:            #0d1117;
+  --surface:       #161b22;
+  --surface-alt:   #1c2128;
+  --border:        #30363d;
+  --text-primary:  #e6edf3;
+  --text-secondary:#8b949e;
+  --accent:        #ff8c00;
+  --accent-hover:  #ffa020;
+  --accent-light:  #2a1800;
+  --green:         #3fb950;
+  --green-light:   #0d2a12;
+  --red:           #f85149;
+  --red-light:     #2d0c0c;
+  --blue:          #58a6ff;
+  --blue-light:    #0c1f3a;
+}
+
+/* ─────────────────────────────────────────────
+   LAYOUT
+   ───────────────────────────────────────────── */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.app-title {
+  font-size: 1.9rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 18px;
+  color: var(--text-primary);
+  letter-spacing: .5px;
+}
+
+/* ─────────────────────────────────────────────
+   CONTROLS
+   ───────────────────────────────────────────── */
+.controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.controls button {
+  padding: 9px 20px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: .92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition), box-shadow var(--transition);
+}
+
+.controls button:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(224,123,0,.18);
+}
+
+/* Muted state */
+.controls #muteBtn.muted {
+  background: var(--red-light);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ─────────────────────────────────────────────
+   CLOCK GRID
+   ───────────────────────────────────────────── */
+.clocks-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 660px) {
+  .clocks-grid { grid-template-columns: 1fr; }
+}
+
+.clock-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px 16px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.clock-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 18px rgba(224,123,0,.18);
+}
+
+.clock-label {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.clock-time {
+  font-size: 1.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+  line-height: 1.1;
+}
+
+.clock-date {
+  font-size: .82rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+/* ─────────────────────────────────────────────
+   CONNECTIVITY PANEL
+   ───────────────────────────────────────────── */
+.connectivity-panel {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+/* ── Panel toggle button ── */
+.panel-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: .95rem;
+  font-weight: 600;
+  text-align: left;
+  transition: background var(--transition);
+}
+
+.panel-toggle-btn:hover {
+  background: var(--surface-alt);
+}
+
+.panel-toggle-icon { font-size: 1.1rem; }
+
+.panel-toggle-label { flex: 1; }
+
+.panel-chevron {
+  font-size: .8rem;
+  color: var(--text-secondary);
+  transition: transform var(--transition);
+}
+
+/* ── Collapsible body ── */
+.panel-body {
+  display: none;
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.connectivity-panel.expanded .panel-body {
+  display: block;
+}
+
+/* ── WiFi / Online status ── */
+.wifi-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 6px;
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+
+.wifi-status.online  .status-dot { background: var(--green); }
+.wifi-status.offline .status-dot { background: var(--red);   }
+.wifi-status.online              { color: var(--green);       }
+.wifi-status.offline             { color: var(--red);         }
+
+/* ── Probe status ── */
+.probe-status {
+  font-size: .82rem;
+  padding: 4px 0 8px;
+  color: var(--text-secondary);
+}
+.probe-status.verified   { color: var(--green); }
+.probe-status.unverified { color: var(--red);   }
+
+/* ── Network info (connection API) ── */
+.network-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 6px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.net-detail {
+  font-size: .82rem;
+  color: var(--text-secondary);
+}
+
+.net-detail strong {
+  color: var(--text-primary);
+}
+
+/* ─────────────────────────────────────────────
+   MOBILE NETWORK PANEL (inside connectivity panel)
+   ───────────────────────────────────────────── */
+.mobile-network-panel {
+  background: var(--surface-alt);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 14px 0 10px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.mobile-network-panel.cellular-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(224,123,0,.18);
+}
+
+.mobile-network-panel.wifi-active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(21,101,192,.12);
+}
+
+.mobile-network-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mobile-net-icon {
+  font-size: 1.2rem;
+}
+
+.mobile-network-header strong {
+  font-size: .92rem;
+  flex: 1;
+}
+
+.mobile-net-badge {
+  font-size: .75rem;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+
+/* ── Network mode radio options ── */
+.mobile-net-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.net-option-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: .88rem;
+  cursor: pointer;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.net-option-label:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.net-option-label input[type="radio"] {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.net-option-label input[type="radio"]:checked + .net-option-icon,
+.net-option-label input[type="radio"]:checked + .net-option-icon + span {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.net-option-icon {
+  font-size: 1.05rem;
+}
+
+/* ── Mobile net details (type / downlink / rtt) ── */
+.mobile-net-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 10px;
+}
+
+/* ── Refresh button ── */
+.net-refresh-btn {
+  padding: 7px 16px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-primary);
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.net-refresh-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Detected networks list ── */
+.network-list-section {
+  margin-top: 10px;
+}
+
+.network-list-title {
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.network-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.network-list-item {
+  font-size: .84rem;
+  padding: 7px 12px;
+  border-radius: 7px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.network-list-item.selected {
+  background: var(--green-light);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 600;
+}
+
+.network-list-item.placeholder {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* ─────────────────────────────────────────────
+   CALL / DIALER PANEL
+   ───────────────────────────────────────────── */
+.call-panel {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 18px 24px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.call-panel.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(224,123,0,.15), var(--shadow-lg);
+}
+
+/* ── Panel header ── */
+.call-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.call-panel-icon {
+  font-size: 1.4rem;
+}
+
+.call-panel-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+/* Call network badge (shown in header) */
+.call-network-badge {
+  font-size: .75rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.call-network-badge.mobile   { background: var(--accent-light); color: var(--accent); }
+.call-network-badge.wifi     { background: var(--blue-light);   color: var(--blue);   }
+.call-network-badge.auto     { background: var(--surface-alt);  color: var(--text-secondary); }
+.call-network-badge.offline  { background: var(--red-light);    color: var(--red);    }
+
+/* ── Primary number display box ── */
+.dialer-display {
+  background: var(--surface-alt);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  text-align: center;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.dialer-display:focus-within,
+.dialer-display.has-number {
+  border-color: var(--accent);
+}
+
+/* Flash animation for key-press feedback */
+@keyframes displayFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(224,123,0,0); }
+  30%  { box-shadow: 0 0 0 5px rgba(224,123,0,.35); }
+  100% { box-shadow: 0 0 0 0 rgba(224,123,0,0); }
+}
+
+.dialer-display.flash {
+  animation: displayFlash .28s ease forwards;
+}
+
+.dialer-number {
+  font-size: 1.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1.5px;
+  color: var(--text-primary);
+  word-break: break-all;
+  transition: color var(--transition);
+}
+
+.dialer-number.placeholder {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 1.4rem;
+}
+
+/* ── Live readout beneath display ── */
+.dialed-number-readout {
+  font-size: .8rem;
+  text-align: center;
+  color: var(--text-secondary);
+  min-height: 18px;
+  margin-bottom: 14px;
+  transition: opacity var(--transition);
+  opacity: 0;
+}
+
+.dialed-number-readout.active { opacity: 1; }
+
+/* ── Keypad grid ── */
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.keypad.locked .pad-key {
+  opacity: .45;
+  pointer-events: none;
+}
+
+.keypad-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition), border-color var(--transition),
+              transform 0.08s ease, box-shadow var(--transition);
+}
+
+.keypad-btn sub {
+  font-size: .5rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.keypad-btn:hover:not(:disabled) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.keypad-btn:active:not(:disabled) {
+  transform: scale(.93);
+  box-shadow: 0 1px 6px rgba(224,123,0,.22);
+}
+
+/* Orange accent in dark theme */
+body.dark-theme .keypad-btn {
+  background: #1c2128;
+  border-color: #ff8c0033;
+}
+
+body.dark-theme .keypad-btn:hover:not(:disabled) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Dialer action bar ── */
+.dialer-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+.dialer-action-btn {
+  flex: 1;
+  padding: 11px 8px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  font-size: .9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition), box-shadow var(--transition);
+}
+
+.dialer-action-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+/* Call button */
+.call-btn {
+  background: var(--green-light);
+  border-color: var(--green);
+  color: var(--green);
+}
+.call-btn:hover:not(:disabled) {
+  background: var(--green);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(46,125,50,.28);
+}
+
+/* End button */
+.end-btn {
+  background: var(--red-light);
+  border-color: var(--red);
+  color: var(--red);
+}
+.end-btn:hover:not(:disabled) {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(198,40,40,.28);
+}
+
+/* Backspace & clear */
+.backspace-btn:hover:not(:disabled),
+.clear-btn:hover:not(:disabled) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Call status ── */
+.call-status {
+  font-size: .85rem;
+  padding: 8px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition);
+}
+
+.call-status.calling {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.call-status.connected {
+  background: var(--green-light);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 600;
+}
+
+.call-status.ended {
+  background: var(--red-light);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ── Mic permission status ── */
+.mic-permission-status {
+  font-size: .82rem;
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition);
+}
+
+.mic-permission-status.granted {
+  background: var(--green-light);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 600;
+}
+
+.mic-permission-status.denied {
+  background: var(--red-light);
+  border-color: var(--red);
+  color: var(--red);
+  font-weight: 600;
+}
+
+.mic-permission-status.pending {
+  background: var(--blue-light);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE
+   ───────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .app-title { font-size: 1.45rem; }
+
+  .dialer-number { font-size: 1.3rem; }
+
+  .keypad-btn {
+    padding: 12px 6px;
+    font-size: 1.1rem;
+  }
+
+  .dialer-actions { flex-wrap: wrap; }
+
+  .dialer-action-btn { flex: 1 1 40%; }
+
+  .mobile-net-options { gap: 6px; }
+
+  .net-option-label { padding: 6px 8px; font-size: .82rem; }
+}
+
+@media (max-width: 380px) {
+  .container { padding: 14px 10px 36px; }
+
+  .keypad { gap: 7px; }
+
+  .call-panel { padding: 14px 12px 18px; }
+}

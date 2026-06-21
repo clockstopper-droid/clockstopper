@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Time Clock</title>
+  <link rel="stylesheet" href="Css/Style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════
+       HEADER
+  ═══════════════════════════════════════ -->
+  <div class="container">
+    <h1 class="app-title">&#127758; Global Time Clock</h1>
+
+    <!-- Controls row -->
+    <div class="controls">
+      <button id="themeBtn"  onclick="toggleTheme()">&#127763; Dark Mode</button>
+      <button id="muteBtn"   onclick="toggleMute()">&#128266; Mute</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════
+         CLOCK GRID  (populated by app.js)
+    ═══════════════════════════════════════ -->
+    <div id="clocksGrid" class="clocks-grid"></div>
+
+    <!-- ═══════════════════════════════════════
+         CONNECTIVITY PANEL
+    ═══════════════════════════════════════ -->
+    <section id="connectivityPanel" class="connectivity-panel">
+
+      <!-- Panel header / toggle trigger -->
+      <button class="panel-toggle-btn" onclick="toggleConnectivityPanel()">
+        <span class="panel-toggle-icon">&#128246;</span>
+        <span class="panel-toggle-label">Network &amp; Connectivity</span>
+        <span class="panel-chevron" id="connectivityChevron">&#9660;</span>
+      </button>
+
+      <div class="panel-body">
+
+        <!-- ── Online / Offline status ── -->
+        <div id="wifiStatus" class="wifi-status">
+          <span class="status-dot"></span>
+          <span id="wifiStatusText">Checking…</span>
+        </div>
+
+        <!-- ── Internet probe result ── -->
+        <div id="connectivityProbeStatus" class="probe-status">
+          <span id="probeStatusText">Probe: —</span>
+        </div>
+
+        <!-- ── Network Information API details ── -->
+        <div id="networkInfo" class="network-info">
+          <span class="net-detail">Loading network info…</span>
+        </div>
+
+        <!-- ── Mobile Network selector ── -->
+        <div id="mobileNetworkPanel" class="mobile-network-panel">
+          <div class="mobile-network-header">
+            <span class="mobile-net-icon">&#128241;</span>
+            <strong>Mobile Network</strong>
+            <span id="mobileNetBadge" class="mobile-net-badge">Detecting…</span>
+          </div>
+
+          <div class="mobile-net-options">
+            <!-- Auto (use whatever is available) -->
+            <label class="net-option-label">
+              <input type="radio" name="netMode" value="auto" checked
+                     onchange="setNetworkMode('auto')" />
+              <span class="net-option-icon">&#127758;</span>
+              <span>Auto (WiFi / Mobile)</span>
+            </label>
+
+            <!-- Prefer Mobile Data -->
+            <label class="net-option-label">
+              <input type="radio" name="netMode" value="mobile"
+                     onchange="setNetworkMode('mobile')" />
+              <span class="net-option-icon">&#128241;</span>
+              <span>Prefer Mobile Data</span>
+            </label>
+
+            <!-- Prefer WiFi -->
+            <label class="net-option-label">
+              <input type="radio" name="netMode" value="wifi"
+                     onchange="setNetworkMode('wifi')" />
+              <span class="net-option-icon">&#128246;</span>
+              <span>Prefer WiFi</span>
+            </label>
+          </div>
+
+          <!-- Live mobile signal / type readout -->
+          <div id="mobileNetDetails" class="mobile-net-details">
+            <span id="mobileNetTypeText" class="net-detail">Type: —</span>
+            <span id="mobileNetEffText"  class="net-detail">Effective: —</span>
+            <span id="mobileNetDlText"   class="net-detail">Downlink: —</span>
+            <span id="mobileNetRttText"  class="net-detail">RTT: —</span>
+          </div>
+
+          <!-- Refresh button -->
+          <button class="net-refresh-btn" onclick="refreshMobileNetwork()">
+            &#8635; Refresh Network Info
+          </button>
+        </div>
+
+        <!-- ── Available-network list ── -->
+        <div class="network-list-section">
+          <div class="network-list-title">Detected Networks</div>
+          <ul id="networkList" class="network-list"></ul>
+        </div>
+
+      </div><!-- /.panel-body -->
+    </section>
+
+    <!-- ═══════════════════════════════════════
+         CALL / DIALER PANEL
+    ═══════════════════════════════════════ -->
+    <section id="callPanel" class="call-panel">
+
+      <div class="call-panel-header">
+        <span class="call-panel-icon">&#128222;</span>
+        <span class="call-panel-title">Phone</span>
+        <!-- Active-call network badge -->
+        <span id="callNetworkBadge" class="call-network-badge"></span>
+      </div>
+
+      <!-- Primary number display box -->
+      <div id="dialerDisplay" class="dialer-display">
+        <span id="dialerNumber" class="dialer-number placeholder">&#8213;</span>
+      </div>
+
+      <!-- Live readout beneath the display -->
+      <div id="dialedNumberReadout" class="dialed-number-readout">
+        <span id="readoutText"></span>
+      </div>
+
+      <!-- Dial pad -->
+      <div id="dialPad" class="keypad">
+        <button class="pad-key keypad-btn" onclick="dialPadPress('1')">1</button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('2')">2<sub>ABC</sub></button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('3')">3<sub>DEF</sub></button>
+
+        <button class="pad-key keypad-btn" onclick="dialPadPress('4')">4<sub>GHI</sub></button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('5')">5<sub>JKL</sub></button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('6')">6<sub>MNO</sub></button>
+
+        <button class="pad-key keypad-btn" onclick="dialPadPress('7')">7<sub>PQRS</sub></button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('8')">8<sub>TUV</sub></button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('9')">9<sub>WXYZ</sub></button>
+
+        <button class="pad-key keypad-btn" onclick="dialPadPress('*')">*</button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('0')">0<sub>+</sub></button>
+        <button class="pad-key keypad-btn" onclick="dialPadPress('#')">#</button>
+      </div>
+
+      <!-- Dialer actions -->
+      <div class="dialer-actions">
+        <button class="dialer-action-btn backspace-btn" onclick="dialPadBackspace()"
+                title="Backspace">&#9003;</button>
+
+        <button id="callStartBtn" class="dialer-action-btn call-btn"
+                onclick="initiateCall()">
+          &#128222; Call
+        </button>
+
+        <button id="callEndBtn" class="dialer-action-btn end-btn"
+                onclick="endCall()" disabled>
+          &#128263; End
+        </button>
+
+        <button class="dialer-action-btn clear-btn" onclick="dialPadClear()"
+                title="Clear">&#10005;</button>
+      </div>
+
+      <!-- Status rows -->
+      <div id="callStatus" class="call-status">
+        <span id="callStatusText">Ready to dial</span>
+      </div>
+
+      <div id="micPermissionStatus" class="mic-permission-status">
+        <span id="micStatusText">Mic: —</span>
+      </div>
+
+    </section><!-- /#callPanel -->
+
+  </div><!-- /.container -->
+
+  <script src="js/app.js"></script>
+</body>
+</html>
