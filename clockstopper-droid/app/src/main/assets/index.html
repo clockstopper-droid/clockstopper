@@ -2,160 +2,106 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Global Time Clock</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<body class="dark">
 
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       CLOCK PANEL — three fixed world clocks
-       ═══════════════════════════════════════════════════════════════════════ -->
-  <section id="clockPanel" class="panel">
-    <div class="clock-grid">
-      <div class="clock-card" id="clock-eastern">
-        <div class="clock-label">Eastern</div>
-        <div class="clock-time" id="time-eastern">--:--:--</div>
-        <div class="clock-date" id="date-eastern">---</div>
-      </div>
-      <div class="clock-card" id="clock-central">
-        <div class="clock-label">Central</div>
-        <div class="clock-time" id="time-central">--:--:--</div>
-        <div class="clock-date" id="date-central">---</div>
-      </div>
-      <div class="clock-card" id="clock-western">
-        <div class="clock-label">Western</div>
-        <div class="clock-time" id="time-western">--:--:--</div>
-        <div class="clock-date" id="date-western">---</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       CONNECTIVITY PANEL
-       ═══════════════════════════════════════════════════════════════════════ -->
-  <section id="connectivityPanel" class="panel">
-    <div class="panel-header">
-      <span class="panel-title">Network</span>
-      <span id="connectivityBadge" class="badge badge--offline">Offline</span>
-    </div>
-
-    <div class="connectivity-row">
-      <span class="conn-label">Status:</span>
-      <span id="connectivityStatus">Checking…</span>
-    </div>
-    <div class="connectivity-row">
-      <span class="conn-label">Type:</span>
-      <span id="connectionType">—</span>
-    </div>
-    <div class="connectivity-row conn-timestamp-row">
-      <span class="conn-label">Last change:</span>
-      <span id="connectivityTimestamp" class="conn-timestamp">—</span>
-    </div>
-
-    <!-- Network selection -->
-    <div class="network-select-row">
-      <label for="networkSelect" class="conn-label">Prefer:</label>
-      <select id="networkSelect" class="network-select">
-        <option value="auto">Auto</option>
-        <option value="wifi">WiFi</option>
-        <option value="mobile">Mobile / Cellular</option>
-      </select>
-    </div>
-
-    <button id="probeBtn" class="btn btn--secondary btn--sm">Re-check</button>
-  </section>
-
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       MICROPHONE PERMISSION STATUS
-       ═══════════════════════════════════════════════════════════════════════ -->
-  <div id="micPermissionStatus" class="mic-permission-status" aria-live="polite">
-    <!-- Populated by app.js on page load -->
+  <!-- ── Controls ─────────────────────────────────────────── -->
+  <div id="controls">
+    <button id="themeToggle">☀ Light Mode</button>
+    <button id="muteBtn" data-muted="false">🔔 Mute</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       CALLER ID NAME
-       ═══════════════════════════════════════════════════════════════════════ -->
-  <section id="callerIdPanel" class="panel">
-    <div class="panel-header">
-      <span class="panel-title">Caller ID Name</span>
+  <!-- ── World Clocks ──────────────────────────────────────── -->
+  <section id="clocksPanel">
+    <div class="clock-card">
+      <span class="clock-label">Eastern</span>
+      <span class="clock-time" id="clockEastern">--:--:-- --</span>
     </div>
-    <div class="caller-id-row">
-      <input
-        type="text"
-        id="callerIdInput"
-        class="caller-id-input"
-        placeholder="Your display name…"
-        maxlength="64"
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <button id="callerIdSaveBtn" class="btn btn--primary btn--sm">Save</button>
+    <div class="clock-card">
+      <span class="clock-label">Central</span>
+      <span class="clock-time" id="clockCentral">--:--:-- --</span>
     </div>
-    <div id="callerIdSaved" class="caller-id-saved" aria-live="polite"></div>
+    <div class="clock-card">
+      <span class="clock-label">Pacific</span>
+      <span class="clock-time" id="clockWestern">--:--:-- --</span>
+    </div>
   </section>
 
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       DIALER PANEL
-       ═══════════════════════════════════════════════════════════════════════ -->
-  <section id="dialerPanel" class="panel">
-    <div class="panel-header">
-      <span class="panel-title">Dialer</span>
-      <!-- Network type badge — visible only during an active call -->
-      <span id="networkTypeIndicator" class="network-type-badge" hidden>—</span>
-    </div>
+  <!-- ── Connectivity Panel ────────────────────────────────── -->
+  <section id="connectivityPanel">
+    <div id="networkInfo">Network: detecting…</div>
+    <div id="connectivityStatus">Checking…</div>
+    <div id="connectivityTimestamp"></div>
 
-    <!-- Number display -->
-    <div id="dialDisplay" class="dial-display" aria-label="Number being dialed" aria-live="polite">
-      <span id="dialNumber" class="dial-number">&nbsp;</span>
+    <!-- Mobile network option (shown only when cellular detected) -->
+    <div id="mobileNetworkOption" style="display:none">
+      <button id="mobileNetworkBtn">📶 Mobile Network: OFF</button>
     </div>
-    <div id="dialReadout" class="dial-readout" aria-live="polite"></div>
+  </section>
 
-    <!-- Call status / duration timer -->
-    <div id="callStatus" class="call-status" aria-live="polite"></div>
+  <!-- ── Mic Permission Status ─────────────────────────────── -->
+  <div id="micPermissionStatus" class="mic-status mic-prompt">
+    🎤 Microphone: checking…
+  </div>
 
-    <!-- ─── Volume indicator — visible only during an active call ─── -->
-    <div id="volumeIndicator" class="volume-indicator" hidden aria-label="Call volume" aria-live="polite">
-      <span class="volume-icon">🔊</span>
-      <div class="volume-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80">
-        <div id="volumeBarFill" class="volume-bar-fill"></div>
-      </div>
-      <span id="volumePercent" class="volume-percent">80%</span>
-    </div>
+  <!-- ── Caller ID Name ────────────────────────────────────── -->
+  <section id="callerIdSection">
+    <label for="callerIdInput">Caller ID Name:</label>
+    <input id="callerIdInput" type="text" placeholder="Your display name" />
+    <button id="saveCallerIdBtn">Save</button>
+    <div id="callerIdDisplay">Caller ID: (not set)</div>
+  </section>
+
+  <!-- ── Dialer ─────────────────────────────────────────────── -->
+  <section id="dialerSection">
+    <!-- Number display box -->
+    <div id="dialDisplay" class="dial-display"></div>
+    <!-- Live readout -->
+    <div id="dialReadout" class="dial-readout">Enter a number</div>
 
     <!-- Keypad -->
-    <div class="keypad" id="keypad" role="group" aria-label="Dial pad">
-      <button class="key-btn" data-digit="1"  aria-label="1">1</button>
-      <button class="key-btn" data-digit="2"  aria-label="2 ABC">2<sub>ABC</sub></button>
-      <button class="key-btn" data-digit="3"  aria-label="3 DEF">3<sub>DEF</sub></button>
-      <button class="key-btn" data-digit="4"  aria-label="4 GHI">4<sub>GHI</sub></button>
-      <button class="key-btn" data-digit="5"  aria-label="5 JKL">5<sub>JKL</sub></button>
-      <button class="key-btn" data-digit="6"  aria-label="6 MNO">6<sub>MNO</sub></button>
-      <button class="key-btn" data-digit="7"  aria-label="7 PQRS">7<sub>PQRS</sub></button>
-      <button class="key-btn" data-digit="8"  aria-label="8 TUV">8<sub>TUV</sub></button>
-      <button class="key-btn" data-digit="9"  aria-label="9 WXYZ">9<sub>WXYZ</sub></button>
-      <button class="key-btn" data-digit="*"  aria-label="star">*</button>
-      <button class="key-btn" data-digit="0"  aria-label="0 plus">0<sub>+</sub></button>
-      <button class="key-btn" data-digit="#"  aria-label="hash">#</button>
+    <div id="keypad">
+      <button class="dial-key" data-digit="1">1</button>
+      <button class="dial-key" data-digit="2">2</button>
+      <button class="dial-key" data-digit="3">3</button>
+      <button class="dial-key" data-digit="4">4</button>
+      <button class="dial-key" data-digit="5">5</button>
+      <button class="dial-key" data-digit="6">6</button>
+      <button class="dial-key" data-digit="7">7</button>
+      <button class="dial-key" data-digit="8">8</button>
+      <button class="dial-key" data-digit="9">9</button>
+      <button class="dial-key" data-digit="*">*</button>
+      <button class="dial-key" data-digit="0">0</button>
+      <button class="dial-key" data-digit="#">#</button>
+      <button class="dial-key" data-digit="+">+</button>
+      <button id="backspaceBtn" class="dial-key">⌫</button>
     </div>
 
-    <!-- Action row -->
-    <div class="dialer-actions">
-      <button id="callBtn"    class="btn btn--call"    aria-label="Call">&#9742;</button>
-      <button id="backspaceBtn" class="btn btn--backspace" aria-label="Backspace">⌫</button>
-      <button id="endCallBtn" class="btn btn--end"     aria-label="End call" hidden>&#128994;</button>
-      <button id="muteBtn"    class="btn btn--mute"    aria-label="Mute" aria-pressed="false">🎙</button>
+    <!-- Call controls -->
+    <div id="callControls">
+      <button id="callBtn">📞 Call</button>
+      <button id="endCallBtn">🔴 End</button>
     </div>
+
+    <!-- Call status / duration timer -->
+    <div id="callStatus"></div>
+
+    <!-- Active-call info row -->
+    <div id="callInfoRow">
+      <span id="networkTypeIndicator" style="display:none"></span>
+      <span id="callVolumeIndicator"  style="display:none"></span>
+    </div>
+
+    <!-- ── Mic Mute Controls (visible only during active call) ── -->
+    <div id="micMuteControls" style="display:none">
+      <button id="micMuteBtn" aria-pressed="false">🎙️ Mute Mic</button>
+      <span   id="micMuteStatus" class="mic-mute-status live">Mic live 🔴</span>
+    </div>
+
   </section>
-
-  <!-- ═══════════════════════════════════════════════════════════════════════
-       THEME TOGGLE
-       ═══════════════════════════════════════════════════════════════════════ -->
-  <div class="theme-toggle-row">
-    <button id="themeToggleBtn" class="btn btn--secondary btn--sm" aria-label="Toggle dark theme">
-      🌙 Dark
-    </button>
-  </div>
 
   <script src="js/app.js"></script>
 </body>
