@@ -36,7 +36,10 @@ clockstopper/
         └── main/
             ├── AndroidManifest.xml
             ├── java/          (or kotlin/)
+            │   └── MainActivity.kt
             └── res/
+                └── layout/
+                    └── activity_main.xml
 ```
 
 ## Architecture & Conventions
@@ -44,10 +47,16 @@ clockstopper/
 - Gradle Kotlin DSL preferred over Groovy DSL
 - Standard Android single-module project structure (`app/` module)
 - Standard Android source set layout: `app/src/main/` containing manifest, source, and resources
+- Activity-based UI with XML layouts (View system, not Jetpack Compose)
 
 ## Android Manifest
 - `AndroidManifest.xml` located at `app/src/main/AndroidManifest.xml`
 - Standard Android manifest structure established as part of directory scaffolding
+
+## UI / Source Files
+- `MainActivity.kt` — entry point activity, located under `app/src/main/java/` (or `kotlin/`)
+- `activity_main.xml` — layout file for `MainActivity`, located at `app/src/main/res/layout/activity_main.xml`
+- UI built with the Android View system (XML layouts), not Jetpack Compose
 
 ## Branching Strategy
 - Feature branches follow `feat/<description>` naming convention
@@ -57,4 +66,5 @@ clockstopper/
 ## Development Status
 - [x] Gradle build configuration and project structure set up
 - [x] Android manifest and directory structure created (`app/src/main/` layout)
-- [ ] Source code / application logic (pending)
+- [x] `MainActivity.kt` and `activity_main.xml` layout implemented
+- [ ] Application logic / additional features (pending)
