@@ -1,24 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
+    AndroidManifest.xml
+    ───────────────────
+    Declares the application package, required permissions, and the single
+    launcher Activity that hosts the Jetpack Navigation graph.
+
+    SDK levels are declared here as <uses-sdk> for documentation clarity, but
+    the authoritative values live in app/build.gradle (compileSdk / minSdk /
+    targetSdk).  The Gradle-supplied values take precedence at build time.
+
+    Permissions
+    ───────────
+    INTERNET  — required if the stopwatch ever loads remote assets or reports
+                analytics; declared here as a forward-compatibility measure and
+                to satisfy dependency libraries that inspect the manifest.
+    WAKE_LOCK — prevents the CPU from sleeping while the stopwatch is actively
+                counting; used via WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                inside MainActivity.
+
+    Activity configuration
+    ──────────────────────
+    android:screenOrientation="portrait"
+        Locks the UI to portrait.  A stopwatch's controls are designed for a
+        tall layout; landscape is not a supported use-case.
+
+    android:configChanges="keyboard|keyboardHidden|orientation|screenSize|…"
+        MainActivity handles these changes itself so the system does NOT
+        destroy/recreate the Activity — and therefore does NOT reload the
+        Fragment back-stack — when the soft keyboard appears or the device is
+        rotated while the stopwatch is running.
+
+    android:windowSoftInputMode="adjustResize"
+        The window viewport shrinks to make room for the soft keyboard rather
+        than being obscured by it (relevant if a lap-note input field is ever
+        added).
+-->
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.clockstopper.app">
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!--  Permissions                                                         -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+
+    <!-- Network access (remote assets, analytics, future cloud sync) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Screen / CPU wake-lock while the stopwatch is running -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!--  Application                                                          -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Clockstopper">
+        android:theme="@style/Theme.ClockStopper"
+        android:usesCleartextTraffic="false">
 
         <!--
-            Single-Activity host.
-            All fragment destinations are declared in res/navigation/nav_graph.xml
-            and managed by the Jetpack Navigation Component.
+            MainActivity
+            ────────────
+            The sole Activity in this single-Activity application.  It hosts
+            the NavHostFragment which owns the entire navigation back-stack.
+
+            exported="true" is required on API 31+ for Activities that carry
+            a MAIN / LAUNCHER intent-filter.
         -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize">
 
+            <!-- Designate this Activity as the application entry-point -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

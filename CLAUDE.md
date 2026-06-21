@@ -57,7 +57,7 @@ clockstopper/
 ## Architecture & Components
 
 ### Entry Point
-- **`AndroidManifest.xml`**: Declares `MainActivity` as the launcher Activity with `MAIN`/`LAUNCHER` intent filters
+- **`AndroidManifest.xml`**: Declares `MainActivity` as the launcher Activity with `MAIN`/`LAUNCHER` intent filters; this file is the authoritative declaration of the app's entry point and must remain consistent with `MainActivity.kt`
 - **`MainActivity.kt`**: Primary Activity entry point; hosts the navigation host fragment; minimal logic — delegates all screen content to Fragments via NavController
 
 ### Navigation
@@ -89,7 +89,7 @@ clockstopper/
 - No runtime crashes or navigation failures observed during emulator validation
 
 ## Conventions & Patterns
-- **Total files committed in setup:** 23 files (initial scaffold) + 7 files (manifest/activity/navigation scaffolding) + 12 files (domain layer extraction) + 24 files (UI component migration) + 10 files (emulator validation)
+- **Total files committed in setup:** 23 files (initial scaffold) + 7 files (manifest/activity/navigation scaffolding) + 12 files (domain layer extraction) + 24 files (UI component migration) + 10 files (emulator validation) + 1 file (AndroidManifest.xml launcher activity update, PR #6)
 - **PR workflow:** Tasks create feature branches, commit changes, and open PRs against `main_queued`
 - **Branch naming:** `feat/<kebab-case-description>-<short-id>-queued`
 - **Language:** Kotlin
@@ -100,6 +100,7 @@ clockstopper/
 - **Repository Pattern:** Data access is abstracted behind interfaces defined in the domain layer; implementations are provided by the data layer
 - **Use Cases:** Business operations are encapsulated in dedicated use case classes rather than embedded in ViewModels or Fragments
 - **Fragment Convention:** New screens should be implemented as Fragments registered as destinations in the navigation graph; navigation between screens uses NavController actions
+- **Manifest Convention:** `AndroidManifest.xml` must declare `MainActivity` with both `android.intent.action.MAIN` and `android.intent.category.LAUNCHER` intent filters to ensure correct app launch behavior; any new Activities must be explicitly declared in the manifest
 - **Validation Convention:** Runtime behavior should be validated on an Android emulator after significant structural changes (navigation wiring, Fragment migration, architecture changes)
 
 ## Android Configuration (to be confirmed from actual build files)
@@ -117,3 +118,4 @@ clockstopper/
 - UI components have been migrated to Android-compatible equivalents; all screen content lives in Fragments under `ui/`, not in `MainActivity`
 - When adding new UI features, create a Fragment + XML layout pair, register it in the navigation graph, and wire it to the domain layer via use cases
 - App launch and end-to-end navigation have been verified at runtime on an emulator; the current state of the codebase is considered runtime-stable
+- `AndroidManifest.xml` is the single source of truth for Activity declarations and app entry point configuration; changes to Activity class names or package structure must be reflected here
