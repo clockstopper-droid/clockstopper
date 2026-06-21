@@ -4,48 +4,103 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Global Time Clock</title>
-  <!-- Old English / Blackletter font from Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="Css/Style.css" />
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════════════════
-       ANONYMOUS HEADER — Bold Old English, centered
-  ════════════════════════════════════════════════ -->
-  <header class="anonymous-header">
-    <h1 class="anonymous-title">Anonymous</h1>
-  </header>
-
   <div class="container">
+    <h1 class="app-title">&#9648; Global Time Clock</h1>
 
-    <!-- ═══════════════════════════════════════════
-         CONTROLS (theme toggle only — no add/mute)
-    ════════════════════════════════════════════ -->
+    <!-- ── Clock Grid ── -->
+    <div id="clocksGrid" class="clocks-grid"></div>
+
+    <!-- ── Controls ── -->
     <div class="controls">
-      <button id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+      <button onclick="toggleTheme()" class="ctrl-btn theme-btn">&#9790; Theme</button>
+      <button onclick="toggleMute()"  class="ctrl-btn mute-btn" id="muteBtn">&#128266; Mute</button>
+      <button onclick="toggleConnectivityPanel()" class="ctrl-btn wifi-btn">&#128246; Network</button>
     </div>
 
-    <!-- ═══════════════════════════════════════════
-         US TIME ZONE CLOCKS
-    ════════════════════════════════════════════ -->
-    <h2 class="section-title">US Time Zones</h2>
-    <div class="clocks-grid" id="clocksGrid"></div>
+    <!-- ── Connectivity Panel ── -->
+    <div id="connectivityPanel" class="connectivity-panel">
+      <div class="panel-header">Network Status</div>
 
-    <!-- ═══════════════════════════════════════════
-         CONNECTIVITY PANEL
-    ════════════════════════════════════════════ -->
-    <div class="connectivity-panel" id="connectivityPanel">
-      <div class="connectivity-header" onclick="toggleConnectivityPanel()">
-        <span>🌐 Network Status</span>
-        <span class="panel-chevron" id="panelChevron">▼</span>
+      <div id="wifiStatus" class="wifi-status">
+        <span class="wifi-icon">&#128246;</span>
+        <span id="wifiStatusText">Checking…</span>
       </div>
-      <div class="connectivity-body">
-        <div class="wifi-status" id="wifiStatus">Checking…</div>
+
+      <div id="connectivityProbeStatus" class="probe-status">
+        <span id="probeStatusText">Probe: pending…</span>
       </div>
+
+      <div class="network-info" id="networkInfo"></div>
+
+      <div class="panel-sub-header">Available Networks</div>
+      <ul id="networkList" class="network-list">
+        <li class="network-list-item placeholder">Scanning…</li>
+      </ul>
     </div>
+
+    <!-- ══════════════════════════════════════════
+         CALL PANEL
+    ══════════════════════════════════════════ -->
+    <div id="callPanel" class="call-panel">
+
+      <div class="call-panel-header">&#128222; Outgoing Call</div>
+
+      <!-- ── Number Display Box ── -->
+      <div class="dialer-display-wrap">
+        <div class="dialer-label">Number to Dial</div>
+        <div id="dialerDisplay" class="dialer-display">
+          <span id="dialerNumber" class="dialer-number">&#8213;</span>
+          <span id="dialerCursor" class="dialer-cursor">|</span>
+        </div>
+      </div>
+
+      <!-- ── Dial Pad ── -->
+      <div class="dial-pad" id="dialPad">
+        <button class="pad-key" onclick="dialPadPress('1')"><span class="pad-digit">1</span><span class="pad-alpha"></span></button>
+        <button class="pad-key" onclick="dialPadPress('2')"><span class="pad-digit">2</span><span class="pad-alpha">ABC</span></button>
+        <button class="pad-key" onclick="dialPadPress('3')"><span class="pad-digit">3</span><span class="pad-alpha">DEF</span></button>
+
+        <button class="pad-key" onclick="dialPadPress('4')"><span class="pad-digit">4</span><span class="pad-alpha">GHI</span></button>
+        <button class="pad-key" onclick="dialPadPress('5')"><span class="pad-digit">5</span><span class="pad-alpha">JKL</span></button>
+        <button class="pad-key" onclick="dialPadPress('6')"><span class="pad-digit">6</span><span class="pad-alpha">MNO</span></button>
+
+        <button class="pad-key" onclick="dialPadPress('7')"><span class="pad-digit">7</span><span class="pad-alpha">PQRS</span></button>
+        <button class="pad-key" onclick="dialPadPress('8')"><span class="pad-digit">8</span><span class="pad-alpha">TUV</span></button>
+        <button class="pad-key" onclick="dialPadPress('9')"><span class="pad-digit">9</span><span class="pad-alpha">WXYZ</span></button>
+
+        <button class="pad-key" onclick="dialPadPress('*')"><span class="pad-digit">*</span><span class="pad-alpha"></span></button>
+        <button class="pad-key" onclick="dialPadPress('0')"><span class="pad-digit">0</span><span class="pad-alpha">+</span></button>
+        <button class="pad-key" onclick="dialPadPress('#')"><span class="pad-digit">#</span><span class="pad-alpha"></span></button>
+
+        <!-- Backspace + Clear row -->
+        <button class="pad-key pad-backspace" onclick="dialPadBackspace()" title="Backspace">&#9003;</button>
+        <button class="pad-key pad-clear"     onclick="dialPadClear()"     title="Clear">&#10005;</button>
+      </div>
+
+      <!-- ── Call Status + Mic Permission ── -->
+      <div id="callStatus" class="call-status">
+        <span id="callStatusText">Ready</span>
+      </div>
+
+      <div id="micPermissionStatus" class="mic-permission-status">
+        <span id="micStatusText">Mic: not requested</span>
+      </div>
+
+      <!-- ── Call Action Buttons ── -->
+      <div class="call-actions">
+        <button class="call-btn call-start-btn" onclick="initiateCall()" id="callStartBtn">
+          <span class="call-btn-icon">&#128222;</span> Call
+        </button>
+        <button class="call-btn call-end-btn"   onclick="endCall()"      id="callEndBtn" disabled>
+          <span class="call-btn-icon">&#128263;</span> End
+        </button>
+      </div>
+
+    </div><!-- /#callPanel -->
 
   </div><!-- /.container -->
 
