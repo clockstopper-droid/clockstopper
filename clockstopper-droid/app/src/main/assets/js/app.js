@@ -1,128 +1,382 @@
+/* ============================================================
+   Global Time Clock — app.js  (Android assets)
+   Pure vanilla JS; no neon/glow effects
+   ============================================================ */
+
 'use strict';
 
-/* ── DOM refs ────────────────────────────────────────────────────────────── */
-const display      = document.getElementById('display');
-const btnStartStop = document.getElementById('btnStartStop');
-const btnLap       = document.getElementById('btnLap');
-const btnReset     = document.getElementById('btnReset');
-const lapList      = document.getElementById('lapList');
-const lapsSection  = document.getElementById('lapsSection');
+/* ---------- Fixed Time Zones ---------- */
+const FIXED_ZONES = [
+  { label: 'Eastern Time',  tz: 'America/New_York'    },
+  { label: 'Central Time',  tz: 'America/Chicago'     },
+  { label: 'Western Time',  tz: 'America/Los_Angeles' },
+];
 
-/* ── State ───────────────────────────────────────────────────────────────── */
-let startTime   = 0;   // performance.now() value when timer last started
-let elapsed     = 0;   // total ms accumulated before the last pause
-let rafId       = null; // requestAnimationFrame handle
-let running     = false;
-let lapElapsed  = 0;   // elapsed ms at the time of the last lap
-let lapCount    = 0;
+/* ---------- App State ---------- */
+let isMuted          = false;
+let isOnline         = navigator.onLine;
+let preferredNetwork = 'wifi';   // 'wifi' | 'cellular'
+let dialedNumber     = '';
+let callActive       = false;
+let micStream        = null;
+let audioContext     = null;
 
-/* ── Formatting ──────────────────────────────────────────────────────────── */
-/**
- * Format milliseconds as  HH:MM:SS.mmm
- * @param {number} ms
- * @returns {string}
- */
-function formatTime(ms) {
-    const totalSeconds = Math.floor(ms / 1000);
-    const millis  = Math.floor(ms % 1000);
-    const seconds = totalSeconds % 60;
-    const minutes = Math.floor(totalSeconds / 60) % 60;
-    const hours   = Math.floor(totalSeconds / 3600);
+/* ============================================================
+   Clock Rendering
+   ============================================================ */
 
-    return [
-        String(hours).padStart(2, '0'),
-        String(minutes).padStart(2, '0'),
-        String(seconds).padStart(2, '0'),
-    ].join(':') + '.' + String(millis).padStart(3, '0');
+function renderClocks() {
+  const grid = document.getElementById('clocksGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  FIXED_ZONES.forEach(({ label, tz }) => {
+    const card = document.createElement('div');
+    card.className = 'clock-card';
+    card.dataset.tz = tz;
+
+    const zoneLabel = document.createElement('div');
+    zoneLabel.className = 'zone-label';
+    zoneLabel.textContent = label;
+
+    const timeDisplay = document.createElement('div');
+    timeDisplay.className = 'time-display';
+
+    const dateDisplay = document.createElement('div');
+    dateDisplay.className = 'date-display';
+
+    card.appendChild(zoneLabel);
+    card.appendChild(timeDisplay);
+    card.appendChild(dateDisplay);
+    grid.appendChild(card);
+  });
 }
 
-/* ── Render loop ─────────────────────────────────────────────────────────── */
-function tick() {
-    const now = elapsed + (performance.now() - startTime);
-    display.textContent = formatTime(now);
-    rafId = requestAnimationFrame(tick);
+function updateClocks() {
+  const now = new Date();
+  document.querySelectorAll('.clock-card').forEach(card => {
+    const tz = card.dataset.tz;
+
+    const timeStr = new Intl.DateTimeFormat('en-US', {
+      timeZone:  tz,
+      hour:      '2-digit',
+      minute:    '2-digit',
+      second:    '2-digit',
+      hour12:    true,
+    }).format(now);
+
+    const dateStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday:  'short',
+      month:    'short',
+      day:      'numeric',
+    }).format(now);
+
+    const timeEl = card.querySelector('.time-display');
+    const dateEl = card.querySelector('.date-display');
+    if (timeEl) timeEl.textContent = timeStr;
+    if (dateEl) dateEl.textContent = dateStr;
+  });
 }
 
-/* ── Controls ────────────────────────────────────────────────────────────── */
-function start() {
-    startTime = performance.now();
-    running   = true;
-    rafId     = requestAnimationFrame(tick);
+/* ============================================================
+   Theme & Mute
+   ============================================================ */
 
-    btnStartStop.textContent = 'Stop';
-    btnStartStop.classList.replace('btn--primary', 'btn--danger');
-    btnLap.disabled   = false;
-    btnReset.disabled = true;
+function toggleTheme() {
+  document.body.classList.toggle('dark-theme');
 }
 
-function stop() {
-    elapsed += performance.now() - startTime;
-    cancelAnimationFrame(rafId);
-    rafId   = null;
-    running = false;
+function toggleMute() {
+  isMuted = !isMuted;
+  const btn = document.getElementById('muteBtn');
+  if (!btn) return;
+  btn.classList.toggle('muted', isMuted);
+  btn.textContent = isMuted ? '🔇 Muted' : '🔊 Mute';
 
-    btnStartStop.textContent = 'Start';
-    btnStartStop.classList.replace('btn--danger', 'btn--primary');
-    btnLap.disabled   = true;
-    btnReset.disabled = false;
+  if (audioContext && callActive) {
+    updateCallAudioMute();
+  }
 }
 
-function reset() {
-    elapsed    = 0;
-    lapElapsed = 0;
-    lapCount   = 0;
+/* ============================================================
+   Dialer
+   ============================================================ */
 
-    display.textContent  = '00:00:00.000';
-    lapList.innerHTML    = '';
-    lapsSection.hidden   = true;
-    btnReset.disabled    = true;
-    btnLap.disabled      = true;
-    btnStartStop.textContent = 'Start';
-    btnStartStop.classList.remove('btn--danger');
-    btnStartStop.classList.add('btn--primary');
+function initDialer() {
+  dialedNumber = '';
+  updateDialerDisplay();
 }
 
-function lap() {
-    if (!running) return;
-
-    lapCount++;
-    const now       = elapsed + (performance.now() - startTime);
-    const split     = now - lapElapsed;
-    lapElapsed      = now;
-
-    const li = document.createElement('li');
-    li.innerHTML =
-        `<span class="lap-num">Lap ${lapCount}</span>` +
-        `<span class="lap-time">${formatTime(now)}</span>` +
-        `<span class="lap-split">+${formatTime(split)}</span>`;
-
-    lapList.prepend(li);
-    lapsSection.hidden = false;
+function dialDigit(digit) {
+  dialedNumber += String(digit);
+  updateDialerDisplay();
 }
 
-/* ── Event listeners ─────────────────────────────────────────────────────── */
-btnStartStop.addEventListener('click', () => running ? stop() : start());
-btnLap.addEventListener('click',       lap);
-btnReset.addEventListener('click',     reset);
+function clearDialed() {
+  if (dialedNumber.length === 0) return;
+  dialedNumber = dialedNumber.slice(0, -1);
+  updateDialerDisplay();
+}
 
-/* Restore state from localStorage on page load (survives WebView recreation) */
-(function restoreState() {
-    try {
-        const saved = localStorage.getItem('clockstopper_elapsed');
-        if (saved !== null) {
-            elapsed = parseFloat(saved) || 0;
-            display.textContent = formatTime(elapsed);
-            if (elapsed > 0) btnReset.disabled = false;
+function clearAll() {
+  dialedNumber = '';
+  updateDialerDisplay();
+}
+
+function updateDialerDisplay() {
+  const display   = document.getElementById('dialerDisplay');
+  const readout   = document.getElementById('dialedNumberReadout');
+  const hasDigits = dialedNumber.length > 0;
+
+  if (display) {
+    display.textContent = hasDigits ? dialedNumber : '';
+    display.classList.toggle('has-number', hasDigits);
+  }
+  if (readout) {
+    readout.textContent = hasDigits ? dialedNumber : 'Enter a number';
+    readout.classList.toggle('active', hasDigits);
+  }
+}
+
+/* ============================================================
+   Connectivity
+   ============================================================ */
+
+function initConnectivity() {
+  window.addEventListener('online',  () => { isOnline = true;  updateConnectivityUI(); });
+  window.addEventListener('offline', () => { isOnline = false; updateConnectivityUI(); });
+
+  updateConnectivityUI();
+  probeConnectivity();
+  updateNetworkInfo();
+  detectMobileNetwork();
+
+  if (navigator.connection) {
+    navigator.connection.addEventListener('change', () => {
+      updateNetworkInfo();
+      detectMobileNetwork();
+    });
+  }
+}
+
+function updateConnectivityUI() {
+  const statusEl = document.getElementById('wifiStatus');
+  if (!statusEl) return;
+
+  statusEl.classList.toggle('online',  isOnline);
+  statusEl.classList.toggle('offline', !isOnline);
+  statusEl.textContent = isOnline ? '✔ Connected' : '✘ Offline';
+}
+
+function probeConnectivity() {
+  const probeEl = document.getElementById('connectivityProbeStatus');
+  if (!probeEl) return;
+
+  probeEl.textContent = 'Probing…';
+  probeEl.className   = 'probe-status';
+
+  fetch('https://www.gstatic.com/generate_204', { method: 'HEAD', cache: 'no-store', mode: 'no-cors' })
+    .then(() => {
+      probeEl.textContent = '✔ Internet reachable';
+      probeEl.className   = 'probe-status verified';
+    })
+    .catch(() => {
+      probeEl.textContent = '✘ Internet unreachable';
+      probeEl.className   = 'probe-status unverified';
+    });
+}
+
+function updateNetworkInfo() {
+  const conn = navigator.connection;
+  if (!conn) return;
+
+  const detailEl = document.getElementById('networkDetail');
+  if (!detailEl) return;
+
+  const parts = [];
+  if (conn.effectiveType) parts.push(conn.effectiveType.toUpperCase());
+  if (conn.downlink)      parts.push(`${conn.downlink} Mbps`);
+  if (conn.rtt)           parts.push(`RTT ${conn.rtt}ms`);
+
+  detailEl.textContent = parts.length ? parts.join(' · ') : 'Network info unavailable';
+}
+
+function detectMobileNetwork() {
+  const mobileOption = document.getElementById('mobileNetworkOption');
+  if (!mobileOption) return;
+
+  const conn       = navigator.connection;
+  const isCellular = conn && conn.type === 'cellular';
+
+  mobileOption.classList.toggle('available',   isCellular);
+  mobileOption.classList.toggle('unavailable', !isCellular);
+
+  if (!isCellular && preferredNetwork === 'cellular') {
+    preferredNetwork = 'wifi';
+  }
+}
+
+function scanNetworks() {
+  updateNetworkInfo();
+  detectMobileNetwork();
+}
+
+function selectMobileNetwork() {
+  const conn = navigator.connection;
+  if (!conn || conn.type !== 'cellular') return;
+
+  preferredNetwork = 'cellular';
+
+  const mobileOption = document.getElementById('mobileNetworkOption');
+  if (mobileOption) mobileOption.classList.add('selected');
+
+  updateNetworkTypeIndicator();
+}
+
+function toggleConnectivityPanel() {
+  const panel = document.getElementById('connectivityPanel');
+  if (panel) panel.classList.toggle('expanded');
+}
+
+/* ============================================================
+   Call Audio
+   ============================================================ */
+
+function requestMicPermission() {
+  const micEl = document.getElementById('micPermissionStatus');
+  if (micEl) {
+    micEl.textContent = 'Requesting microphone…';
+    micEl.className   = 'mic-permission-status pending';
+  }
+
+  return navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then(stream => {
+      micStream = stream;
+      if (micEl) {
+        micEl.textContent = '✔ Microphone granted';
+        micEl.className   = 'mic-permission-status granted';
+      }
+      return stream;
+    })
+    .catch(err => {
+      if (micEl) {
+        micEl.textContent = '✘ Microphone denied';
+        micEl.className   = 'mic-permission-status denied';
+      }
+      throw err;
+    });
+}
+
+function initiateCall() {
+  if (dialedNumber.length === 0) return;
+  if (callActive) return;
+
+  requestMicPermission()
+    .then(() => {
+      callActive   = true;
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+      updateCallUI();
+      updateNetworkTypeIndicator();
+
+      const callStatusEl = document.getElementById('callStatus');
+      if (callStatusEl) {
+        callStatusEl.textContent = `Calling ${dialedNumber}…`;
+        callStatusEl.className   = 'call-status calling';
+      }
+
+      setTimeout(() => {
+        if (!callActive) return;
+        if (callStatusEl) {
+          callStatusEl.textContent = `Connected · ${dialedNumber}`;
+          callStatusEl.className   = 'call-status connected';
         }
-    } catch (_) { /* storage unavailable */ }
-})();
+      }, 2000);
+    })
+    .catch(() => {
+      const callStatusEl = document.getElementById('callStatus');
+      if (callStatusEl) {
+        callStatusEl.textContent = 'Microphone required to place a call.';
+        callStatusEl.className   = 'call-status ended';
+      }
+    });
+}
 
-/* Persist elapsed time before the page unloads */
-window.addEventListener('pagehide', () => {
-    try {
-        const current = running
-            ? elapsed + (performance.now() - startTime)
-            : elapsed;
-        localStorage.setItem('clockstopper_elapsed', String(current));
-    } catch (_) { /* storage unavailable */ }
+function endCall() {
+  if (!callActive) return;
+  callActive = false;
+
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
+  }
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+  }
+
+  updateCallUI();
+
+  const callStatusEl = document.getElementById('callStatus');
+  if (callStatusEl) {
+    callStatusEl.textContent = 'Call ended.';
+    callStatusEl.className   = 'call-status ended';
+  }
+
+  const indicatorEl = document.getElementById('networkTypeIndicator');
+  if (indicatorEl) {
+    indicatorEl.textContent = '';
+    indicatorEl.className   = 'network-type-indicator';
+  }
+}
+
+function updateCallAudioMute() {
+  // Placeholder — wire to gain node when AudioContext graph is extended
+}
+
+function updateCallUI() {
+  const panel = document.getElementById('callPanel');
+  if (panel) panel.classList.toggle('active', callActive);
+}
+
+function updateNetworkTypeIndicator() {
+  const indicatorEl = document.getElementById('networkTypeIndicator');
+  if (!indicatorEl) return;
+
+  indicatorEl.className   = 'network-type-indicator';
+  indicatorEl.textContent = '';
+
+  if (!callActive) return;
+
+  const conn = navigator.connection;
+
+  if (preferredNetwork === 'cellular' && conn && conn.type === 'cellular') {
+    const eff = conn.effectiveType || '';
+    if (eff === '4g') {
+      indicatorEl.classList.add('cellular', 'fourG');
+      indicatorEl.textContent = '4G';
+    } else if (eff === '3g') {
+      indicatorEl.classList.add('cellular', 'threeG');
+      indicatorEl.textContent = '3G';
+    } else {
+      indicatorEl.classList.add('cellular');
+      indicatorEl.textContent = 'Cellular';
+    }
+  } else {
+    indicatorEl.classList.add('wifi');
+    indicatorEl.textContent = 'WiFi';
+  }
+}
+
+/* ============================================================
+   Initialisation
+   ============================================================ */
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderClocks();
+  initDialer();
+  initConnectivity();
+  updateClocks();
+  setInterval(updateClocks, 1000);
 });
