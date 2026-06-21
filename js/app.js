@@ -1,260 +1,197 @@
-// ─── State ───────────────────────────────────────────────────────────────────
-let timezones = ['UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo'];
-let isMuted   = false;
-let isDark    = false;
+/* =============================================================
+   Global Time Clock — app.js
+   Three fixed US time zone clocks (Eastern, Central, Pacific).
+   No add/remove, no audio, no mute — digital display only.
+   ============================================================= */
 
-// ─── Connectivity state ───────────────────────────────────────────────────────
-const PROBE_URL        = 'https://www.gstatic.com/generate_204'; // 204 No Content – tiny, cacheless
-const PROBE_TIMEOUT_MS = 5000;
-let   probeTimer       = null;    // debounce handle for probe retries
-let   lastOnlineState  = null;    // avoid redundant UI refreshes
+'use strict';
 
-// ─── Clock rendering ──────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────
+   1.  FIXED TIME ZONES
+───────────────────────────────────────────── */
+const CLOCKS = [
+  { tz: 'America/New_York',    label: 'Eastern Time'  },
+  { tz: 'America/Chicago',     label: 'Central Time'  },
+  { tz: 'America/Los_Angeles', label: 'Pacific Time'  },
+];
+
+/* ─────────────────────────────────────────────
+   2.  CLOCK RENDERING
+───────────────────────────────────────────── */
 function renderClocks() {
   const grid = document.getElementById('clocksGrid');
+  if (!grid) return;
   grid.innerHTML = '';
-  timezones.forEach(tz => {
+
+  CLOCKS.forEach(({ tz, label }) => {
+    const safeId = tz.replace(/\//g, '_');
+
     const card = document.createElement('div');
-    card.className   = 'clock-card';
-    card.id          = 'clock-' + tz.replace(/\//g, '-');
+    card.className = 'clock-card';
+    card.id        = 'clock-' + safeId;
 
-    const label = document.createElement('div');
-    label.className  = 'clock-label';
-    label.textContent = tz;
+    card.innerHTML = `
+      <div class="clock-label">${label}</div>
+      <div class="clock-tz">${tz}</div>
+      <div class="clock-time" id="time-${safeId}">--:--:--</div>
+      <div class="clock-date" id="date-${safeId}"></div>`;
 
-    const time = document.createElement('div');
-    time.className   = 'clock-time';
-    time.id          = 'time-' + tz.replace(/\//g, '-');
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className   = 'remove-btn';
-    removeBtn.textContent = '✕';
-    removeBtn.onclick     = () => removeTimezone(tz);
-
-    card.appendChild(label);
-    card.appendChild(time);
-    card.appendChild(removeBtn);
     grid.appendChild(card);
   });
-  updateClocks();
 }
 
 function updateClocks() {
-  timezones.forEach(tz => {
-    const el = document.getElementById('time-' + tz.replace(/\//g, '-'));
-    if (!el) return;
+  const now = new Date();
+
+  CLOCKS.forEach(({ tz }) => {
+    const safeId = tz.replace(/\//g, '_');
+    const timeEl = document.getElementById('time-' + safeId);
+    const dateEl = document.getElementById('date-' + safeId);
+    if (!timeEl) return;
+
     try {
-      const now = new Intl.DateTimeFormat('en-US', {
+      timeEl.textContent = new Intl.DateTimeFormat('en-US', {
         timeZone : tz,
         hour     : '2-digit',
         minute   : '2-digit',
         second   : '2-digit',
         hour12   : true,
-      }).format(new Date());
-      el.textContent = now;
-    } catch (e) {
-      el.textContent = 'Error';
+      }).format(now);
+
+      if (dateEl) {
+        dateEl.textContent = new Intl.DateTimeFormat('en-US', {
+          timeZone : tz,
+          weekday  : 'short',
+          month    : 'short',
+          day      : 'numeric',
+          year     : 'numeric',
+        }).format(now);
+      }
+    } catch (_) {
+      timeEl.textContent = 'Invalid TZ';
     }
   });
 }
 
-setInterval(updateClocks, 1000);
-
-// ─── Add / Remove ─────────────────────────────────────────────────────────────
-function addTimezone() {
-  const input = document.getElementById('tzInput');
-  const tz    = (input.value || '').trim();
-  if (!tz) return;
-
-  try {
-    Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
-  } catch (e) {
-    alert('Invalid IANA time zone: ' + tz);
-    return;
-  }
-
-  if (timezones.includes(tz)) {
-    alert(tz + ' is already displayed.');
-    return;
-  }
-
-  timezones.push(tz);
-  input.value = '';
-  renderClocks();
-}
-
-function removeTimezone(tz) {
-  timezones = timezones.filter(t => t !== tz);
-  renderClocks();
-}
-
-// ─── Theme ────────────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────
+   3.  THEME TOGGLE (global — onclick)
+───────────────────────────────────────────── */
 function toggleTheme() {
-  isDark = !isDark;
-  document.body.classList.toggle('dark-theme', isDark);
+  document.body.classList.toggle('dark-theme');
 
   const btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
-
-  // re-render connectivity panel so dark-theme colours apply immediately
-  refreshConnectivityPanel();
+  if (btn) {
+    const isDark = document.body.classList.contains('dark-theme');
+    btn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+  }
 }
 
-// ─── Mute ─────────────────────────────────────────────────────────────────────
-function toggleMute() {
-  isMuted = !isMuted;
-  const btn = document.getElementById('muteBtn');
-  if (!btn) return;
-  btn.classList.toggle('muted', isMuted);
-  btn.textContent = isMuted ? '🔇 Unmute' : '🔔 Mute';
+/* ─────────────────────────────────────────────
+   4.  CONNECTIVITY PANEL (global — onclick)
+───────────────────────────────────────────── */
+const PROBE_URL        = 'https://www.gstatic.com/generate_204';
+const PROBE_TIMEOUT_MS = 5000;
+let   probeTimer       = null;
+let   lastOnlineState  = null;
+let   panelExpanded    = false;
+
+function toggleConnectivityPanel() {
+  panelExpanded = !panelExpanded;
+  const panel   = document.getElementById('connectivityPanel');
+  const chevron = document.getElementById('panelChevron');
+  if (panel)   panel.classList.toggle('expanded', panelExpanded);
+  if (chevron) chevron.textContent = panelExpanded ? '▲' : '▼';
+  if (panelExpanded) refreshConnectivityPanel();
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  CONNECTIVITY DETECTION
-// ═════════════════════════════════════════════════════════════════════════════
-
-/**
- * Probe a tiny, cache-busted URL to verify real internet reachability.
- * navigator.onLine can be true even when the device has no WAN access
- * (e.g. connected to a router with no upstream).  A fetch probe catches that.
- *
- * @returns {Promise<boolean>}  Resolves to true if internet is reachable.
- */
 async function probeInternet() {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-
-    const res = await fetch(
-      PROBE_URL + '?_=' + Date.now(),   // cache-bust
+    await fetch(
+      PROBE_URL + '?_=' + Date.now(),
       { method: 'HEAD', mode: 'no-cors', signal: controller.signal }
     );
     clearTimeout(timer);
-    // no-cors opaque responses always have status 0 but don't throw → reachable
     return true;
-  } catch {
+  } catch (_) {
     return false;
   }
 }
 
-/**
- * Read the Network Information API (where available) and return a plain object
- * describing the current connection.
- *
- * Supported in Chrome/Edge/Android (not Safari/Firefox).
- * We degrade gracefully: if the API is absent, all fields are null.
- *
- * @returns {{ type: string|null, effectiveType: string|null,
- *             downlink: number|null, rtt: number|null,
- *             saveData: boolean|null }}
- */
 function readNetworkInfo() {
   const conn = navigator.connection ||
                navigator.mozConnection ||
                navigator.webkitConnection ||
                null;
-
   if (!conn) {
     return { type: null, effectiveType: null, downlink: null, rtt: null, saveData: null };
   }
-
   return {
-    type          : conn.type          ?? null,   // 'wifi' | 'cellular' | 'ethernet' | 'none' | …
-    effectiveType : conn.effectiveType ?? null,   // '4g' | '3g' | '2g' | 'slow-2g'
-    downlink      : conn.downlink      ?? null,   // Mbps (estimate)
-    rtt           : conn.rtt           ?? null,   // ms   (estimate)
-    saveData      : conn.saveData      ?? null,   // Data Saver mode
+    type          : conn.type          ?? null,
+    effectiveType : conn.effectiveType ?? null,
+    downlink      : conn.downlink      ?? null,
+    rtt           : conn.rtt           ?? null,
+    saveData      : conn.saveData      ?? null,
   };
 }
 
-/**
- * Map a Network Information `type` value to a human-readable label and icon.
- */
 function describeConnectionType(type) {
-  switch (type) {
-    case 'wifi'     : return { label: 'Wi-Fi',    icon: '📶' };
-    case 'cellular' : return { label: 'Cellular', icon: '📡' };
-    case 'ethernet' : return { label: 'Ethernet', icon: '🔌' };
-    case 'bluetooth': return { label: 'Bluetooth',icon: '🔵' };
-    case 'wimax'    : return { label: 'WiMAX',    icon: '📡' };
-    case 'other'    : return { label: 'Other',    icon: '🌐' };
-    case 'none'     : return { label: 'No signal',icon: '❌' };
-    default         : return { label: 'Unknown',  icon: '❓' };
-  }
+  const map = {
+    wifi      : { label: 'Wi-Fi',     icon: '📶' },
+    cellular  : { label: 'Cellular',  icon: '📡' },
+    ethernet  : { label: 'Ethernet',  icon: '🔌' },
+    bluetooth : { label: 'Bluetooth', icon: '🔵' },
+    wimax     : { label: 'WiMAX',     icon: '📡' },
+    other     : { label: 'Other',     icon: '🌐' },
+    none      : { label: 'No signal', icon: '❌' },
+  };
+  return map[type] || { label: 'Unknown', icon: '❓' };
 }
 
-/**
- * Map an effectiveType to a quality badge text and CSS modifier class.
- */
 function describeEffectiveType(effectiveType) {
-  switch (effectiveType) {
-    case '4g'     : return { text: '4G / LTE',    mod: 'quality-good'   };
-    case '3g'     : return { text: '3G',           mod: 'quality-fair'   };
-    case '2g'     : return { text: '2G',           mod: 'quality-poor'   };
-    case 'slow-2g': return { text: 'Slow (2G)',    mod: 'quality-poor'   };
-    default       : return { text: effectiveType || '—', mod: 'quality-unknown' };
-  }
+  const map = {
+    '4g'      : { text: '4G / LTE',  mod: 'quality-good'    },
+    '3g'      : { text: '3G',        mod: 'quality-fair'    },
+    '2g'      : { text: '2G',        mod: 'quality-poor'    },
+    'slow-2g' : { text: 'Slow (2G)', mod: 'quality-poor'    },
+  };
+  return map[effectiveType] || { text: effectiveType || '—', mod: 'quality-unknown' };
 }
 
-// ─── Main connectivity UI refresh ─────────────────────────────────────────────
-
-/**
- * Run a probe, read network info, then update the entire connectivity panel.
- */
 async function refreshConnectivityPanel() {
   const isOnline   = navigator.onLine;
   const netInfo    = readNetworkInfo();
-
-  // Kick off the fetch probe in parallel; we'll use its result for the
-  // "Internet reachable" row but don't block the initial paint on it.
   const probePromise = isOnline ? probeInternet() : Promise.resolve(false);
 
-  // Paint immediately with what we know so the UI isn't stale.
-  renderConnectivityPanel(isOnline, false /* probeResult pending */, netInfo, true /* probing */);
+  renderConnectivityPanel(isOnline, false, netInfo, true);
 
   const probeResult = await probePromise;
   lastOnlineState = probeResult;
-
-  renderConnectivityPanel(isOnline, probeResult, netInfo, false /* done probing */);
+  renderConnectivityPanel(isOnline, probeResult, netInfo, false);
 }
 
-/**
- * Build / rebuild the entire content of #wifiStatus.
- *
- * @param {boolean}      isOnline     navigator.onLine value
- * @param {boolean}      probeResult  actual internet reachability from fetch probe
- * @param {object}       netInfo      result of readNetworkInfo()
- * @param {boolean}      probing      true while the fetch probe is still in-flight
- */
 function renderConnectivityPanel(isOnline, probeResult, netInfo, probing) {
   const panel = document.getElementById('wifiStatus');
   if (!panel) return;
 
-  // ── Determine overall status class ──────────────────────────────────────
   panel.classList.remove('online', 'offline', 'degraded');
-
   if (!isOnline) {
     panel.classList.add('offline');
   } else if (probing) {
-    // While the probe is in-flight we don't know yet — keep last class or neutral
-    if (lastOnlineState === true)        panel.classList.add('online');
-    else if (lastOnlineState === false)  panel.classList.add('degraded');
-    // else: no prior state → no class (neutral styling)
+    if      (lastOnlineState === true)  panel.classList.add('online');
+    else if (lastOnlineState === false) panel.classList.add('degraded');
   } else {
     panel.classList.add(probeResult ? 'online' : 'degraded');
   }
 
-  // ── Build inner HTML ─────────────────────────────────────────────────────
-  const statusIcon  = !isOnline ? '🔴' : probing ? '🟡' : probeResult ? '🟢' : '🟠';
-  const statusText  = !isOnline
+  const statusIcon = !isOnline ? '🔴' : probing ? '🟡' : probeResult ? '🟢' : '🟠';
+  const statusText = !isOnline
     ? 'Offline'
     : probing
       ? 'Checking…'
-      : probeResult
-        ? 'Online'
-        : 'Limited connectivity';
+      : probeResult ? 'Online' : 'Limited connectivity';
 
-  // Connection type row (Network Information API)
   let connTypeHTML = '';
   if (netInfo.type) {
     const { label, icon } = describeConnectionType(netInfo.type);
@@ -265,7 +202,6 @@ function renderConnectivityPanel(isOnline, probeResult, netInfo, probing) {
       </div>`;
   }
 
-  // Effective type / speed row
   let effectiveTypeHTML = '';
   if (netInfo.effectiveType) {
     const { text, mod } = describeEffectiveType(netInfo.effectiveType);
@@ -276,7 +212,6 @@ function renderConnectivityPanel(isOnline, probeResult, netInfo, probing) {
       </div>`;
   }
 
-  // Downlink / RTT row
   let perfHTML = '';
   if (netInfo.downlink !== null || netInfo.rtt !== null) {
     const dl  = netInfo.downlink !== null ? netInfo.downlink + ' Mbps' : '—';
@@ -292,7 +227,6 @@ function renderConnectivityPanel(isOnline, probeResult, netInfo, probing) {
       </div>`;
   }
 
-  // Data Saver row
   let dataSaverHTML = '';
   if (netInfo.saveData !== null) {
     dataSaverHTML = `
@@ -302,19 +236,21 @@ function renderConnectivityPanel(isOnline, probeResult, netInfo, probing) {
       </div>`;
   }
 
-  // Internet probe row
   const probeHTML = `
     <div class="conn-row">
       <span class="conn-row-label">Internet</span>
-      <span class="conn-row-value">${probing ? '⏳ Checking…' : probeResult ? '✅ Reachable' : isOnline ? '⚠️ Unreachable' : '❌ Offline'}</span>
+      <span class="conn-row-value">${
+        probing     ? '⏳ Checking…'     :
+        probeResult ? '✅ Reachable'     :
+        isOnline    ? '⚠️ Unreachable'  :
+                      '❌ Offline'
+      }</span>
     </div>`;
 
-  // Network Information API availability note
   const apiNoteHTML = netInfo.type === null
-    ? `<div class="conn-api-note">ℹ️ Network Info API not supported in this browser — connection type details unavailable.</div>`
+    ? `<div class="conn-api-note">ℹ️ Network Info API not supported in this browser.</div>`
     : '';
 
-  // Re-check button
   const recheckHTML = `
     <button class="conn-recheck-btn" onclick="manualRecheck()" title="Re-check connectivity now">
       🔄 Re-check
@@ -336,30 +272,21 @@ function renderConnectivityPanel(isOnline, probeResult, netInfo, probing) {
     </div>`;
 }
 
-// ─── Manual re-check (button handler — must be global) ───────────────────────
 function manualRecheck() {
   clearTimeout(probeTimer);
   refreshConnectivityPanel();
 }
 
-// ─── Initialise connectivity listeners ───────────────────────────────────────
-
-/**
- * Set up event listeners for browser online/offline events and the
- * Network Information API change event, then perform the initial panel render.
- */
 function initConnectivity() {
-  // navigator.onLine / browser online-offline events
   window.addEventListener('online',  () => {
     clearTimeout(probeTimer);
-    probeTimer = setTimeout(refreshConnectivityPanel, 300); // brief debounce
+    probeTimer = setTimeout(refreshConnectivityPanel, 300);
   });
   window.addEventListener('offline', () => {
     clearTimeout(probeTimer);
     refreshConnectivityPanel();
   });
 
-  // Network Information API change event (fires when connection type changes)
   const conn = navigator.connection ||
                navigator.mozConnection ||
                navigator.webkitConnection ||
@@ -371,20 +298,18 @@ function initConnectivity() {
     });
   }
 
-  // Initial render
   refreshConnectivityPanel();
 }
 
-// ─── Bootstrap ────────────────────────────────────────────────────────────────
+/* ─────────────────────────────────────────────
+   5.  BOOT
+───────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   renderClocks();
+  updateClocks();
+  setInterval(updateClocks, 1000);
   initConnectivity();
 
-  // Sync theme button label
   const themeBtn = document.getElementById('themeBtn');
   if (themeBtn) themeBtn.textContent = '🌙 Dark Mode';
-
-  // Sync mute button label
-  const muteBtn = document.getElementById('muteBtn');
-  if (muteBtn) muteBtn.textContent = '🔔 Mute';
 });

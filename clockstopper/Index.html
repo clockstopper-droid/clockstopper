@@ -19,70 +19,19 @@
     <h1 class="anonymous-title">Anonymous</h1>
   </header>
 
-  <!-- ═══════════════════════════════════════════════
-       PHONE / CALL PANEL
-  ════════════════════════════════════════════════ -->
   <div class="container">
 
-    <div class="phone-panel" id="phonePanel">
-      <div class="phone-screen">
-        <div class="call-status" id="callStatus">Ready</div>
-        <div class="call-number" id="callNumber">&#8203;</div>
-        <div class="call-timer" id="callTimer" style="display:none;">00:00</div>
-      </div>
-
-      <!-- Keypad -->
-      <div class="keypad" id="keypad">
-        <button class="key" onclick="dialKey('1')">1</button>
-        <button class="key" onclick="dialKey('2')">2<span>ABC</span></button>
-        <button class="key" onclick="dialKey('3')">3<span>DEF</span></button>
-        <button class="key" onclick="dialKey('4')">4<span>GHI</span></button>
-        <button class="key" onclick="dialKey('5')">5<span>JKL</span></button>
-        <button class="key" onclick="dialKey('6')">6<span>MNO</span></button>
-        <button class="key" onclick="dialKey('7')">7<span>PQRS</span></button>
-        <button class="key" onclick="dialKey('8')">8<span>TUV</span></button>
-        <button class="key" onclick="dialKey('9')">9<span>WXYZ</span></button>
-        <button class="key key-star" onclick="dialKey('*')">*</button>
-        <button class="key" onclick="dialKey('0')">0<span>+</span></button>
-        <button class="key key-hash" onclick="dialKey('#')">#</button>
-      </div>
-
-      <!-- Call controls -->
-      <div class="call-controls">
-        <button class="btn-call" id="btnCall" onclick="startCall()">&#9990;</button>
-        <button class="btn-backspace" onclick="dialBackspace()" title="Delete">&#9003;</button>
-        <button class="btn-hangup" id="btnHangup" onclick="endCall()" style="display:none;">&#128308;</button>
-      </div>
-
-      <!-- Mic permission / audio status -->
-      <div class="mic-status" id="micStatus">
-        <span id="micIcon">🎙️</span>
-        <span id="micLabel">Microphone: not requested</span>
-      </div>
-
-      <!-- Mute &amp; speaker toggles (active during a call) -->
-      <div class="in-call-controls" id="inCallControls" style="display:none;">
-        <button class="btn-mute-call" id="btnMuteCall" onclick="toggleMuteCall()" title="Mute mic">
-          🎙️ Mute
-        </button>
-        <button class="btn-speaker" id="btnSpeaker" onclick="toggleSpeaker()" title="Speaker">
-          🔊 Speaker
-        </button>
-      </div>
+    <!-- ═══════════════════════════════════════════
+         CONTROLS (theme toggle only — no add/mute)
+    ════════════════════════════════════════════ -->
+    <div class="controls">
+      <button id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
     </div>
 
     <!-- ═══════════════════════════════════════════
-         WORLD CLOCKS SECTION
+         US TIME ZONE CLOCKS
     ════════════════════════════════════════════ -->
-    <h2 class="section-title">World Clocks</h2>
-
-    <div class="controls">
-      <input type="text" id="tzInput" placeholder="e.g. America/New_York" />
-      <button onclick="addTimezone()">Add Clock</button>
-      <button onclick="toggleTheme()">Toggle Theme</button>
-      <button class="mute-btn" id="muteBtn" onclick="toggleMute()">🔔 Sound On</button>
-    </div>
-
+    <h2 class="section-title">US Time Zones</h2>
     <div class="clocks-grid" id="clocksGrid"></div>
 
     <!-- ═══════════════════════════════════════════
@@ -93,11 +42,8 @@
         <span>🌐 Network Status</span>
         <span class="panel-chevron" id="panelChevron">▼</span>
       </div>
-      <div class="connectivity-body" id="connectivityBody">
+      <div class="connectivity-body">
         <div class="wifi-status" id="wifiStatus">Checking…</div>
-        <div class="probe-status" id="connectivityProbeStatus">Probe: pending…</div>
-        <div class="network-info" id="networkInfo"></div>
-        <ul class="network-list" id="networkList"></ul>
       </div>
     </div>
 
