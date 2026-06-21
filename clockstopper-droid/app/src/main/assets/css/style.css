@@ -1,195 +1,211 @@
 /* ============================================================
-   Global Time Clock — Style.css
-   Dark theme, orange accents, flat styling — no neon effects
+   Global Time Clock — style.css  (Android WebView assets)
+   Dark theme, orange accents, flat styling. No neon effects.
    ============================================================ */
 
-/* ── Reset & base ─────────────────────────────────────────── */
+/* ── Reset / Base ─────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body {
-  height: 100%;
-  font-family: 'Segoe UI', Arial, sans-serif;
+html {
   font-size: 16px;
-  background: #f0f0f0;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f4f4f4;
   color: #1a1a1a;
+  min-height: 100vh;
   transition: background 0.3s, color 0.3s;
 }
 
-/* ── Dark theme ───────────────────────────────────────────── */
+/* ── Dark Theme ───────────────────────────────────────────── */
 body.dark-theme {
   background: #121212;
-  color: #e8e8e8;
+  color: #e0e0e0;
 }
 
-/* ── Layout container ─────────────────────────────────────── */
+/* ── Container ────────────────────────────────────────────── */
 .container {
-  max-width: 960px;
+  max-width: 480px;
   margin: 0 auto;
   padding: 16px;
 }
 
-/* ── Controls row ─────────────────────────────────────────── */
-.controls {
+/* ── Header ───────────────────────────────────────────────── */
+.app-header {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 8px;
 }
 
-.controls button {
-  padding: 8px 16px;
-  border: 1px solid #888;
+.app-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: inherit;
+}
+
+.header-controls {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Shared Control Button ────────────────────────────────── */
+.control-btn {
+  padding: 7px 14px;
+  border: none;
   border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
   background: #e0e0e0;
   color: #1a1a1a;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
-body.dark-theme .controls button {
+body.dark-theme .control-btn {
   background: #2a2a2a;
-  color: #e8e8e8;
-  border-color: #555;
+  color: #e0e0e0;
+  border: 1px solid #3a3a3a;
 }
 
-.controls button:hover {
-  background: #f4831f;
-  color: #fff;
-  border-color: #f4831f;
+.control-btn:active {
+  filter: brightness(0.85);
 }
 
-/* ── Mute button ──────────────────────────────────────────── */
-.mute-btn {
-  padding: 8px 16px;
-  border: 1px solid #888;
-  border-radius: 6px;
-  background: #e0e0e0;
-  color: #1a1a1a;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-}
-
-body.dark-theme .mute-btn {
-  background: #2a2a2a;
-  color: #e8e8e8;
-  border-color: #555;
-}
-
+/* Mute states */
 .mute-btn.muted {
-  background: #f4831f;
+  background: #ff6600;
   color: #fff;
-  border-color: #f4831f;
 }
 
-.mute-btn:hover {
-  background: #f4831f;
+body.dark-theme .mute-btn.muted {
+  background: #ff6600;
   color: #fff;
-  border-color: #f4831f;
+  border-color: #ff6600;
 }
 
-/* ── Clocks grid ──────────────────────────────────────────── */
+/* ── Clock Grid ───────────────────────────────────────────── */
 .clocks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
 }
 
-/* ── Clock card ───────────────────────────────────────────── */
+@media (max-width: 400px) {
+  .clocks-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Clock Card ───────────────────────────────────────────── */
 .clock-card {
   background: #fff;
-  border: 1px solid #ddd;
+  border: 1px solid #d8d8d8;
   border-radius: 10px;
-  padding: 20px 16px;
+  padding: 12px 8px;
   text-align: center;
-  transition: background 0.3s, border-color 0.3s;
 }
 
 body.dark-theme .clock-card {
   background: #1e1e1e;
-  border-color: #383838;
+  border-color: #333;
 }
 
 .clock-label {
-  font-size: 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #666;
-  margin-bottom: 8px;
+  letter-spacing: 0.06em;
+  color: #888;
+  margin-bottom: 6px;
 }
 
 body.dark-theme .clock-label {
-  color: #999;
+  color: #888;
 }
 
 .clock-display {
-  font-size: 2rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   color: #1a1a1a;
-  font-variant-numeric: tabular-nums;
 }
 
 body.dark-theme .clock-display {
-  color: #f4831f;
+  color: #ff8800;
 }
 
-/* ── Connectivity panel ───────────────────────────────────── */
+/* ── Connectivity Panel ───────────────────────────────────── */
 .connectivity-panel {
   background: #fff;
-  border: 1px solid #ddd;
+  border: 1px solid #d8d8d8;
   border-radius: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   overflow: hidden;
-  transition: background 0.3s, border-color 0.3s;
 }
 
 body.dark-theme .connectivity-panel {
   background: #1e1e1e;
-  border-color: #383838;
+  border-color: #333;
 }
 
-.connectivity-panel-header {
+.panel-toggle-btn {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 14px;
+  background: none;
+  border: none;
   cursor: pointer;
-  user-select: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
 }
 
-.connectivity-panel-header:hover {
-  background: rgba(244, 131, 31, 0.08);
+.panel-toggle-btn:active {
+  filter: brightness(0.85);
 }
 
-.connectivity-panel-body {
+.panel-toggle-arrow {
+  font-size: 0.75rem;
+  color: #888;
+  transition: transform 0.2s;
+}
+
+.connectivity-panel.expanded .panel-toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.panel-body {
   display: none;
-  padding: 12px 16px 16px;
-  border-top: 1px solid #ddd;
+  padding: 0 14px 14px;
 }
 
-body.dark-theme .connectivity-panel-body {
-  border-top-color: #383838;
-}
-
-.connectivity-panel.expanded .connectivity-panel-body {
+.connectivity-panel.expanded .panel-body {
   display: block;
 }
 
-/* ── WiFi / connectivity status ───────────────────────────── */
+/* ── WiFi Status ──────────────────────────────────────────── */
 .wifi-status {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.8rem;
   font-weight: 600;
+  background: #ddd;
+  color: #555;
 }
 
 .wifi-status.online {
@@ -203,24 +219,20 @@ body.dark-theme .connectivity-panel-body {
 }
 
 body.dark-theme .wifi-status.online {
-  background: #1e3a28;
-  color: #7ddf9b;
+  background: #1a3a25;
+  color: #5cb85c;
 }
 
 body.dark-theme .wifi-status.offline {
-  background: #3a1e1e;
-  color: #df7d7d;
+  background: #3a1a1a;
+  color: #e05555;
 }
 
-/* ── Probe status ─────────────────────────────────────────── */
+/* ── Probe Status ─────────────────────────────────────────── */
 .probe-status {
-  font-size: 0.82rem;
-  color: #666;
-  margin-top: 8px;
-}
-
-body.dark-theme .probe-status {
-  color: #999;
+  font-size: 0.8rem;
+  color: #888;
+  margin-bottom: 8px;
 }
 
 .probe-status.verified {
@@ -228,140 +240,347 @@ body.dark-theme .probe-status {
 }
 
 .probe-status.unverified {
-  color: #dc3545;
+  color: #e05555;
 }
 
-/* ── Network list ─────────────────────────────────────────── */
-.network-list {
-  list-style: none;
-  margin-top: 10px;
-}
-
-.network-list-item {
-  padding: 6px 10px;
-  border-radius: 5px;
-  font-size: 0.88rem;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.network-list-item:hover {
-  background: rgba(244, 131, 31, 0.12);
-}
-
-.network-list-item.selected {
-  background: rgba(244, 131, 31, 0.2);
+/* ── Network Type Indicator ───────────────────────────────── */
+.network-type-indicator {
+  display: inline-block;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #f4831f;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: #e9e9e9;
+  color: #444;
+  margin-bottom: 8px;
+  min-width: 0;
+  transition: background 0.2s, color 0.2s;
 }
 
-.network-list-item.mobile {
-  border-left: 3px solid #f4831f;
-  padding-left: 7px;
+.network-type-indicator:empty {
+  display: none;
 }
 
-/* ── Mobile network option ────────────────────────────────── */
+body.dark-theme .network-type-indicator {
+  background: #2a2a2a;
+  color: #aaa;
+}
+
+.network-type-indicator.cellular {
+  background: #fff3cd;
+  color: #856404;
+}
+
+body.dark-theme .network-type-indicator.cellular {
+  background: #3a2e00;
+  color: #ffc107;
+}
+
+.network-type-indicator.wifi {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+body.dark-theme .network-type-indicator.wifi {
+  background: #0a2a30;
+  color: #17a2b8;
+}
+
+/* ── Mobile Network Option ────────────────────────────────── */
 .mobile-network-option {
-  margin-top: 12px;
-  padding: 10px 14px;
-  border-radius: 7px;
-  border: 1px solid #ccc;
-  font-size: 0.88rem;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
-  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
 }
 
 body.dark-theme .mobile-network-option {
-  border-color: #444;
-  color: #ccc;
-}
-
-.mobile-network-option.available {
-  border-color: #f4831f;
-  color: #f4831f;
-  background: rgba(244, 131, 31, 0.06);
-}
-
-.mobile-network-option.available:hover {
-  background: rgba(244, 131, 31, 0.15);
-}
-
-.mobile-network-option.selected {
-  background: rgba(244, 131, 31, 0.22);
-  border-color: #f4831f;
-  color: #f4831f;
-  font-weight: 700;
+  border-color: #333;
 }
 
 .mobile-network-option.unavailable {
   opacity: 0.45;
-  cursor: default;
 }
 
-/* ── Call panel ───────────────────────────────────────────── */
+.mobile-network-option.selected {
+  border-color: #ff6600;
+  background: #fff5ee;
+}
+
+body.dark-theme .mobile-network-option.selected {
+  border-color: #ff6600;
+  background: #2a1500;
+}
+
+.mobile-network-label {
+  font-weight: 600;
+  color: inherit;
+}
+
+.mobile-select-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  background: #ff6600;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mobile-network-option.unavailable .mobile-select-btn {
+  pointer-events: none;
+  background: #aaa;
+}
+
+/* ── Network List ─────────────────────────────────────────── */
+.network-list {
+  list-style: none;
+  margin-top: 4px;
+}
+
+.network-list-item {
+  font-size: 0.8rem;
+  color: #888;
+  padding: 4px 0;
+}
+
+/* ── Call Panel ───────────────────────────────────────────── */
 .call-panel {
   background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  padding: 20px 16px;
-  margin-bottom: 20px;
-  transition: background 0.3s, border-color 0.3s;
+  border: 1px solid #d8d8d8;
+  border-radius: 12px;
+  padding: 18px 16px 20px;
+  margin-bottom: 24px;
 }
 
 body.dark-theme .call-panel {
   background: #1e1e1e;
-  border-color: #383838;
-}
-
-.call-panel.active {
-  border-color: #f4831f;
-}
-
-/* ── Dialer display ───────────────────────────────────────── */
-.dialer-display {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  min-height: 54px;
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 10px 16px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  color: #333;
-  margin-bottom: 8px;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
-  word-break: break-all;
-}
-
-body.dark-theme .dialer-display {
-  background: #141414;
   border-color: #333;
-  color: #e8e8e8;
+}
+
+.panel-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: #ff6600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ════════════════════════════════════════════════════════════
+   CALLER ID NAME SECTION
+   ════════════════════════════════════════════════════════ */
+
+.caller-id-name-section {
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+  margin-bottom: 18px;
+}
+
+body.dark-theme .caller-id-name-section {
+  background: #161616;
+  border-color: #2e2e2e;
+}
+
+/* Label */
+.caller-id-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ff6600;
+  margin-bottom: 5px;
+}
+
+/* Hint text explaining what the field does */
+.caller-id-hint {
+  font-size: 0.78rem;
+  color: #777;
+  margin-bottom: 10px;
+  line-height: 1.45;
+}
+
+body.dark-theme .caller-id-hint {
+  color: #888;
+}
+
+.caller-id-hint strong {
+  color: #ff6600;
+  font-weight: 700;
+}
+
+/* Input row — text field + button side by side */
+.caller-id-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+/* Text input */
+.caller-id-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1a1a;
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.caller-id-name-input::placeholder {
+  color: #bbb;
+  font-style: italic;
+}
+
+.caller-id-name-input:focus {
+  border-color: #ff6600;
+}
+
+.caller-id-name-input.has-value {
+  border-color: #ff6600;
+}
+
+body.dark-theme .caller-id-name-input {
+  background: #252525;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+body.dark-theme .caller-id-name-input::placeholder {
+  color: #555;
+}
+
+body.dark-theme .caller-id-name-input:focus {
+  border-color: #ff6600;
+}
+
+body.dark-theme .caller-id-name-input.has-value {
+  border-color: #ff6600;
+}
+
+/* Set Name button */
+.set-caller-id-btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #ff6600;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, filter 0.15s;
+  letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.set-caller-id-btn:hover {
+  background: #e05a00;
+}
+
+.set-caller-id-btn:active {
+  filter: brightness(0.88);
+}
+
+/* Live display — shows caller ID name that recipients will see */
+.caller-id-name-display {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: #efefef;
+  color: #888;
+  border-left: 3px solid #ccc;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  word-break: break-word;
+}
+
+body.dark-theme .caller-id-name-display {
+  background: #202020;
+  color: #888;
+  border-left-color: #444;
+}
+
+/* Active = a name has been set */
+.caller-id-name-display.active {
+  background: #fff5ee;
+  color: #cc4400;
+  border-left-color: #ff6600;
+  font-weight: 700;
+}
+
+body.dark-theme .caller-id-name-display.active {
+  background: #2a1500;
+  color: #ff8833;
+  border-left-color: #ff6600;
+}
+
+/* ── Dialer Display ───────────────────────────────────────── */
+.dialer-display {
+  min-height: 54px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+  background: #fafafa;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  color: #333;
+  text-align: center;
+  margin-bottom: 6px;
+  word-break: break-all;
+  transition: border-color 0.2s;
 }
 
 .dialer-display.has-number {
+  border-color: #ff6600;
   color: #1a1a1a;
 }
 
-body.dark-theme .dialer-display.has-number {
-  color: #f4831f;
+body.dark-theme .dialer-display {
+  background: #171717;
+  border-color: #333;
+  color: #aaa;
 }
 
-/* ── Dialed number readout ────────────────────────────────── */
+body.dark-theme .dialer-display.has-number {
+  border-color: #ff6600;
+  color: #ff8800;
+}
+
+/* ── Dialed Number Readout ────────────────────────────────── */
 .dialed-number-readout {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  color: #aaa;
   text-align: center;
-  color: #888;
-  min-height: 1.2em;
   margin-bottom: 14px;
+  min-height: 1.2em;
   transition: color 0.2s;
 }
 
 .dialed-number-readout.active {
-  color: #f4831f;
+  color: #ff6600;
+  font-weight: 600;
 }
 
 /* ── Keypad ───────────────────────────────────────────────── */
@@ -369,351 +588,165 @@ body.dark-theme .dialer-display.has-number {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  max-width: 300px;
-  margin: 0 auto 14px;
+  margin-bottom: 12px;
 }
 
 .keypad-btn {
-  padding: 16px 8px;
+  padding: 18px 0;
+  border: none;
+  border-radius: 10px;
   font-size: 1.3rem;
-  font-weight: 600;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background: #f0f0f0;
-  color: #1a1a1a;
+  font-weight: 700;
   cursor: pointer;
-  text-align: center;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
-  user-select: none;
+  background: #ff6600;
+  color: #fff;
+  transition: background 0.15s, transform 0.08s, filter 0.1s;
   -webkit-tap-highlight-color: transparent;
-  position: relative;
+  user-select: none;
 }
 
-.keypad-btn:hover {
-  background: #f4831f;
-  color: #fff;
-  border-color: #f4831f;
-}
-
-.keypad-btn:active {
-  transform: scale(0.95);
-  background: #d4690f;
-  color: #fff;
-  border-color: #d4690f;
+.keypad-btn:active,
+.keypad-btn.key-flash {
+  background: #cc4400;
+  transform: scale(0.94);
 }
 
 body.dark-theme .keypad-btn {
-  background: #2a2a2a;
-  color: #e8e8e8;
-  border-color: #444;
-}
-
-body.dark-theme .keypad-btn:hover {
-  background: #f4831f;
+  background: #ff6600;
   color: #fff;
-  border-color: #f4831f;
 }
 
-body.dark-theme .keypad-btn:active {
-  background: #d4690f;
-  border-color: #d4690f;
-}
-
-/* ── Keypad key-flash animation ───────────────────────────── */
-/*
- * Applied briefly via JS when the corresponding physical keyboard key is
- * pressed. Produces a quick orange highlight that fades back to the resting
- * state, giving tactile-like feedback without permanently altering the button.
- */
-@keyframes keyFlash {
-  0%   { background: #f4831f; color: #fff; border-color: #f4831f; transform: scale(0.95); }
-  60%  { background: #f4831f; color: #fff; border-color: #f4831f; transform: scale(0.97); }
-  100% { background: inherit; color: inherit; border-color: inherit; transform: scale(1); }
-}
-
-.keypad-btn.key-flash {
-  animation: keyFlash 0.2s ease-out forwards;
-}
-
+body.dark-theme .keypad-btn:active,
 body.dark-theme .keypad-btn.key-flash {
-  animation: keyFlash 0.2s ease-out forwards;
+  background: #e05a00;
+  transform: scale(0.94);
 }
 
-/* ── Clear / backspace button ─────────────────────────────── */
-.keypad-clear-btn,
-.keypad-backspace-btn {
-  padding: 14px 8px;
-  font-size: 1.1rem;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background: #f0f0f0;
-  color: #1a1a1a;
-  cursor: pointer;
-  text-align: center;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
+/* ── Dialer Action Row ────────────────────────────────────── */
+.dialer-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
-.keypad-clear-btn:hover,
-.keypad-backspace-btn:hover {
-  background: #f4831f;
-  color: #fff;
-  border-color: #f4831f;
-}
-
-.keypad-clear-btn:active,
-.keypad-backspace-btn:active {
-  transform: scale(0.95);
-}
-
-body.dark-theme .keypad-clear-btn,
-body.dark-theme .keypad-backspace-btn {
-  background: #2a2a2a;
-  color: #e8e8e8;
-  border-color: #444;
-}
-
-body.dark-theme .keypad-clear-btn:hover,
-body.dark-theme .keypad-backspace-btn:hover {
-  background: #f4831f;
-  color: #fff;
-  border-color: #f4831f;
-}
-
-.keypad-clear-btn.key-flash,
-.keypad-backspace-btn.key-flash {
-  animation: keyFlash 0.2s ease-out forwards;
-}
-
-/* ── Call action buttons ──────────────────────────────────── */
-.call-btn,
-.end-call-btn {
-  display: block;
-  width: 100%;
-  max-width: 300px;
-  margin: 0 auto 10px;
-  padding: 14px;
-  font-size: 1.05rem;
-  font-weight: 700;
+.action-btn {
+  flex: 1;
+  padding: 13px 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-  user-select: none;
+  transition: filter 0.15s, transform 0.08s;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
+.action-btn:active {
+  filter: brightness(0.85);
+  transform: scale(0.96);
+}
+
+/* Backspace / clear */
+.keypad-backspace-btn {
+  background: #444;
+  color: #fff;
+}
+
+body.dark-theme .keypad-backspace-btn {
+  background: #2e2e2e;
+  color: #ccc;
+  border: 1px solid #3a3a3a;
+}
+
+.keypad-backspace-btn.key-flash {
+  background: #666;
+}
+
+/* Call button */
 .call-btn {
   background: #28a745;
   color: #fff;
 }
 
-.call-btn:hover  { background: #218838; }
-.call-btn:active { transform: scale(0.97); background: #1e7e34; }
+.call-btn:hover {
+  background: #218838;
+}
 
-.end-call-btn {
+/* End call button */
+.end-btn {
   background: #dc3545;
   color: #fff;
 }
 
-.end-call-btn:hover  { background: #c82333; }
-.end-call-btn:active { transform: scale(0.97); background: #bd2130; }
+.end-btn:hover {
+  background: #c82333;
+}
 
-/* ── Call status ──────────────────────────────────────────── */
+/* ── Call Status ──────────────────────────────────────────── */
 .call-status {
+  font-size: 0.88rem;
+  font-weight: 600;
   text-align: center;
-  font-size: 0.9rem;
   color: #555;
-  margin-bottom: 10px;
-  min-height: 1.3em;
+  min-height: 1.4em;
+  margin-bottom: 6px;
+  word-break: break-word;
 }
 
 body.dark-theme .call-status {
-  color: #bbb;
+  color: #aaa;
 }
 
-/* ── Mic permission status ────────────────────────────────── */
+.call-panel.active .call-status {
+  color: #28a745;
+}
+
+body.dark-theme .call-panel.active .call-status {
+  color: #5cb85c;
+}
+
+/* ── Mic Permission Status ────────────────────────────────── */
 .mic-permission-status {
+  font-size: 0.78rem;
   text-align: center;
-  font-size: 0.82rem;
-  color: #777;
-  margin-bottom: 8px;
-}
-
-.mic-permission-status.granted { color: #28a745; }
-.mic-permission-status.denied  { color: #dc3545; }
-
-/* ── Network type indicator ───────────────────────────────── */
-.network-type-indicator {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  background: transparent;
-  color: #888;
-  min-height: 1.4em;
-  margin-bottom: 8px;
-  transition: background 0.2s, color 0.2s;
-}
-
-.network-type-indicator.wifi {
-  background: #dff0d8;
-  color: #3c763d;
-}
-
-.network-type-indicator.cellular {
-  background: rgba(244, 131, 31, 0.15);
-  color: #f4831f;
-}
-
-.network-type-indicator.fourG {
-  background: rgba(244, 131, 31, 0.22);
-  color: #d4690f;
-}
-
-.network-type-indicator.threeG {
-  background: rgba(244, 131, 31, 0.12);
-  color: #b05a0f;
-}
-
-body.dark-theme .network-type-indicator.wifi {
-  background: #1e3a28;
-  color: #7ddf9b;
-}
-
-/* ── Caller ID name section ───────────────────────────────── */
-.caller-id-name-section {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid #e0e0e0;
-}
-
-body.dark-theme .caller-id-name-section {
-  border-top-color: #333;
-}
-
-.caller-id-name-section label {
-  display: block;
-  font-size: 0.82rem;
-  color: #666;
-  margin-bottom: 6px;
-}
-
-body.dark-theme .caller-id-name-section label {
   color: #999;
-}
-
-.caller-id-name-input-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.caller-id-name-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  background: #fafafa;
-  color: #1a1a1a;
-  transition: border-color 0.2s, background 0.2s;
-  outline: none;
-}
-
-.caller-id-name-input:focus {
-  border-color: #f4831f;
-}
-
-.caller-id-name-input.has-value {
-  border-color: #f4831f;
-}
-
-body.dark-theme .caller-id-name-input {
-  background: #141414;
-  border-color: #444;
-  color: #e8e8e8;
-}
-
-body.dark-theme .caller-id-name-input:focus {
-  border-color: #f4831f;
-}
-
-body.dark-theme .caller-id-name-input.has-value {
-  border-color: #f4831f;
-}
-
-.set-caller-id-btn {
-  padding: 8px 16px;
-  border: 1px solid #f4831f;
-  border-radius: 6px;
-  background: #f4831f;
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  white-space: nowrap;
-}
-
-.set-caller-id-btn:hover  { background: #d4690f; border-color: #d4690f; }
-.set-caller-id-btn:active { background: #b85a0f; }
-
-.caller-id-name-display {
-  font-size: 0.85rem;
-  color: #888;
   min-height: 1.2em;
-  transition: color 0.2s;
 }
 
-.caller-id-name-display.active {
-  color: #f4831f;
-  font-weight: 600;
+.mic-permission-status.granted {
+  color: #28a745;
 }
 
-body.dark-theme .caller-id-name-display {
-  color: #666;
+.mic-permission-status.denied {
+  color: #dc3545;
 }
 
-body.dark-theme .caller-id-name-display.active {
-  color: #f4831f;
+body.dark-theme .mic-permission-status.granted {
+  color: #5cb85c;
 }
 
-/* ── Responsive: mobile ───────────────────────────────────── */
-@media (max-width: 480px) {
-  .clocks-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .clock-display {
-    font-size: 1.7rem;
-  }
-
-  .dialer-display {
-    font-size: 1.6rem;
-  }
-
-  .keypad {
-    max-width: 100%;
-    gap: 8px;
-  }
-
-  .keypad-btn {
-    padding: 18px 8px;
-    font-size: 1.2rem;
-  }
-
-  .call-btn,
-  .end-call-btn {
-    max-width: 100%;
-  }
+body.dark-theme .mic-permission-status.denied {
+  color: #e05555;
 }
 
+/* ── Utility ──────────────────────────────────────────────── */
 @media (max-width: 360px) {
+  .caller-id-input-row {
+    flex-direction: column;
+  }
+
+  .set-caller-id-btn {
+    width: 100%;
+  }
+
   .keypad-btn {
-    padding: 14px 4px;
+    padding: 15px 0;
     font-size: 1.1rem;
+  }
+
+  .action-btn {
+    font-size: 0.82rem;
+    padding: 11px 0;
   }
 }
