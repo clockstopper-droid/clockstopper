@@ -4,7 +4,7 @@
 
 **Global Time Clock** is a lightweight, client-side web application that displays three fixed world clocks: **Eastern Time**, **Central Time**, and **Western (Pacific) Time**. It is a pure frontend application with no backend dependencies, build tools, or frameworks — designed to run directly in a browser by opening `Index.html`.
 
-The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. There is **no decorative header or Old English / blackletter font** — the application header and any Old English, blackletter, or decorative serif display fonts have been removed from the UI; headings and labels use the standard flat dark-theme typeface consistent with the rest of the app. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends. A **network type badge** is displayed in `#networkTypeIndicator` during an active call, showing the current network type (e.g., WiFi, 4G, 3G, 2G, Cellular, or Unknown) so the user can see at a glance which network is carrying the active call. The **Backspace button supports long-press to clear** — tapping Backspace removes the last dialed digit, while pressing and holding Backspace for a defined duration (long-press threshold) clears the entire dialed number at once, providing a fast erase shortcut for mobile users.
+The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. There is **no decorative header or Old English / blackletter font** — the application header and any Old English, blackletter, or decorative serif display fonts have been removed from the UI; headings and labels use the standard flat dark-theme typeface consistent with the rest of the app. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe with **exponential backoff retry logic** and **status timestamps**. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends. A **network type badge** is displayed in `#networkTypeIndicator` during an active call, showing the current network type (e.g., WiFi, 4G, 3G, 2G, Cellular, or Unknown) so the user can see at a glance which network is carrying the active call. The **Backspace button supports long-press to clear** — tapping Backspace removes the last dialed digit, while pressing and holding Backspace for a defined duration (long-press threshold) clears the entire dialed number at once, providing a fast erase shortcut for mobile users.
 
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
@@ -18,7 +18,7 @@ The application has been **constructed as a mobile dialing app targeting Android
 | Styling | CSS3 (custom, no framework) |
 | Logic | Vanilla JavaScript (ES6+) |
 | Time Zone Handling | Native `Intl.DateTimeFormat` API (IANA time zones) |
-| Connectivity Detection | Native `navigator.onLine` API + `online`/`offline` window events + fetch-based probe |
+| Connectivity Detection | Native `navigator.onLine` API + `online`/`offline` window events + fetch-based connectivity probe with exponential backoff retry and status timestamps |
 | Network Information | `navigator.connection` / `NetworkInformation` API (where available) |
 | Mobile Network Detection | `navigator.connection.type === 'cellular'` + `effectiveType` (`4g`, `3g`, `2g`) checks |
 | Audio Output | Native Web Audio API (`AudioContext`) + `HTMLAudioElement` (call audio only) |
@@ -29,6 +29,8 @@ The application has been **constructed as a mobile dialing app targeting Android
 | Network Type Badge | `navigator.connection.type` / `effectiveType` read at call connect time and on `change` events; displayed in `#networkTypeIndicator` during active call; updates dynamically if network changes mid-call |
 | Keyboard Input | `keydown` event listener on `document`; maps key values to `dialDigit()`, `clearDialed()`, `initiateCall()`, `endCall()` |
 | Backspace Long-Press | `pointerdown`/`pointerup`/`pointercancel` (or `mousedown`/`touchstart` equivalents) event listeners on the Backspace button; `setTimeout` detects long-press threshold; short tap → `clearLastDigit()`, long hold → `clearDialed()` (full clear) |
+| Connectivity Probe Retry | Exponential backoff scheduler in `app.js`; probe retries on failure with increasing delay intervals; backoff resets on successful probe or when `online` event fires |
+| Connectivity Status Timestamps | Each connectivity status change (online, offline, probe success, probe failure) is timestamped using `Date` and displayed in the connectivity panel UI |
 | Typography | System/sans-serif fonts only — no decorative, Old English, blackletter, or display fonts used anywhere in the app |
 | Android Packaging | Android WebView wrapper (WebView-based native Android app) |
 | Runtime | Browser (standalone) + Android WebView (mobile deployment) |
@@ -41,9 +43,9 @@ The application has been **constructed as a mobile dialing app targeting Android
 clockstopper/
 ├── Index.html          # Entry point — main HTML shell
 ├── Css/
-│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles
+│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic
+│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic
 ├── README.md           # Project documentation
 └── .gitignore          # Android/IntelliJ artifacts excluded
 ```
@@ -65,6 +67,7 @@ The application has been packaged as an **Android WebView-based mobile dialing a
 - The microphone permission pre-check is particularly important in the Android WebView context, where mic permissions must be granted both at the Android manifest level and at the browser/WebView level; the pre-check UI surfaces which layer is blocking access if mic is unavailable.
 - The network type badge reads `navigator.connection` data which is available in Android WebView when the `ACCESS_NETWORK_STATE` permission is granted in the Android manifest.
 - The backspace long-press uses pointer/touch events which are natively supported in Android WebView; the implementation avoids context menu triggers on long-press by calling `preventDefault()` where appropriate.
+- The connectivity probe with exponential backoff is compatible with Android WebView's network stack; probe fetch requests respect the WebView's network permissions and connectivity state.
 
 ---
 
@@ -91,7 +94,36 @@ These are rendered on page load and cannot be changed by the user at runtime. Th
 - Clock card and panel borders use subtle, non-glowing contrast to separate sections.
 - Microphone permission pre-check status indicators use color-coded flat styling (e.g., green for granted, yellow/amber for prompt, red for denied) consistent with the dark theme — no neon or glow effects on these indicators.
 - The **network type badge** (`#networkTypeIndicator`) uses flat, color-coded badge styling consistent with the dark theme — no glow or neon effects. Badge color or label varies by network type (e.g., WiFi, 4G, 3G, 2G, Cellular, Unknown) and is visible only during an active call.
+- **Connectivity status timestamps** in the connectivity panel use flat, muted text styling (e.g., smaller font size, subdued color) consistent with the dark theme — no decorative or neon styling on timestamp text.
 - **Typography is strictly utilitarian** — only system fonts or a clean sans-serif stack are used. No Google Fonts, web font imports, or decorative typefaces of any kind are permitted.
+
+---
+
+## Connectivity Probe with Retry Backoff and Status Timestamps
+
+The fetch-based connectivity probe has been enhanced with **exponential backoff retry logic** and **status timestamps** displayed in the connectivity panel.
+
+### Exponential Backoff Retry
+
+Key implementation details:
+- When a connectivity probe fetch fails (network error or non-2xx response), the probe is **not retried immediately** — instead it schedules a retry after an increasing delay.
+- **Backoff schedule** is defined as a constant array or formula in `app.js` (e.g., initial delay 2s, doubling on each failure up to a defined maximum such as 60s).
+- A **maximum retry delay cap** prevents unbounded wait times between probes.
+- The backoff state (current delay, retry timeout handle) is managed as module-level variables in `app.js` and is reset when:
+  - A probe succeeds.
+  - The browser `online` event fires (indicating connectivity restored), which triggers an immediate re-probe rather than waiting for the next backoff interval.
+- The `offline` browser event cancels any pending retry timeout and marks connectivity as offline immediately without waiting for the next probe.
+- All retry scheduling uses `setTimeout`; no external scheduler libraries are used.
+
+### Status Timestamps
+
+Key implementation details:
+- Every connectivity **status change event** — online, offline, probe success, probe failure — records a timestamp using `new Date()` (or `Date.now()`) at the moment the status changes.
+- Timestamps are **formatted for display** (e.g., `HH:MM:SS` local time, or a short date+time string) and rendered into a designated element in the connectivity panel UI (e.g., a `#connectivityTimestamp` or inline within the status label).
+- The timestamp reflects the **last status change**, not a continuously updating clock — it is updated only when status transitions occur.
+- Timestamp display styling uses flat, muted text consistent with the dark theme (smaller font, subdued color) — no special decoration.
+- In `Index.html`, the connectivity panel includes a timestamp display element updated by `app.js` on each status change.
+- Timestamps are stored in `app.js` app-level state alongside connectivity status and are cleared/reset on page load.
 
 ---
 
@@ -115,37 +147,4 @@ Key implementation details:
 
 ## Network Type Badge
 
-During an active call, a **network type badge** is displayed in `#networkTypeIndicator` to inform the user which network type is currently carrying the call.
-
-Key implementation details:
-- The badge is shown when a call is active and hidden when no call is in progress.
-- **Network type is determined** by reading `navigator.connection.type` and/or `navigator.connection.effectiveType` at call connect time via the `NetworkInformation` API.
-- **Displayed labels and mapping:**
-  | `connection.type` / `effectiveType` | Badge Label |
-  |---|---|
-  | `wifi` | WiFi |
-  | `cellular` + `effectiveType: '4g'` | 4G |
-  | `cellular` + `effectiveType: '3g'` | 3G |
-  | `cellular` + `effectiveType: '2g'` | 2G |
-  | `cellular` (no/unknown effectiveType) | Cellular |
-  | API unavailable or `unknown` | Unknown |
-- **Dynamic updates:** A `change` event listener on `navigator.connection` updates the badge if the network type changes while a call is active (e.g., WiFi drops and falls back to cellular mid-call).
-- **Graceful degradation:** If `navigator.connection` is not available in the current browser/WebView, the badge displays "Unknown" and does not error.
-- The badge element (`#networkTypeIndicator`) is defined in `Index.html` within the `#callPanel` area and styled in `Style.css` using flat, badge-style CSS consistent with the dark theme and orange accent palette.
-- Badge visibility is toggled in `app.js` alongside call state transitions — shown in `initiateCall()` on connect, hidden in `endCall()`.
-- The network type badge state and its `change` event listener are managed in `app.js` app-level state; the listener is added on call start and removed on call end to avoid stale listeners accumulating.
-
----
-
-## Microphone Permission Pre-Check
-
-The application proactively checks microphone permission state on page load and surfaces the result in `#micPermissionStatus` **before** the user attempts to dial. This ensures users are aware of mic access issues before initiating a call.
-
-Key implementation details:
-- **Primary method:** `navigator.permissions.query({ name: 'microphone' })` is called on page load via `checkMicPermission()` in `app.js`. This is non-intrusive and does not trigger a permission prompt.
-- **Fallback method:** If the Permissions API is unavailable (e.g., older Android WebView versions), a passive `getUserMedia` probe is attempted to determine actual mic access state.
-- **Permission states handled:**
-  - `granted` — mic is available; `#micPermissionStatus` shows a positive/green indicator; dialing is unblocked.
-  - `prompt` — mic permission has not been decided yet; `#micPermissionStatus` shows an informational/amber indicator advising the user that they will be prompted when a call is initiated.
-  - `denied` — mic access is blocked; `#micPermissionStatus` shows a warning/red indicator with guidance on how to re-enable mic access in device settings.
-- **Permission change listener:** A `perm
+During an active call, a **network type badge** is displayed in `#networkTypeIndicator` to inform the user which network type is currently carrying

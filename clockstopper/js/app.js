@@ -1,120 +1,396 @@
-// ─── State ───────────────────────────────────────────────────────────────────
-let isMuted         = false;
-let isDarkTheme     = true;
-let dialedNumber    = '';
-let callerIdName    = '';
-let callActive      = false;
-let callStartTime   = null;
+/* ==========================================================================
+   app.js — Global Time Clock + Dialer
+   All application logic: clocks, theme, mute, connectivity, dialer, caller ID,
+   call audio, mic permission pre-check, call duration timer, network type badge,
+   keyboard input, backspace long-press clear.
+   ========================================================================== */
+
+'use strict';
+
+/* --------------------------------------------------------------------------
+   Constants
+   -------------------------------------------------------------------------- */
+const LONG_PRESS_THRESHOLD_MS = 700;   // ms hold before backspace clears all
+
+// Connectivity probe backoff settings
+const PROBE_INITIAL_DELAY_MS  = 2000;  // first retry after 2 s
+const PROBE_BACKOFF_FACTOR    = 2;     // double each retry
+const PROBE_MAX_DELAY_MS      = 30000; // cap at 30 s
+const PROBE_URL               = 'https://www.gstatic.com/generate_204'; // 204 No Content
+
+/* --------------------------------------------------------------------------
+   State
+   -------------------------------------------------------------------------- */
+let isMuted        = false;
+let dialedNumber   = '';
+let callerIdName   = '';
+let callActive     = false;
+let callStartTime  = null;
 let callTimerInterval = null;
 let networkChangeListener = null;
-let micPermissionStatus = null;
 
-// Long-press state for backspace button
-let backspaceLongPressTimer = null;
-const LONG_PRESS_THRESHOLD_MS = 600;
+// Probe retry state
+let probeRetryTimeout   = null;   // handle from setTimeout
+let probeRetryDelay     = PROBE_INITIAL_DELAY_MS;
+let lastProbeSuccess    = null;   // Date | null
+let lastProbeFailure    = null;   // Date | null
 
-// ─── DOM References ───────────────────────────────────────────────────────────
-const dialerDisplay       = document.getElementById('dialerDisplay');
-const callStatus          = document.getElementById('callStatus');
-const micPermissionEl     = document.getElementById('micPermissionStatus');
-const networkTypeEl       = document.getElementById('networkTypeIndicator');
-const callerIdNameDisplay = document.getElementById('callerIdNameDisplay');
-const callerIdNameInput   = document.getElementById('callerIdNameInput');
+/* --------------------------------------------------------------------------
+   Utility — format a Date as a locale time string (h:mm:ss AM/PM)
+   -------------------------------------------------------------------------- */
+function formatProbeTime(date) {
+  if (!date) return 'Never';
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+}
 
-// ─── Clock Logic ─────────────────────────────────────────────────────────────
-const clocks = [
+/* --------------------------------------------------------------------------
+   Clock — three fixed time zones
+   -------------------------------------------------------------------------- */
+const TIMEZONES = [
   { label: 'Eastern Time',  zone: 'America/New_York'    },
   { label: 'Central Time',  zone: 'America/Chicago'     },
   { label: 'Western Time',  zone: 'America/Los_Angeles' },
 ];
 
-function buildClockCards() {
+function renderClocks() {
   const container = document.getElementById('clockContainer');
   if (!container) return;
   container.innerHTML = '';
-  clocks.forEach(({ label, zone }) => {
+  const now = new Date();
+  TIMEZONES.forEach(({ label, zone }) => {
+    const timeStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      hour:     'numeric',
+      minute:   '2-digit',
+      second:   '2-digit',
+      hour12:   true,
+    }).format(now);
+    const dateStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      weekday: 'short',
+      month:   'short',
+      day:     'numeric',
+    }).format(now);
     const card = document.createElement('div');
     card.className = 'clock-card';
     card.innerHTML = `
       <div class="clock-label">${label}</div>
-      <div class="clock-time" id="clock-${zone}">--:--:--</div>
-    `;
+      <div class="clock-time">${timeStr}</div>
+      <div class="clock-date">${dateStr}</div>`;
     container.appendChild(card);
   });
 }
 
-function updateClocks() {
-  clocks.forEach(({ zone }) => {
-    const el = document.getElementById(`clock-${zone}`);
-    if (!el) return;
-    el.textContent = new Intl.DateTimeFormat('en-US', {
-      timeZone: zone,
-      hour:     '2-digit',
-      minute:   '2-digit',
-      second:   '2-digit',
-      hour12:   true,
-    }).format(new Date());
+/* --------------------------------------------------------------------------
+   Theme toggle
+   -------------------------------------------------------------------------- */
+function initThemeToggle() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
   });
 }
 
-// ─── Theme Toggle ─────────────────────────────────────────────────────────────
-function toggleTheme() {
-  isDarkTheme = !isDarkTheme;
-  document.body.classList.toggle('light-theme', !isDarkTheme);
+/* --------------------------------------------------------------------------
+   Mute toggle
+   -------------------------------------------------------------------------- */
+function initMuteToggle() {
+  const btn = document.getElementById('muteToggle');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    isMuted = !isMuted;
+    btn.textContent = isMuted ? '🔇 Unmute' : '🔔 Mute';
+    btn.setAttribute('aria-pressed', String(isMuted));
+  });
 }
 
-// ─── Mute Toggle ─────────────────────────────────────────────────────────────
-function toggleMute() {
-  isMuted = !isMuted;
-  const btn = document.getElementById('muteBtn');
-  if (btn) btn.textContent = isMuted ? 'Unmute' : 'Mute';
+/* --------------------------------------------------------------------------
+   Connectivity UI update
+   Reflects navigator.onLine state + probe timestamps in #connectivityProbeStatus
+   -------------------------------------------------------------------------- */
+function updateConnectivityUI(probeResult) {
+  const onlineIndicator = document.getElementById('onlineStatus');
+  const probeStatusEl   = document.getElementById('connectivityProbeStatus');
+
+  const isOnline = navigator.onLine;
+
+  // Online / offline indicator
+  if (onlineIndicator) {
+    onlineIndicator.textContent = isOnline ? '✅ Online' : '❌ Offline';
+    onlineIndicator.className   = isOnline ? 'status-online' : 'status-offline';
+  }
+
+  // Probe status + timestamps
+  if (probeStatusEl) {
+    let probeLabel = '';
+    if (probeResult === true) {
+      probeLabel = '✅ Probe OK';
+    } else if (probeResult === false) {
+      probeLabel = '⚠️ Probe failed';
+    } else {
+      // Called without a new result — keep existing probe label visible
+      const existing = probeStatusEl.querySelector('.probe-result-label');
+      probeLabel = existing ? existing.textContent : '— Probe pending';
+    }
+
+    const successLine = lastProbeSuccess
+      ? `<span class="probe-timestamp probe-success">Last verified: ${formatProbeTime(lastProbeSuccess)}</span>`
+      : `<span class="probe-timestamp probe-never">Last verified: Never</span>`;
+
+    const failureLine = lastProbeFailure
+      ? `<span class="probe-timestamp probe-failure">Last failed: ${formatProbeTime(lastProbeFailure)}</span>`
+      : '';
+
+    probeStatusEl.innerHTML =
+      `<span class="probe-result-label">${probeLabel}</span>` +
+      successLine +
+      failureLine;
+  }
 }
 
-// ─── Connectivity ─────────────────────────────────────────────────────────────
-function updateConnectivityStatus() {
-  const el = document.getElementById('connectivityStatus');
-  if (!el) return;
-  el.textContent = navigator.onLine ? 'Online' : 'Offline';
-  el.className   = navigator.onLine ? 'status-online' : 'status-offline';
+/* --------------------------------------------------------------------------
+   Connectivity probe with exponential backoff retry
+   -------------------------------------------------------------------------- */
+
+/**
+ * Cancel any pending retry timeout (called before scheduling a new one, or
+ * when a probe succeeds and no retry is needed).
+ */
+function cancelProbeRetry() {
+  if (probeRetryTimeout !== null) {
+    clearTimeout(probeRetryTimeout);
+    probeRetryTimeout = null;
+  }
 }
 
-function probeConnectivity() {
-  fetch('https://www.google.com/favicon.ico', { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
-    .then(() => { const el = document.getElementById('connectivityStatus'); if (el) { el.textContent = 'Connected'; el.className = 'status-online'; } })
-    .catch(() => { const el = document.getElementById('connectivityStatus'); if (el) { el.textContent = 'No Connectivity'; el.className = 'status-offline'; } });
+/**
+ * Schedule a retry after the current backoff delay, then double the delay
+ * (up to PROBE_MAX_DELAY_MS) for the next failure.
+ */
+function scheduleProbeRetry() {
+  cancelProbeRetry();
+  const delay = probeRetryDelay;
+  probeRetryTimeout = setTimeout(() => {
+    probeRetryTimeout = null;
+    probeConnectivity();
+  }, delay);
+  // Advance the delay for the next potential failure (capped)
+  probeRetryDelay = Math.min(probeRetryDelay * PROBE_BACKOFF_FACTOR, PROBE_MAX_DELAY_MS);
 }
 
-// ─── Network Type ─────────────────────────────────────────────────────────────
+/**
+ * Fetch-based connectivity probe.
+ *
+ * On success:
+ *   - Records lastProbeSuccess timestamp
+ *   - Resets backoff delay to initial value
+ *   - Cancels any pending retry
+ *   - Updates UI with probe-ok state
+ *
+ * On failure:
+ *   - Records lastProbeFailure timestamp
+ *   - Schedules a retry with exponential backoff (2 s → 4 s → 8 s … ≤ 30 s)
+ *   - Updates UI with probe-failed state
+ */
+async function probeConnectivity() {
+  try {
+    const response = await fetch(PROBE_URL, {
+      method:  'HEAD',
+      cache:   'no-store',
+      mode:    'no-cors',   // gstatic 204 endpoint — no-cors is fine
+    });
+    // Treat any response (including opaque) as success when mode is no-cors
+    lastProbeSuccess = new Date();
+    probeRetryDelay  = PROBE_INITIAL_DELAY_MS;  // reset backoff
+    cancelProbeRetry();
+    updateConnectivityUI(true);
+  } catch {
+    lastProbeFailure = new Date();
+    updateConnectivityUI(false);
+    scheduleProbeRetry();
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Connectivity panel — init
+   -------------------------------------------------------------------------- */
+function initConnectivity() {
+  // Reflect immediate navigator.onLine state (no new probe result yet)
+  updateConnectivityUI(null);
+
+  // Browser online / offline events
+  window.addEventListener('online',  () => {
+    updateConnectivityUI(null);
+    // When we come back online reset backoff and probe immediately
+    probeRetryDelay = PROBE_INITIAL_DELAY_MS;
+    probeConnectivity();
+  });
+  window.addEventListener('offline', () => {
+    cancelProbeRetry();
+    lastProbeFailure = new Date();
+    updateConnectivityUI(false);
+    // Re-arm backoff so retries resume when navigator.onLine flips back
+    scheduleProbeRetry();
+  });
+
+  // Initial probe on load
+  probeConnectivity();
+
+  // Network-change listener (NetworkInformation API)
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) {
+    conn.addEventListener('change', () => {
+      updateNetworkInfoUI();
+      // Re-probe whenever the network interface changes
+      probeRetryDelay = PROBE_INITIAL_DELAY_MS;
+      probeConnectivity();
+    });
+  }
+
+  updateNetworkInfoUI();
+}
+
+/* --------------------------------------------------------------------------
+   Network Information UI (WiFi / cellular type display)
+   -------------------------------------------------------------------------- */
 function getNetworkLabel() {
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (!conn) return 'Unknown';
-  const type = conn.type || '';
-  const eff  = conn.effectiveType || '';
-  if (type === 'wifi')     return 'WiFi';
-  if (type === 'cellular') {
-    if (eff === '4g') return '4G';
-    if (eff === '3g') return '3G';
-    if (eff === '2g') return '2G';
+  if (conn.type === 'wifi') return 'WiFi';
+  if (conn.type === 'cellular') {
+    const et = conn.effectiveType;
+    if (et === '4g') return '4G';
+    if (et === '3g') return '3G';
+    if (et === '2g') return '2G';
     return 'Cellular';
   }
-  return 'Unknown';
+  return conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Unknown';
 }
 
+function updateNetworkInfoUI() {
+  const el = document.getElementById('networkInfo');
+  if (!el) return;
+  el.textContent = `Network: ${getNetworkLabel()}`;
+}
+
+/* --------------------------------------------------------------------------
+   Mic permission pre-check
+   -------------------------------------------------------------------------- */
+function updateMicPermissionUI(state) {
+  const el = document.getElementById('micPermissionStatus');
+  if (!el) return;
+  switch (state) {
+    case 'granted':
+      el.textContent = '🎤 Microphone: Granted';
+      el.className = 'mic-granted';
+      break;
+    case 'denied':
+      el.textContent = '🚫 Microphone: Denied — enable in device settings';
+      el.className = 'mic-denied';
+      break;
+    case 'prompt':
+      el.textContent = '⚠️ Microphone: Permission required — you will be prompted when calling';
+      el.className = 'mic-prompt';
+      break;
+    default:
+      el.textContent = '❓ Microphone: Status unknown';
+      el.className = 'mic-unknown';
+  }
+}
+
+async function checkMicPermission() {
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const result = await navigator.permissions.query({ name: 'microphone' });
+      updateMicPermissionUI(result.state);
+      result.addEventListener('change', () => updateMicPermissionUI(result.state));
+      return;
+    } catch {
+      // Fall through to getUserMedia probe
+    }
+  }
+  // Fallback: passive getUserMedia probe
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    updateMicPermissionUI('granted');
+  } catch (err) {
+    updateMicPermissionUI(err.name === 'NotAllowedError' ? 'denied' : 'prompt');
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Dialer — digit input
+   -------------------------------------------------------------------------- */
+function dialDigit(digit) {
+  dialedNumber += digit;
+  updateDialerDisplay();
+}
+
+function clearLastDigit() {
+  dialedNumber = dialedNumber.slice(0, -1);
+  updateDialerDisplay();
+}
+
+function clearDialed() {
+  dialedNumber = '';
+  updateDialerDisplay();
+}
+
+function updateDialerDisplay() {
+  const display    = document.getElementById('numberDisplay');
+  const liveReadout = document.getElementById('dialedNumberReadout');
+  if (display)     display.textContent    = dialedNumber || '';
+  if (liveReadout) liveReadout.textContent = dialedNumber
+    ? `Dialing: ${dialedNumber}`
+    : '';
+}
+
+/* --------------------------------------------------------------------------
+   Caller ID name
+   -------------------------------------------------------------------------- */
+function initCallerIdName() {
+  const input  = document.getElementById('callerIdNameInput');
+  const saveBtn = document.getElementById('saveCallerIdName');
+  const display = document.getElementById('callerIdNameDisplay');
+  if (!input || !saveBtn) return;
+
+  saveBtn.addEventListener('click', () => {
+    callerIdName = input.value.trim();
+    if (display) display.textContent = callerIdName
+      ? `Caller ID: "${callerIdName}"`
+      : '';
+  });
+}
+
+/* --------------------------------------------------------------------------
+   Network type badge (shown during active call)
+   -------------------------------------------------------------------------- */
 function showNetworkBadge() {
-  if (!networkTypeEl) return;
-  networkTypeEl.textContent = getNetworkLabel();
-  networkTypeEl.style.display = 'inline-block';
+  const badge = document.getElementById('networkTypeIndicator');
+  if (!badge) return;
+  const label = getNetworkLabel();
+  badge.textContent = label;
+  badge.className   = 'network-badge network-badge--' + label.toLowerCase().replace(/\s+/g, '-');
+  badge.style.display = 'inline-block';
+
+  // Update dynamically if network changes during the call
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (conn) {
-    networkChangeListener = () => { networkTypeEl.textContent = getNetworkLabel(); };
+    networkChangeListener = () => {
+      const newLabel = getNetworkLabel();
+      badge.textContent = newLabel;
+      badge.className   = 'network-badge network-badge--' + newLabel.toLowerCase().replace(/\s+/g, '-');
+    };
     conn.addEventListener('change', networkChangeListener);
   }
 }
 
 function hideNetworkBadge() {
-  if (!networkTypeEl) return;
-  networkTypeEl.style.display = 'none';
-  networkTypeEl.textContent = '';
+  const badge = document.getElementById('networkTypeIndicator');
+  if (badge) badge.style.display = 'none';
+
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (conn && networkChangeListener) {
     conn.removeEventListener('change', networkChangeListener);
@@ -122,65 +398,25 @@ function hideNetworkBadge() {
   }
 }
 
-// ─── Microphone Permission Pre-Check ─────────────────────────────────────────
-function setMicStatusUI(state) {
-  if (!micPermissionEl) return;
-  const messages = {
-    granted: '🎙️ Microphone access granted.',
-    prompt:  '⚠️ Microphone permission will be requested when you start a call.',
-    denied:  '🚫 Microphone access denied. Enable it in device settings to make calls.',
-    unknown: 'ℹ️ Microphone permission status unknown.',
-  };
-  const classes = {
-    granted: 'mic-granted',
-    prompt:  'mic-prompt',
-    denied:  'mic-denied',
-    unknown: 'mic-unknown',
-  };
-  micPermissionEl.textContent = messages[state] || messages.unknown;
-  micPermissionEl.className   = `mic-status ${classes[state] || classes.unknown}`;
-}
-
-async function checkMicPermission() {
-  if (navigator.permissions && navigator.permissions.query) {
-    try {
-      const status = await navigator.permissions.query({ name: 'microphone' });
-      setMicStatusUI(status.state);
-      status.addEventListener('change', () => setMicStatusUI(status.state));
-      return status.state;
-    } catch (_) { /* fall through */ }
-  }
-  // Fallback: passive getUserMedia probe
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(t => t.stop());
-    setMicStatusUI('granted');
-    return 'granted';
-  } catch (e) {
-    if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-      setMicStatusUI('denied');
-      return 'denied';
-    }
-    setMicStatusUI('unknown');
-    return 'unknown';
-  }
-}
-
-// ─── Call Duration Timer ──────────────────────────────────────────────────────
-function formatDuration(seconds) {
+/* --------------------------------------------------------------------------
+   Call duration timer
+   -------------------------------------------------------------------------- */
+function formatElapsed(seconds) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  const pad = n => String(n).padStart(2, '0');
-  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 function startCallTimer() {
   callStartTime = Date.now();
+  const statusEl = document.getElementById('callStatus');
   callTimerInterval = setInterval(() => {
-    if (!callStatus) return;
+    if (!statusEl) return;
     const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-    callStatus.textContent = `Call in progress: ${formatDuration(elapsed)}`;
+    statusEl.textContent = `In call — ${formatElapsed(elapsed)}`;
   }, 1000);
 }
 
@@ -192,87 +428,34 @@ function stopCallTimer() {
   callStartTime = null;
 }
 
-// ─── Dialer ───────────────────────────────────────────────────────────────────
-function dialDigit(digit) {
-  dialedNumber += digit;
-  updateDialerDisplay();
-}
-
-function updateDialerDisplay() {
-  if (dialerDisplay) dialerDisplay.textContent = dialedNumber || '';
-  const readout = document.getElementById('dialReadout');
-  if (readout) readout.textContent = dialedNumber ? `Dialing: ${dialedNumber}` : '';
-}
-
-/**
- * clearDialed — removes the last digit (short tap) or clears the entire
- * dialed string (long press / clearAll = true).
- *
- * @param {boolean} [clearAll=false]  When true, wipes the full number and
- *                                     plays the shake animation on #dialerDisplay.
- */
-function clearDialed(clearAll = false) {
-  if (clearAll) {
-    dialedNumber = '';
-    updateDialerDisplay();
-    triggerShake();
-  } else {
-    dialedNumber = dialedNumber.slice(0, -1);
-    updateDialerDisplay();
-  }
-}
-
-/** Applies the CSS shake animation to #dialerDisplay for visual feedback. */
-function triggerShake() {
-  if (!dialerDisplay) return;
-  // Remove first in case it's still running from a previous clear
-  dialerDisplay.classList.remove('shake');
-  // Force reflow so re-adding the class restarts the animation
-  void dialerDisplay.offsetWidth;
-  dialerDisplay.classList.add('shake');
-  dialerDisplay.addEventListener('animationend', () => {
-    dialerDisplay.classList.remove('shake');
-  }, { once: true });
-}
-
-// ─── Caller ID Name ───────────────────────────────────────────────────────────
-function setCallerIdName() {
-  if (!callerIdNameInput) return;
-  callerIdName = callerIdNameInput.value.trim();
-  if (callerIdNameDisplay) {
-    callerIdNameDisplay.textContent = callerIdName
-      ? `Caller ID: ${callerIdName}`
-      : 'No caller ID name set.';
-  }
-}
-
-// ─── Call Handling ────────────────────────────────────────────────────────────
+/* --------------------------------------------------------------------------
+   Call audio — outgoing call
+   -------------------------------------------------------------------------- */
 async function initiateCall() {
-  if (callActive) return;
-  if (!dialedNumber) {
-    if (callStatus) callStatus.textContent = 'Enter a number to call.';
-    return;
-  }
-
-  // Mic guard
-  const micState = await checkMicPermission();
-  if (micState === 'denied') {
-    if (callStatus) callStatus.textContent = 'Cannot start call — microphone access denied.';
-    return;
-  }
+  if (callActive || !dialedNumber) return;
+  const statusEl = document.getElementById('callStatus');
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    callActive = true;
-    if (callStatus) callStatus.textContent = `Calling ${dialedNumber}…`;
-    showNetworkBadge();
-    startCallTimer();
-    // In a real VOIP integration the stream would be handed to a peer connection.
-    // Store it for cleanup on endCall.
-    window._activeStream = stream;
-  } catch (e) {
-    if (callStatus) callStatus.textContent = `Microphone error: ${e.message}`;
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    if (statusEl) statusEl.textContent = 'Microphone access denied — cannot place call.';
+    return;
   }
+
+  callActive = true;
+  if (statusEl) statusEl.textContent = 'Connecting…';
+
+  // Simulate call connect after short delay
+  setTimeout(() => {
+    if (!callActive) return;
+    if (statusEl) statusEl.textContent = 'In call — 00:00';
+    startCallTimer();
+    showNetworkBadge();
+    const endBtn = document.getElementById('endCallBtn');
+    if (endBtn) endBtn.style.display = 'inline-block';
+    const callBtn = document.getElementById('callBtn');
+    if (callBtn) callBtn.disabled = true;
+  }, 800);
 }
 
 function endCall() {
@@ -280,77 +463,119 @@ function endCall() {
   callActive = false;
   stopCallTimer();
   hideNetworkBadge();
-  if (callStatus) callStatus.textContent = 'Call ended.';
-  if (window._activeStream) {
-    window._activeStream.getTracks().forEach(t => t.stop());
-    window._activeStream = null;
-  }
+
+  const statusEl = document.getElementById('callStatus');
+  if (statusEl) statusEl.textContent = 'Call ended.';
+
+  const endBtn  = document.getElementById('endCallBtn');
+  const callBtn = document.getElementById('callBtn');
+  if (endBtn)  endBtn.style.display = 'none';
+  if (callBtn) callBtn.disabled = false;
 }
 
-// ─── Keyboard Input ───────────────────────────────────────────────────────────
-document.addEventListener('keydown', (e) => {
-  if (e.key >= '0' && e.key <= '9') { dialDigit(e.key); return; }
-  if (e.key === '*' || e.key === '#' || e.key === '+') { dialDigit(e.key); return; }
-  if (e.key === 'Backspace') { e.preventDefault(); clearDialed(false); return; }
-  if (e.key === 'Enter')     { initiateCall(); return; }
-  if (e.key === 'Escape')    { endCall(); return; }
-});
-
-// ─── Backspace Button Long-Press Setup ───────────────────────────────────────
-/**
- * Attaches long-press behaviour to the backspace/clear button.
- *
- * Short tap  (< 600 ms) → clearDialed(false)  — removes last digit
- * Long press (≥ 600 ms) → clearDialed(true)   — clears entire number
- *
- * Uses pointer events so it works with both touch and mouse on Android WebView.
- */
-function setupBackspaceLongPress() {
-  const btn = document.getElementById('backspaceBtn');
-  if (!btn) return;
-
-  // Remove any legacy onclick so we have full control here
-  btn.removeAttribute('onclick');
-
-  btn.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); // prevent ghost mouse events on touch screens
-    backspaceLongPressTimer = setTimeout(() => {
-      backspaceLongPressTimer = null;
-      clearDialed(true); // long press → clear all
-    }, LONG_PRESS_THRESHOLD_MS);
+/* --------------------------------------------------------------------------
+   Dialer keypad — init buttons
+   -------------------------------------------------------------------------- */
+function initDialpad() {
+  // Digit / symbol buttons
+  document.querySelectorAll('[data-digit]').forEach(btn => {
+    btn.addEventListener('click', () => dialDigit(btn.dataset.digit));
   });
 
-  function cancelOrCommitShortPress() {
-    if (backspaceLongPressTimer !== null) {
-      // Timer still pending → it was a short tap
-      clearTimeout(backspaceLongPressTimer);
-      backspaceLongPressTimer = null;
-      clearDialed(false); // short tap → remove last digit
-    }
-    // If timer already fired (long press) we do nothing extra here
+  // Call button
+  const callBtn = document.getElementById('callBtn');
+  if (callBtn) callBtn.addEventListener('click', initiateCall);
+
+  // End-call button
+  const endBtn = document.getElementById('endCallBtn');
+  if (endBtn) {
+    endBtn.style.display = 'none';
+    endBtn.addEventListener('click', endCall);
   }
 
-  btn.addEventListener('pointerup',    cancelOrCommitShortPress);
-  btn.addEventListener('pointerleave', cancelOrCommitShortPress);
-  btn.addEventListener('pointercancel', cancelOrCommitShortPress);
+  // Backspace — short tap vs long-press
+  const backspaceBtn = document.getElementById('backspaceBtn');
+  if (backspaceBtn) {
+    let longPressTimer    = null;
+    let longPressTriggered = false;
+
+    const startLongPress = (e) => {
+      e.preventDefault(); // suppress Android WebView context menu
+      longPressTriggered = false;
+      longPressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        clearDialed();
+      }, LONG_PRESS_THRESHOLD_MS);
+    };
+
+    const endLongPress = () => {
+      if (longPressTimer !== null) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      if (!longPressTriggered) {
+        clearLastDigit();
+      }
+      longPressTriggered = false;
+    };
+
+    const cancelLongPress = () => {
+      if (longPressTimer !== null) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      longPressTriggered = false;
+    };
+
+    backspaceBtn.addEventListener('pointerdown',   startLongPress);
+    backspaceBtn.addEventListener('pointerup',     endLongPress);
+    backspaceBtn.addEventListener('pointercancel', cancelLongPress);
+  }
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+/* --------------------------------------------------------------------------
+   Keyboard input
+   -------------------------------------------------------------------------- */
+function initKeyboardInput() {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (/^[0-9\*\#\+]$/.test(e.key)) {
+      dialDigit(e.key);
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      clearLastDigit();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      initiateCall();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      endCall();
+    }
+  });
+}
+
+/* --------------------------------------------------------------------------
+   Boot
+   -------------------------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
-  buildClockCards();
-  updateClocks();
-  setInterval(updateClocks, 1000);
+  // Clocks
+  renderClocks();
+  setInterval(renderClocks, 1000);
 
-  updateConnectivityStatus();
-  window.addEventListener('online',  updateConnectivityStatus);
-  window.addEventListener('offline', updateConnectivityStatus);
+  // Controls
+  initThemeToggle();
+  initMuteToggle();
 
-  checkMicPermission();
-  setupBackspaceLongPress();
-  hideNetworkBadge();
+  // Connectivity
+  initConnectivity();
+
+  // Dialer
+  initDialpad();
+  initCallerIdName();
+  initKeyboardInput();
   updateDialerDisplay();
 
-  // Wire up caller ID name save button
-  const saveBtn = document.getElementById('setCallerIdNameBtn');
-  if (saveBtn) saveBtn.addEventListener('click', setCallerIdName);
+  // Mic permission pre-check
+  checkMicPermission();
 });
