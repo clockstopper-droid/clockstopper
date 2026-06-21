@@ -1,49 +1,7 @@
 /* ==========================================================================
-   Style.css  —  Global Time Clock · Clockstopper
-   Dark theme, orange accents, connectivity panel, call UI, dialer UI,
-   mobile network UI, caller ID name UI, call duration display,
-   microphone permission pre-check states, disabled-button state.
+   Style.css — Global Time Clock + Dialer
+   Dark theme, orange accents, no neon effects
    ========================================================================== */
-
-/* --------------------------------------------------------------------------
-   CSS CUSTOM PROPERTIES
-   -------------------------------------------------------------------------- */
-:root {
-  --bg-primary      : #1a1a1a;
-  --bg-secondary    : #242424;
-  --bg-panel        : #2a2a2a;
-  --bg-card         : #2e2e2e;
-
-  --text-primary    : #f0f0f0;
-  --text-secondary  : #a8a8a8;
-  --text-muted      : #6b6b6b;
-
-  --accent-orange   : #ff8c00;
-  --accent-orange-h : #ffa733;   /* hover */
-  --accent-orange-a : #cc7000;   /* active / pressed */
-
-  --border-subtle   : #3a3a3a;
-  --border-panel    : #444;
-
-  /* Mic permission state colours */
-  --status-granted  : #2d6a2d;
-  --status-granted-t: #6fcf6f;
-  --status-prompt   : #5a4800;
-  --status-prompt-t : #f0c040;
-  --status-denied   : #6a1f1f;
-  --status-denied-t : #f07070;
-
-  /* Disabled button palette */
-  --disabled-bg     : #3a3a3a;
-  --disabled-text   : #666;
-  --disabled-border : #4a4a4a;
-
-  --radius-sm       : 4px;
-  --radius-md       : 8px;
-  --radius-lg       : 12px;
-
-  --transition-fast : 0.15s ease;
-}
 
 /* --------------------------------------------------------------------------
    RESET & BASE
@@ -54,462 +12,553 @@
   padding: 0;
 }
 
-html {
+html, body {
+  height: 100%;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 16px;
-  -webkit-text-size-adjust: 100%;
-}
-
-body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  min-height: 100vh;
+  background-color: #121212;
+  color: #e0e0e0;
   line-height: 1.5;
 }
 
-body.dark-theme {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+/* Light theme override */
+body.light-theme {
+  background-color: #f5f5f5;
+  color: #1a1a1a;
 }
 
 /* --------------------------------------------------------------------------
    LAYOUT SHELL
    -------------------------------------------------------------------------- */
 #app {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  min-height: 100vh;
+  padding: 16px;
+  gap: 20px;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 /* --------------------------------------------------------------------------
-   CONTROLS BAR  (theme toggle, mute)
+   CONTROLS BAR (theme / mute)
    -------------------------------------------------------------------------- */
 #controlsBar {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
-/* --------------------------------------------------------------------------
-   SHARED BUTTON BASE
-   -------------------------------------------------------------------------- */
-button {
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-family: inherit;
-  border: 1px solid var(--border-panel);
-  border-radius: var(--radius-sm);
+#controlsBar button {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  border-radius: 6px;
   padding: 8px 14px;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  transition: background-color var(--transition-fast),
-              color var(--transition-fast),
-              border-color var(--transition-fast),
-              opacity var(--transition-fast);
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
 }
 
-button:focus-visible {
-  outline: 2px solid var(--accent-orange);
-  outline-offset: 2px;
+#controlsBar button:hover {
+  background-color: #333;
 }
 
-/* Orange accent buttons */
-.btn--accent {
-  background-color: var(--accent-orange);
-  color: #000;
-  border-color: var(--accent-orange);
-  font-weight: 600;
-}
-
-.btn--accent:hover:not(.btn--disabled) {
-  background-color: var(--accent-orange-h);
-  border-color: var(--accent-orange-h);
-}
-
-.btn--accent:active:not(.btn--disabled) {
-  background-color: var(--accent-orange-a);
-  border-color: var(--accent-orange-a);
-}
-
-/* --------------------------------------------------------------------------
-   DISABLED STATE  (.btn--disabled)
-   --------------------------------------------------------------------------
-   Applied programmatically by applyMicPermissionUI() when microphone
-   permission is 'denied'. Removed when permission returns to 'granted'
-   or 'prompt'.
-
-   Design decisions:
-     • !important overrides any colour set by .btn--accent or #callBtn
-       specificity without requiring extra selectors.
-     • pointer-events: none blocks clicks/taps entirely — the onclick
-       handler on #callBtn will not fire.
-     • aria-disabled="true" is set in JS alongside this class so assistive
-       technologies announce the button as disabled.
-     • opacity: 0.55 gives a clear visual "greyed out" cue without dropping
-       to pure grey (maintains legibility of the icon/text).
-   -------------------------------------------------------------------------- */
-.btn--disabled,
-.btn--disabled.btn--accent {
-  background-color : var(--disabled-bg)     !important;
-  color            : var(--disabled-text)   !important;
-  border-color     : var(--disabled-border) !important;
-  cursor           : not-allowed            !important;
-  pointer-events   : none                   !important;
-  opacity          : 0.55                   !important;
+body.light-theme #controlsBar button {
+  background-color: #e8e8e8;
+  color: #1a1a1a;
+  border-color: #bbb;
 }
 
 /* --------------------------------------------------------------------------
    CLOCK GRID
    -------------------------------------------------------------------------- */
 #clocksGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
 }
 
 .clock-card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+body.light-theme .clock-card {
+  background-color: #ffffff;
+  border-color: #ddd;
 }
 
 .clock-label {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
+  color: #aaa;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+body.light-theme .clock-label {
+  color: #666;
 }
 
 .clock-time {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #ff8c00;
   font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-  letter-spacing: 0.04em;
-}
-
-.clock-date {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 2px;
+  letter-spacing: 0.03em;
 }
 
 /* --------------------------------------------------------------------------
    CONNECTIVITY PANEL
    -------------------------------------------------------------------------- */
 #connectivityPanel {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-panel);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-#connectivityToggleBtn {
-  width: 100%;
-  text-align: left;
-  padding: 10px 14px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-  background-color: var(--bg-panel);
-  border: none;
-  border-radius: 0;
-}
-
-#connectivityPanelBody {
-  display: none;
-  padding: 12px 14px;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  flex-direction: column;
-  gap: 8px;
-}
-
-#connectivityPanel.expanded #connectivityPanelBody {
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 16px;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-#wifiStatus,
-#connectivityProbeStatus {
-  padding: 4px 0;
+body.light-theme #connectivityPanel {
+  background-color: #ffffff;
+  border-color: #ddd;
 }
+
+#connectivityPanel h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ff8c00;
+  margin-bottom: 4px;
+}
+
+.wifi-status {
+  font-size: 0.9rem;
+}
+
+.wifi-status.online  { color: #4caf50; }
+.wifi-status.offline { color: #f44336; }
 
 #networkList {
-  list-style: none;
-  padding: 0;
-  margin: 4px 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-#networkList li {
-  padding: 4px 8px;
-  background-color: var(--bg-card);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  font-size: 0.8rem;
-}
-
-#mobileNetworkOption {
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-panel);
-  background-color: var(--bg-card);
-  color: var(--text-primary);
+.network-option {
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px 12px;
   cursor: pointer;
-  font-size: 0.82rem;
-  transition: background-color var(--transition-fast);
+  font-size: 0.875rem;
+  color: #e0e0e0;
+  text-align: left;
+  transition: border-color 0.2s, background-color 0.2s;
 }
 
-#mobileNetworkOption:hover {
-  background-color: var(--accent-orange);
-  color: #000;
+.network-option:hover {
+  background-color: #333;
 }
 
-#mobileNetworkOption.selected {
-  background-color: var(--accent-orange-a);
-  color: #fff;
-  border-color: var(--accent-orange);
+.network-option.selected {
+  border-color: #ff8c00;
+  background-color: #2e1f00;
+}
+
+.network-option.available .network-type-label {
+  color: #ff8c00;
+}
+
+body.light-theme .network-option {
+  background-color: #f0f0f0;
+  border-color: #ccc;
+  color: #1a1a1a;
+}
+
+body.light-theme .network-option.selected {
+  border-color: #ff8c00;
+  background-color: #fff3e0;
+}
+
+#connectivityProbeStatus {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+body.light-theme #connectivityProbeStatus {
+  color: #666;
 }
 
 /* --------------------------------------------------------------------------
    CALL PANEL
    -------------------------------------------------------------------------- */
 #callPanel {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-panel);
-  border-radius: var(--radius-md);
+  background-color: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 10px;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
-/* Caller ID name row */
-.caller-id-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
+body.light-theme #callPanel {
+  background-color: #ffffff;
+  border-color: #ddd;
 }
 
-.caller-id-row input {
-  flex: 1;
-  padding: 7px 10px;
-  background-color: var(--bg-card);
-  color: var(--text-primary);
-  border: 1px solid var(--border-panel);
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
-  font-family: inherit;
+#callPanel h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ff8c00;
 }
 
-.caller-id-row input:focus {
-  outline: 2px solid var(--accent-orange);
-  outline-offset: 1px;
+/* ── Caller ID name ── */
+#callerIdNameInput {
+  width: 100%;
+  padding: 9px 12px;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#callerIdNameInput:focus {
+  border-color: #ff8c00;
+}
+
+body.light-theme #callerIdNameInput {
+  background-color: #f5f5f5;
+  border-color: #ccc;
+  color: #1a1a1a;
+}
+
+#setCallerIdNameBtn {
+  background-color: #ff8c00;
+  color: #121212;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+#setCallerIdNameBtn:hover {
+  background-color: #e07b00;
 }
 
 #callerIdNameDisplay {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  min-height: 1.1em;
+  font-size: 0.85rem;
+  color: #aaa;
+  min-height: 1.2em;
 }
 
-/* Dialer display box */
+body.light-theme #callerIdNameDisplay {
+  color: #666;
+}
+
+/* ── Dialer display ── */
 #dialerDisplay {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-panel);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
+  background-color: #111;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 14px 12px;
   font-size: 1.5rem;
+  font-weight: 600;
+  color: #ff8c00;
+  text-align: center;
+  min-height: 54px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.1em;
-  color: var(--text-primary);
-  min-height: 2.4em;
+  letter-spacing: 0.05em;
   word-break: break-all;
 }
 
-#dialedNumberReadout {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  min-height: 1.1em;
+body.light-theme #dialerDisplay {
+  background-color: #f9f9f9;
+  border-color: #ccc;
 }
 
-/* Keypad */
+#dialedNumberReadout {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #888;
+  min-height: 1.2em;
+}
+
+body.light-theme #dialedNumberReadout {
+  color: #999;
+}
+
+/* ── Keypad ── */
 #keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 10px;
 }
 
 .key-btn {
-  padding: 14px 0;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: #e0e0e0;
   font-size: 1.1rem;
   font-weight: 600;
-  background-color: var(--accent-orange);
-  color: #000;
-  border: none;
-  border-radius: var(--radius-sm);
+  padding: 16px 8px;
   cursor: pointer;
-  transition: background-color var(--transition-fast);
-  touch-action: manipulation;
+  transition: background-color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
-.key-btn:hover {
-  background-color: var(--accent-orange-h);
-}
-
+.key-btn:hover,
 .key-btn:active {
-  background-color: var(--accent-orange-a);
+  background-color: #ff8c00;
+  border-color: #ff8c00;
+  color: #121212;
 }
 
-/* Call action buttons row */
-.call-actions {
+body.light-theme .key-btn {
+  background-color: #efefef;
+  border-color: #ccc;
+  color: #1a1a1a;
+}
+
+body.light-theme .key-btn:hover,
+body.light-theme .key-btn:active {
+  background-color: #ff8c00;
+  border-color: #ff8c00;
+  color: #ffffff;
+}
+
+/* Backspace key — spans full width if it's alone in its row */
+#backspaceBtn {
+  grid-column: span 1;
+  font-size: 1.3rem;
+}
+
+/* ── Call action buttons ── */
+#callActions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
-.call-actions button {
+#dialBtn {
   flex: 1;
-}
-
-/* Call button — green; overridden to grey when .btn--disabled is applied */
-#callBtn {
   background-color: #2e7d32;
+  border: none;
+  border-radius: 8px;
   color: #fff;
-  border-color: #2e7d32;
+  font-size: 1rem;
   font-weight: 600;
-  font-size: 0.95rem;
-  padding: 10px;
-  border-radius: var(--radius-sm);
+  padding: 14px 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#callBtn:hover:not(.btn--disabled) {
-  background-color: #388e3c;
-  border-color: #388e3c;
+#dialBtn:hover {
+  background-color: #1b5e20;
 }
 
-/* End call button */
 #endCallBtn {
+  flex: 1;
   background-color: #c62828;
+  border: none;
+  border-radius: 8px;
   color: #fff;
-  border-color: #c62828;
+  font-size: 1rem;
   font-weight: 600;
-  font-size: 0.95rem;
-  padding: 10px;
-  border-radius: var(--radius-sm);
+  padding: 14px 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #endCallBtn:hover {
-  background-color: #d32f2f;
-  border-color: #d32f2f;
+  background-color: #8e0000;
 }
 
-/* --------------------------------------------------------------------------
-   CALL STATUS & DURATION TIMER
-   -------------------------------------------------------------------------- */
+/* ── Call status ── */
 #callStatus {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  min-height: 1.3em;
-  padding: 4px 0;
+  font-size: 0.9rem;
+  color: #ccc;
+  min-height: 1.4em;
+  text-align: center;
 }
 
-/* --------------------------------------------------------------------------
-   MICROPHONE PERMISSION STATUS
-   --------------------------------------------------------------------------
-   #micPermissionStatus is updated on page load by initMicPermissionCheck()
-   and on every permissionchange event fired by the browser mid-session.
+body.light-theme #callStatus {
+  color: #555;
+}
 
-   Three states:
-     .mic-status--granted  — green:  mic is already permitted
-     .mic-status--prompt   — amber:  browser will ask when getUserMedia fires
-     .mic-status--denied   — red:    mic blocked; call button disabled
-   -------------------------------------------------------------------------- */
+/* ── Microphone permission status ── */
 #micPermissionStatus {
-  font-size: 0.82rem;
-  border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  background-color: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-  transition: background-color var(--transition-fast),
-              color var(--transition-fast),
-              border-color var(--transition-fast);
-  white-space: normal;
-  line-height: 1.45;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  border-radius: 6px;
+  min-height: 1.4em;
+  transition: background-color 0.3s, color 0.3s;
 }
 
-/* Granted — green */
-#micPermissionStatus.mic-status--granted {
-  background-color: var(--status-granted);
-  color            : var(--status-granted-t);
-  border-color     : var(--status-granted-t);
+.mic-granted {
+  background-color: #1b3a1c;
+  color: #81c784;
+  border: 1px solid #2e7d32;
 }
 
-/* Prompt — amber */
-#micPermissionStatus.mic-status--prompt {
-  background-color: var(--status-prompt);
-  color            : var(--status-prompt-t);
-  border-color     : var(--status-prompt-t);
+.mic-prompt {
+  background-color: #3e2a00;
+  color: #ffcc80;
+  border: 1px solid #e65100;
 }
 
-/* Denied — red; inline warning; call button will be .btn--disabled */
-#micPermissionStatus.mic-status--denied {
-  background-color: var(--status-denied);
-  color            : var(--status-denied-t);
-  border-color     : var(--status-denied-t);
-  font-weight      : 500;
+.mic-denied {
+  background-color: #3e0a0a;
+  color: #ef9a9a;
+  border: 1px solid #b71c1c;
+}
+
+body.light-theme .mic-granted {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+body.light-theme .mic-prompt {
+  background-color: #fff8e1;
+  color: #e65100;
+  border-color: #ffcc80;
+}
+
+body.light-theme .mic-denied {
+  background-color: #ffebee;
+  color: #b71c1c;
+  border-color: #ef9a9a;
 }
 
 /* --------------------------------------------------------------------------
-   NETWORK TYPE INDICATOR
+   NETWORK TYPE BADGE  (#networkTypeIndicator)
+   --------------------------------------------------------------------------
+   Shown during an active call inside / near #callStatus.
+   Base styles + per-type modifier classes with distinct orange-tinted
+   backgrounds. No neon, no glow effects — flat dark theme only.
    -------------------------------------------------------------------------- */
-#networkTypeIndicator {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  min-height: 1.1em;
+
+.network-type-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 8px;
+  border: 1px solid transparent;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+/* WiFi — amber-orange tint: strongest / fastest tier */
+.badge--wifi {
+  background-color: #3d2200;
+  color: #ffb300;
+  border-color: #ff8c00;
+}
+
+/* 4G — deep orange tint */
+.badge--4g {
+  background-color: #3a1e00;
+  color: #ff8c00;
+  border-color: #cc6f00;
+}
+
+/* 3G — mid brown-orange tint: medium tier */
+.badge--3g {
+  background-color: #2e1700;
+  color: #e07b00;
+  border-color: #a05500;
+}
+
+/* 2G — muted warm-brown tint: slow tier */
+.badge--2g {
+  background-color: #221200;
+  color: #b35c00;
+  border-color: #7a3d00;
+}
+
+/* Unknown — neutral dark */
+.badge--unknown {
+  background-color: #2a2a2a;
+  color: #888;
+  border-color: #555;
+}
+
+/* Light-theme overrides for badge modifier classes */
+body.light-theme .badge--wifi {
+  background-color: #fff3e0;
+  color: #e65100;
+  border-color: #ff8c00;
+}
+
+body.light-theme .badge--4g {
+  background-color: #fff3e0;
+  color: #e65100;
+  border-color: #ff8c00;
+}
+
+body.light-theme .badge--3g {
+  background-color: #fbe9e7;
+  color: #bf360c;
+  border-color: #e64a19;
+}
+
+body.light-theme .badge--2g {
+  background-color: #efebe9;
+  color: #8d6e63;
+  border-color: #a1887f;
+}
+
+body.light-theme .badge--unknown {
+  background-color: #eeeeee;
+  color: #757575;
+  border-color: #bdbdbd;
 }
 
 /* --------------------------------------------------------------------------
-   RESPONSIVE — SMALL MOBILE (≤ 360 px)
+   RESPONSIVE — mobile-first adjustments
    -------------------------------------------------------------------------- */
-@media (max-width: 360px) {
+@media (max-width: 400px) {
   .clock-time {
-    font-size: 1.6rem;
+    font-size: 1.2rem;
+  }
+
+  #dialerDisplay {
+    font-size: 1.25rem;
   }
 
   .key-btn {
-    padding: 12px 0;
     font-size: 1rem;
-  }
-
-  #callPanel {
-    padding: 12px;
+    padding: 14px 6px;
   }
 }
 
-/* --------------------------------------------------------------------------
-   RESPONSIVE — TABLET AND UP (≥ 600 px)
-   -------------------------------------------------------------------------- */
-@media (min-width: 600px) {
+@media (min-width: 601px) {
   #app {
     padding: 24px;
   }
 
   #clocksGrid {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .clock-card {
-    flex: 1 1 calc(33% - 10px);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
