@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Clock - Multiple Time Zones</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="container">
+    <h1>⏰ Global Time Clock</h1>
+
+    <div class="clocks-grid" id="clocksGrid"></div>
+
+    <div class="controls">
+        <label for="tzInput">Add Time Zone (e.g., America/New_York):</label>
+        <input type="text" id="tzInput" placeholder="e.g., Europe/London, Asia/Tokyo">
+        <button onclick="addTimezone()">Add Clock</button>
+
+        <div class="timezone-list">
+            <p>
+                <strong>Common Time Zones:</strong>
+                UTC, America/New_York, America/Los_Angeles,
+                Europe/London, Europe/Paris,
+                Asia/Tokyo, Asia/Shanghai,
+                Australia/Sydney
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="js/app.js"></script>
+
+</body>
+</html>
