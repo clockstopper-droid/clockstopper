@@ -15,6 +15,11 @@ class ExampleInstrumentedTest {
     @Test
     fun useAppContext() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.clockstopper.app.debug", appContext.packageName)
+        // The base package name is the same across all build variants; only the
+        // applicationIdSuffix differs (e.g. ".debug" in debug builds).
+        assertTrue(
+            "Expected package to start with com.clockstopper.app, was: ${appContext.packageName}",
+            appContext.packageName.startsWith("com.clockstopper.app"),
+        )
     }
 }

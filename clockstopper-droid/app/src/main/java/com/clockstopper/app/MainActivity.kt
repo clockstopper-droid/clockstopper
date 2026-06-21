@@ -1,63 +1,130 @@
 package com.clockstopper.app
 
 import android.os.Bundle
-import android.webkit.WebChromeClient
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.commit
 import com.clockstopper.app.databinding.ActivityMainBinding
 
 /**
- * Single-activity shell that hosts the ClockStopper web app inside a WebView.
+ * Single-Activity shell that owns the Fragment back-stack and fulfils the
+ * [NavigationHost] contract so that any hosted Fragment can request navigation
+ * transitions without coupling itself to [MainActivity] directly.
  *
- * The web app lives in src/main/assets/ and is loaded via the
- * asset:// URI scheme, so no network access is required.
+ * Navigation flow
+ * ───────────────
+ *  Launch  →  [WebAppFragment]  (root — never added to back-stack)
+ *                ↕  navigateTo(…, addToBackStack = true)
+ *             [future detail / settings Fragments …]
+ *
+ * The root destination ([WebAppFragment]) is only committed once — on the very
+ * first `onCreate` call.  On subsequent recreations (e.g. configuration changes
+ * or system-initiated process-death restore) the FragmentManager restores its
+ * own state automatically, so the commit is guarded behind a null-check on
+ * `savedInstanceState`.
+ *
+ * Back-press priority
+ * ───────────────────
+ *  1. Current Fragment handles it in-page (e.g. WebView history).
+ *  2. Fragment back-stack is popped.
+ *  3. Activity finishes.
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), NavigationHost {
 
     private lateinit var binding: ActivityMainBinding
+
+    // -------------------------------------------------------------------------
+    // Lifecycle
+    // -------------------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Keep the screen on for as long as this Activity is in the foreground
+        // (mirrors the WAKE_LOCK permission declared in the manifest).
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        configureWebView(binding.webView)
-
-        // Load the bundled web application from assets/
-        binding.webView.loadUrl("file:///android_asset/index.html")
-    }
-
-    private fun configureWebView(webView: WebView) {
-        webView.webViewClient   = WebViewClient()          // stay inside the WebView
-        webView.webChromeClient = WebChromeClient()        // enable JS dialogs / console
-
-        with(webView.settings) {
-            javaScriptEnabled       = true
-            domStorageEnabled       = true                 // localStorage for lap data
-            allowFileAccess         = true                 // read assets
-            cacheMode               = WebSettings.LOAD_DEFAULT
-            setSupportZoom(false)
-            builtInZoomControls     = false
-            displayZoomControls     = false
-        }
-
-        // Enable remote debugging via chrome://inspect in debug builds
-        if (BuildConfig.DEBUG) {
-            WebView.setWebContentsDebuggingEnabled(true)
+        // Only set the root Fragment on a fresh launch — the FragmentManager
+        // will restore the correct Fragment stack on configuration changes and
+        // process-death restores.
+        if (savedInstanceState == null) {
+            navigateTo(
+                fragment       = WebAppFragment.newInstance(),
+                addToBackStack = false,  // root destination — never back-stackable
+            )
         }
     }
 
-    /** Forward the hardware back-button to the WebView history if possible. */
+    // -------------------------------------------------------------------------
+    // NavigationHost — public API for Fragments
+    // -------------------------------------------------------------------------
+
+    /**
+     * Replace [R.id.fragmentContainer] with [fragment].
+     *
+     * Uses the `androidx.fragment.app.commit` DSL which performs
+     * `commitAllowingStateLoss` only when necessary (it is safe to call from
+     * `onCreate`).
+     */
+    override fun navigateTo(
+        fragment: Fragment,
+        addToBackStack: Boolean,
+        tag: String,
+    ) {
+        supportFragmentManager.commit {
+            setReorderingAllowed(true)
+            replace(R.id.fragmentContainer, fragment, tag)
+            if (addToBackStack) {
+                addToBackStack(tag)
+            }
+        }
+    }
+
+    /**
+     * Pop the top Fragment back-stack entry.
+     *
+     * @return `true` if an entry was popped; `false` if the stack was empty.
+     */
+    override fun navigateBack(): Boolean =
+        if (supportFragmentManager.backStackEntryCount > 0) {
+            supportFragmentManager.popBackStack()
+            true
+        } else {
+            false
+        }
+
+    // -------------------------------------------------------------------------
+    // Back navigation
+    // -------------------------------------------------------------------------
+
+    /**
+     * Back-press handling in priority order:
+     *  1. Give the currently visible Fragment a chance to handle it
+     *     (e.g. [WebAppFragment] navigating back through WebView history).
+     *  2. Pop the Fragment back-stack.
+     *  3. Delegate to the system (finishes the Activity).
+     */
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (binding.webView.canGoBack()) {
-            binding.webView.goBack()
-        } else {
-            @Suppress("DEPRECATION")
-            super.onBackPressed()
+        // 1. Fragment-level back handling (e.g. in-page WebView history)
+        val currentFragment = supportFragmentManager
+            .findFragmentById(R.id.fragmentContainer)
+
+        if (currentFragment is WebAppFragment && currentFragment.handleBackPress()) {
+            return
         }
+
+        // 2. Fragment back-stack
+        if (navigateBack()) {
+            return
+        }
+
+        // 3. System default (finish)
+        @Suppress("DEPRECATION")
+        super.onBackPressed()
     }
 }
