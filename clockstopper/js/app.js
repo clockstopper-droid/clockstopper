@@ -1,203 +1,390 @@
-// ---------------------------------------------------------
-// Global Time Clock — app.js
-// All functions are globally scoped for use in HTML onclick
-// ---------------------------------------------------------
+// ─── State ────────────────────────────────────────────────────────────────────
+var timezones = ['UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo'];
+var isMuted   = false;
 
-// Array of active timezone objects: { tz: string, muted: boolean }
-let timezones = [
-  { tz: 'UTC', muted: false },
-  { tz: 'America/New_York', muted: false },
-  { tz: 'America/Los_Angeles', muted: false },
-  { tz: 'Europe/London', muted: false },
-  { tz: 'Asia/Tokyo', muted: false },
-];
+// ─── WiFi / Connectivity State ────────────────────────────────────────────────
+/**
+ * Connectivity module – detects network state via the Online/Offline API and
+ * the Network Information API (where available) and exposes helpers so that
+ * any part of the application (or future callers) can gate data-transmitting
+ * operations on a live connection.
+ *
+ * Public surface
+ * ──────────────
+ *   wifi.isOnline()          → boolean  – true when the browser reports a live network
+ *   wifi.getConnectionType() → string   – e.g. "wifi", "4g", "ethernet", "unknown"
+ *   wifi.canTransmit()       → boolean  – true when online AND connection type is not
+ *                                         a known unavailable type
+ *   wifi.onChange(fn)        → void     – register a callback invoked on every status
+ *                                         change; receives the current status object
+ *   wifi.offChange(fn)       → void     – deregister a previously registered callback
+ */
+var wifi = (function () {
+    // Internal subscriber list
+    var _listeners = [];
 
-// ---------------------------------------------------------
-// Rendering
-// ---------------------------------------------------------
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Returns true when navigator.onLine is true (or the API is absent). */
+    function _isOnline() {
+        return (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean')
+            ? navigator.onLine
+            : true; // assume online if API unavailable
+    }
+
+    /**
+     * Returns the effective connection type string.
+     * Uses the Network Information API (navigator.connection) when present.
+     * Falls back to "unknown" when online but the API is absent, or "none" when offline.
+     */
+    function _getConnectionType() {
+        if (!_isOnline()) return 'none';
+
+        var conn = (navigator.connection || navigator.mozConnection || navigator.webkitConnection);
+        if (conn) {
+            // Prefer effectiveType (e.g. "4g") when available; fall back to type
+            return conn.type || conn.effectiveType || 'unknown';
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * Builds the status object shared with listeners and returned by public methods.
+     * @returns {{ online: boolean, type: string, canTransmit: boolean }}
+     */
+    function _buildStatus() {
+        var online = _isOnline();
+        var type   = _getConnectionType();
+        // canTransmit: online and not explicitly "none"
+        var canTransmit = online && type !== 'none';
+        return { online: online, type: type, canTransmit: canTransmit };
+    }
+
+    /** Notifies all registered listeners with the current status. */
+    function _notify() {
+        var status = _buildStatus();
+        for (var i = 0; i < _listeners.length; i++) {
+            try { _listeners[i](status); } catch (e) { /* swallow listener errors */ }
+        }
+    }
+
+    // ── Event wiring ──────────────────────────────────────────────────────────
+
+    // Online / Offline events fire in all supported browsers
+    window.addEventListener('online',  _notify);
+    window.addEventListener('offline', _notify);
+
+    // Network Information API change event (Chrome/Android)
+    var _conn = (navigator.connection || navigator.mozConnection || navigator.webkitConnection);
+    if (_conn && typeof _conn.addEventListener === 'function') {
+        _conn.addEventListener('change', _notify);
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────────
+    return {
+        /** Returns true when the browser reports a live network connection. */
+        isOnline: function () { return _isOnline(); },
+
+        /** Returns the current connection type string (e.g. "wifi", "4g", "none"). */
+        getConnectionType: function () { return _getConnectionType(); },
+
+        /**
+         * Returns true when the network is available and data transmission is
+         * considered viable.  Callers should check this before sending any data.
+         */
+        canTransmit: function () { return _buildStatus().canTransmit; },
+
+        /**
+         * Register a change-listener.
+         * @param {function({online: boolean, type: string, canTransmit: boolean})} fn
+         */
+        onChange: function (fn) {
+            if (typeof fn === 'function' && _listeners.indexOf(fn) === -1) {
+                _listeners.push(fn);
+            }
+        },
+
+        /**
+         * Deregister a previously registered change-listener.
+         * @param {function} fn
+         */
+        offChange: function (fn) {
+            var idx = _listeners.indexOf(fn);
+            if (idx !== -1) _listeners.splice(idx, 1);
+        }
+    };
+}());
+
+// ─── WiFi Status UI ──────────────────────────────────────────────────────────
 
 /**
- * Render all clock cards from scratch into #clocksGrid.
+ * Maps a connection type string to a human-readable label.
+ * @param {string} type
+ * @returns {string}
+ */
+function _wifiTypeLabel(type) {
+    var labels = {
+        'wifi':      'WiFi',
+        'ethernet':  'Ethernet',
+        '4g':        '4G',
+        '3g':        '3G',
+        '2g':        '2G',
+        'slow-2g':   '2G (slow)',
+        'none':      'Offline',
+        'unknown':   'Connected'
+    };
+    return labels[type] || 'Connected';
+}
+
+/**
+ * Refreshes the WiFi status indicator element in the DOM to reflect the
+ * current network state.
+ */
+function updateWifiStatus() {
+    var indicator = document.getElementById('wifiStatus');
+    if (!indicator) return;
+
+    var online    = wifi.isOnline();
+    var type      = wifi.getConnectionType();
+    var typeLabel = _wifiTypeLabel(type);
+
+    // Update CSS classes for colour coding
+    indicator.classList.remove('wifi-online', 'wifi-offline');
+    indicator.classList.add(online ? 'wifi-online' : 'wifi-offline');
+
+    // Icon: filled circle when online, hollow circle when offline
+    var iconSpan  = indicator.querySelector('.wifi-icon');
+    var labelSpan = indicator.querySelector('.wifi-label');
+
+    if (iconSpan) {
+        iconSpan.textContent = online ? '●' : '○';
+        iconSpan.setAttribute('aria-hidden', 'true');
+    }
+
+    if (labelSpan) {
+        labelSpan.textContent = online ? typeLabel : 'Offline';
+    }
+
+    // Accessible title on the whole indicator
+    indicator.setAttribute(
+        'title',
+        online
+            ? 'Network connected – ' + typeLabel
+            : 'No network connection'
+    );
+    indicator.setAttribute('aria-label', indicator.getAttribute('title'));
+}
+
+// Wire the connectivity module to keep the indicator live on state changes
+wifi.onChange(function () { updateWifiStatus(); });
+
+// ─── Clock Rendering ──────────────────────────────────────────────────────────
+
+/**
+ * Formats the current time for the given IANA timezone.
+ * @param {string} tz  – IANA timezone identifier
+ * @returns {string}
+ */
+function formatTime(tz) {
+    try {
+        return new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            hour:     '2-digit',
+            minute:   '2-digit',
+            second:   '2-digit',
+            hour12:   true
+        }).format(new Date());
+    } catch (e) {
+        return '--:--:--';
+    }
+}
+
+/**
+ * Formats the current date for the given IANA timezone.
+ * @param {string} tz  – IANA timezone identifier
+ * @returns {string}
+ */
+function formatDate(tz) {
+    try {
+        return new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            weekday:  'short',
+            year:     'numeric',
+            month:    'short',
+            day:      'numeric'
+        }).format(new Date());
+    } catch (e) {
+        return '';
+    }
+}
+
+/**
+ * Creates and returns a clock card DOM element for a timezone.
+ * @param {string} tz
+ * @returns {HTMLElement}
+ */
+function createClockCard(tz) {
+    var card = document.createElement('div');
+    card.className = 'clock-card';
+    card.id        = 'clock-' + tz.replace(/\//g, '-').replace(/ /g, '_');
+    card.setAttribute('data-tz', tz);
+    card.setAttribute('role', 'listitem');
+
+    var tzLabel = document.createElement('div');
+    tzLabel.className   = 'tz-label';
+    tzLabel.textContent = tz;
+
+    var timeDisplay = document.createElement('div');
+    timeDisplay.className   = 'time-display';
+    timeDisplay.textContent = formatTime(tz);
+    timeDisplay.setAttribute('aria-live', 'polite');
+    timeDisplay.setAttribute('aria-atomic', 'true');
+
+    var dateDisplay = document.createElement('div');
+    dateDisplay.className   = 'date-display';
+    dateDisplay.textContent = formatDate(tz);
+
+    var removeBtn = document.createElement('button');
+    removeBtn.className   = 'remove-btn';
+    removeBtn.textContent = '✕ Remove';
+    removeBtn.setAttribute('aria-label', 'Remove ' + tz);
+    removeBtn.onclick = function () { removeTimezone(tz); };
+
+    card.appendChild(tzLabel);
+    card.appendChild(timeDisplay);
+    card.appendChild(dateDisplay);
+    card.appendChild(removeBtn);
+
+    return card;
+}
+
+/**
+ * Renders all clocks from the timezones[] state into #clocksGrid.
  */
 function renderClocks() {
-  const grid = document.getElementById('clocksGrid');
-  grid.innerHTML = '';
-
-  timezones.forEach(function (entry) {
-    const card = document.createElement('div');
-    card.className = 'clock-card' + (entry.muted ? ' muted' : '');
-    card.id = 'card-' + entry.tz.replace(/\//g, '_');
-
-    // Zone label
-    const label = document.createElement('div');
-    label.className = 'clock-label';
-    label.textContent = entry.tz;
-
-    // Time display
-    const timeEl = document.createElement('div');
-    timeEl.className = 'clock-time';
-    timeEl.id = 'time-' + entry.tz.replace(/\//g, '_');
-
-    // Muted indicator
-    const mutedBadge = document.createElement('div');
-    mutedBadge.className = 'muted-badge';
-    mutedBadge.textContent = '⏸ Paused';
-
-    // Button row
-    const btnRow = document.createElement('div');
-    btnRow.className = 'clock-btn-row';
-
-    const muteBtn = document.createElement('button');
-    muteBtn.className = 'btn-mute' + (entry.muted ? ' active' : '');
-    muteBtn.textContent = entry.muted ? '▶ Resume' : '⏸ Mute';
-    muteBtn.title = entry.muted ? 'Resume this clock' : 'Pause this clock';
-    muteBtn.setAttribute('aria-pressed', String(entry.muted));
-    muteBtn.onclick = function () { toggleMute(entry.tz); };
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'btn-remove';
-    removeBtn.textContent = '✕ Remove';
-    removeBtn.title = 'Remove this clock';
-    removeBtn.onclick = function () { removeTimezone(entry.tz); };
-
-    btnRow.appendChild(muteBtn);
-    btnRow.appendChild(removeBtn);
-
-    card.appendChild(label);
-    card.appendChild(timeEl);
-    card.appendChild(mutedBadge);
-    card.appendChild(btnRow);
-    grid.appendChild(card);
-  });
-
-  // Populate all times immediately after render
-  updateClocks();
+    var grid = document.getElementById('clocksGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (var i = 0; i < timezones.length; i++) {
+        grid.appendChild(createClockCard(timezones[i]));
+    }
 }
 
-// ---------------------------------------------------------
-// Clock update loop
-// ---------------------------------------------------------
-
 /**
- * Update every non-muted clock's displayed time.
- * Muted clocks are skipped — their last-shown time is frozen.
+ * Updates the time/date text on every existing clock card without re-rendering.
  */
 function updateClocks() {
-  const now = new Date();
+    var cards = document.querySelectorAll('.clock-card');
+    for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        var tz   = card.getAttribute('data-tz');
+        if (!tz) continue;
 
-  timezones.forEach(function (entry) {
-    if (entry.muted) return; // frozen — do not update
+        var timeEl = card.querySelector('.time-display');
+        var dateEl = card.querySelector('.date-display');
 
-    const el = document.getElementById('time-' + entry.tz.replace(/\//g, '_'));
-    if (!el) return;
-
-    try {
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: entry.tz,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-      el.textContent = formatter.format(now);
-    } catch (e) {
-      el.textContent = 'Invalid timezone';
+        if (timeEl) timeEl.textContent = formatTime(tz);
+        if (dateEl) dateEl.textContent = formatDate(tz);
     }
-  });
 }
 
-// Start the 1-second tick
-setInterval(updateClocks, 1000);
-
-// ---------------------------------------------------------
-// Public API — must remain globally scoped
-// ---------------------------------------------------------
+// ─── Public Actions ───────────────────────────────────────────────────────────
 
 /**
- * Add a new timezone clock card.
- * Called via onclick in Index.html.
+ * Validates an IANA timezone string by attempting to construct an
+ * Intl.DateTimeFormat with it.
+ * @param {string} tz
+ * @returns {boolean}
+ */
+function isValidTimezone(tz) {
+    if (!tz || typeof tz !== 'string') return false;
+    try {
+        Intl.DateTimeFormat(undefined, { timeZone: tz });
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * Adds a new timezone clock from the text input.
+ * Globally scoped — called via onclick in Index.html.
  */
 function addTimezone() {
-  const input = document.getElementById('tzInput');
-  const tz = input.value.trim();
+    var input = document.getElementById('tzInput');
+    if (!input) return;
 
-  if (!tz) {
-    alert('Please enter a time zone (e.g. America/New_York).');
-    return;
-  }
+    var tz = input.value.trim();
 
-  // Validate by attempting to use the IANA key
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date());
-  } catch (e) {
-    alert('"' + tz + '" is not a valid IANA time zone identifier.');
-    return;
-  }
+    if (!tz) {
+        alert('Please enter a timezone (e.g. America/Chicago).');
+        return;
+    }
 
-  // Prevent duplicates
-  const alreadyExists = timezones.some(function (entry) {
-    return entry.tz === tz;
-  });
-  if (alreadyExists) {
-    alert('"' + tz + '" is already displayed.');
-    return;
-  }
+    if (!isValidTimezone(tz)) {
+        alert('"' + tz + '" is not a valid IANA timezone identifier.\nExample: America/Chicago');
+        return;
+    }
 
-  timezones.push({ tz: tz, muted: false });
-  input.value = '';
-  renderClocks();
+    if (timezones.indexOf(tz) !== -1) {
+        alert('"' + tz + '" is already displayed.');
+        return;
+    }
+
+    timezones.push(tz);
+    var grid = document.getElementById('clocksGrid');
+    if (grid) grid.appendChild(createClockCard(tz));
+
+    input.value = '';
+    input.focus();
 }
 
 /**
- * Remove a clock card by its IANA time zone string.
- * Called via onclick generated in renderClocks().
+ * Removes the clock card for the given timezone.
+ * Globally scoped — called via onclick on remove buttons.
+ * @param {string} tz
  */
 function removeTimezone(tz) {
-  timezones = timezones.filter(function (entry) {
-    return entry.tz !== tz;
-  });
-  renderClocks();
+    var idx = timezones.indexOf(tz);
+    if (idx !== -1) timezones.splice(idx, 1);
+
+    var cardId = 'clock-' + tz.replace(/\//g, '-').replace(/ /g, '_');
+    var card   = document.getElementById(cardId);
+    if (card && card.parentNode) card.parentNode.removeChild(card);
 }
 
 /**
- * Toggle the muted (paused) state of a clock.
- * Called via onclick generated in renderClocks().
- */
-function toggleMute(tz) {
-  const entry = timezones.find(function (e) { return e.tz === tz; });
-  if (!entry) return;
-
-  entry.muted = !entry.muted;
-
-  // Update card class
-  const card = document.getElementById('card-' + tz.replace(/\//g, '_'));
-  if (card) {
-    card.classList.toggle('muted', entry.muted);
-  }
-
-  // Update mute button label, title, and aria-pressed
-  const muteBtn = card ? card.querySelector('.btn-mute') : null;
-  if (muteBtn) {
-    muteBtn.textContent = entry.muted ? '▶ Resume' : '⏸ Mute';
-    muteBtn.title      = entry.muted ? 'Resume this clock' : 'Pause this clock';
-    muteBtn.setAttribute('aria-pressed', String(entry.muted));
-    muteBtn.classList.toggle('active', entry.muted);
-  }
-}
-
-/**
- * Toggle dark theme on <body>.
- * Called via onclick in Index.html.
+ * Toggles the dark theme class on <body>.
+ * Globally scoped — called via onclick in Index.html.
  */
 function toggleTheme() {
-  document.body.classList.toggle('dark-theme');
+    document.body.classList.toggle('dark-theme');
 }
 
-// ---------------------------------------------------------
-// Initialise
-// ---------------------------------------------------------
-renderClocks();
+/**
+ * Toggles the mute state and updates the mute button appearance.
+ * Globally scoped — called via onclick in Index.html.
+ */
+function toggleMute() {
+    isMuted = !isMuted;
+    var muteBtn = document.getElementById('muteBtn');
+    if (muteBtn) {
+        muteBtn.classList.toggle('muted', isMuted);
+        muteBtn.textContent = isMuted ? '🔇 Unmute' : '🔊 Mute';
+        muteBtn.setAttribute('aria-pressed', String(isMuted));
+    }
+}
+
+// ─── Initialisation ───────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Render initial clock set
+    renderClocks();
+
+    // Kick off the live clock tick (every second)
+    setInterval(updateClocks, 1000);
+
+    // Paint initial WiFi status
+    updateWifiStatus();
+});

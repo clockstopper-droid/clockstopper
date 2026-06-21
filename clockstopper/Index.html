@@ -1,29 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Global Time Clock</title>
-  <link rel="stylesheet" href="Css/Style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Global Time Clock</title>
+    <link rel="stylesheet" href="Css/Style.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>Global Time Clock</h1>
 
-    <div id="clocksGrid" class="clocks-grid"></div>
+<div class="container">
 
-    <div class="controls">
-      <input
-        type="text"
-        id="tzInput"
-        placeholder="e.g. America/New_York"
-        aria-label="IANA time zone"
-      />
-      <button onclick="addTimezone()">Add Clock</button>
-      <button onclick="toggleTheme()">Toggle Theme</button>
+    <!-- ── Page heading ─────────────────────────────────────────────────── -->
+    <h1>🌐 Global Time Clock</h1>
+
+    <!-- ── WiFi / Network status indicator ──────────────────────────────── -->
+    <!--
+        Updated by updateWifiStatus() in app.js on page load and on every
+        network-state change (online / offline / connection-type events).
+
+        JS adds one of:  .wifi-online  |  .wifi-offline
+        to #wifiStatus so CSS can colour it appropriately.
+
+        The two inner spans are targeted by JS:
+          .wifi-icon  – receives the ● / ○ glyph
+          .wifi-label – receives the human-readable type label or "Offline"
+    -->
+    <div class="wifi-status-wrapper">
+        <div
+            id="wifiStatus"
+            role="status"
+            aria-live="polite"
+            aria-label="Checking network status…"
+            title="Checking network status…"
+        >
+            <span class="wifi-icon" aria-hidden="true">●</span>
+            <span class="wifi-label">Checking…</span>
+        </div>
     </div>
-  </div>
 
-  <script src="js/app.js"></script>
+    <!-- ── Clock grid ────────────────────────────────────────────────────── -->
+    <!--
+        Populated dynamically by renderClocks() in app.js.
+        Each child is a .clock-card div created by createClockCard().
+    -->
+    <div id="clocksGrid" role="list" aria-label="World clocks"></div>
+
+    <!-- ── Controls ──────────────────────────────────────────────────────── -->
+    <div class="controls" role="group" aria-label="Clock controls">
+
+        <label for="tzInput" class="sr-only">IANA Time Zone</label>
+        <input
+            type="text"
+            id="tzInput"
+            placeholder="e.g. America/Chicago"
+            aria-label="Enter IANA time zone identifier"
+            autocomplete="off"
+            spellcheck="false"
+        />
+
+        <button
+            id="addBtn"
+            onclick="addTimezone()"
+            aria-label="Add clock for entered time zone"
+        >
+            ＋ Add Clock
+        </button>
+
+        <button
+            id="themeBtn"
+            onclick="toggleTheme()"
+            aria-label="Toggle dark/light theme"
+        >
+            🌙 Theme
+        </button>
+
+        <button
+            id="muteBtn"
+            class="mute-btn"
+            onclick="toggleMute()"
+            aria-label="Toggle mute"
+            aria-pressed="false"
+        >
+            🔊 Mute
+        </button>
+
+    </div><!-- /.controls -->
+
+</div><!-- /.container -->
+
+<script src="js/app.js"></script>
 </body>
 </html>
