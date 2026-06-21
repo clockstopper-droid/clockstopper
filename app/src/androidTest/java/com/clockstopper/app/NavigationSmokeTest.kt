@@ -20,10 +20,6 @@ import org.junit.runner.RunWith
  *   2. The declared start destination is reached on launch.
  *   3. The NavController is findable from the Activity's view hierarchy.
  *
- * These are medium-weight instrumented tests; they exercise the real navigation
- * infrastructure on a device/emulator but do not perform full UI interaction
- * sequences (those live in [AppLaunchTest]).
- *
  * Run with:  ./gradlew connectedAndroidTest
  */
 @RunWith(AndroidJUnit4::class)
@@ -48,15 +44,11 @@ class NavigationSmokeTest {
 
     /**
      * A NavController must be attached to the NavHostFragment container.
-     * [Navigation.findNavController] throws IllegalStateException if the
-     * NavHostFragment has not been set up — that exception propagates as a
-     * test failure here.
      */
     @Test
     fun navControllerIsAttachedToHost() {
         scenario.onActivity { activity ->
             val navHostView = activity.findViewById<android.view.View>(R.id.nav_host_fragment)
-            // This call throws if the controller is not present.
             val controller = Navigation.findNavController(navHostView)
             assert(controller != null) { "NavController must not be null" }
         }
@@ -64,7 +56,7 @@ class NavigationSmokeTest {
 
     /**
      * The NavController's current destination must not be null immediately
-     * after launch — it should point to the graph's startDestination.
+     * after launch.
      */
     @Test
     fun startDestinationIsReachedOnLaunch() {
@@ -80,8 +72,7 @@ class NavigationSmokeTest {
 
     /**
      * The start destination ID resolved from the graph must match the actual
-     * current destination, confirming navigation did not silently redirect
-     * to a different screen on startup.
+     * current destination.
      */
     @Test
     fun currentDestinationMatchesStartDestination() {
@@ -105,15 +96,13 @@ class NavigationSmokeTest {
 
     /**
      * Inflates the navigation graph in isolation using [TestNavHostController].
-     * This catches XML parse errors, missing destination IDs, or bad action
-     * references without requiring the full Activity lifecycle.
+     * Catches XML parse errors, missing destination IDs, or bad action references.
      */
     @Test
     fun navGraphInflatesWithoutError() {
         val testNavController = TestNavHostController(
             ApplicationProvider.getApplicationContext()
         )
-        // setGraph inflates the nav graph; any XML error surfaces here.
         testNavController.setGraph(R.navigation.nav_graph)
 
         val startDest = testNavController.currentDestination

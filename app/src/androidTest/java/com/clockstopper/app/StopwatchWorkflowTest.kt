@@ -5,7 +5,6 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
-import androidx.test.espresso.contrib.RecyclerViewActions
 import androidx.test.espresso.matcher.ViewMatchers.*
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -26,6 +25,8 @@ import org.junit.runner.RunWith
  *   W-4  Start → Stop → Reset → verify UI returns to zeroed state
  *   W-5  Rapid Start/Stop cycles do not crash
  *   W-6  Lap button state: disabled before start, enabled while running
+ *   W-7  Lap button disabled again after Reset
+ *   W-8  Reset button visible and operable at all stopwatch states
  *
  * All tests run on a connected device / emulator (API 26+).
  * Run with:  ./gradlew connectedAndroidTest
@@ -36,7 +37,6 @@ class StopwatchWorkflowTest {
 
     private lateinit var scenario: ActivityScenario<MainActivity>
 
-    /** Convenience sleep — keeps tests readable without Thread.sleep boilerplate. */
     private fun waitMs(ms: Long) = SystemClock.sleep(ms)
 
     @Before
@@ -55,10 +55,7 @@ class StopwatchWorkflowTest {
 
     /**
      * After tapping Start and waiting 300 ms the elapsed-time display must show
-     * a non-zero value (i.e. it must NOT still be identical to the zeroed state).
-     *
-     * We capture the initial text, wait, then assert the text has changed.
-     * This is a lightweight proxy for "the timer is actually ticking."
+     * a value different from the zeroed initial state.
      */
     @Test
     fun timerDisplayChangesAfterStart() {
@@ -67,11 +64,9 @@ class StopwatchWorkflowTest {
             initialText = (view as android.widget.TextView).text.toString()
         }
 
-        // Start the stopwatch
         onView(withId(R.id.btn_start_stop)).perform(click())
         waitMs(350)
 
-        // The display should now differ from the initial zeroed text
         onView(withId(R.id.tv_elapsed_time))
             .check(matches(not(withText(initialText))))
     }
@@ -89,11 +84,8 @@ class StopwatchWorkflowTest {
         onView(withId(R.id.btn_start_stop)).perform(click())
         waitMs(100)
         onView(withId(R.id.btn_lap)).perform(click())
-
-        // Give the adapter one frame to bind the new item
         waitMs(50)
 
-        // Verify the RecyclerView has at least one child
         onView(withId(R.id.rv_laps)).check { view, noViewFoundException ->
             noViewFoundException?.let { throw it }
             val rv = view as RecyclerView
@@ -146,13 +138,11 @@ class StopwatchWorkflowTest {
             initialText = (view as android.widget.TextView).text.toString()
         }
 
-        // Start → record a lap → Stop → Reset
         onView(withId(R.id.btn_start_stop)).perform(click())
         waitMs(200)
         onView(withId(R.id.btn_lap)).perform(click())
-        onView(withId(R.id.btn_start_stop)).perform(click()) // Stop
-        onView(withId(R.id.btn_reset)).perform(click())      // Reset
-
+        onView(withId(R.id.btn_start_stop)).perform(click())   // Stop
+        onView(withId(R.id.btn_reset)).perform(click())        // Reset
         waitMs(50)
 
         // Lap list must be empty
@@ -180,13 +170,12 @@ class StopwatchWorkflowTest {
     @Test
     fun rapidStartStopCyclesDoNotCrash() {
         repeat(5) {
-            onView(withId(R.id.btn_start_stop)).perform(click()) // Start
+            onView(withId(R.id.btn_start_stop)).perform(click())   // Start
             waitMs(60)
-            onView(withId(R.id.btn_start_stop)).perform(click()) // Stop
+            onView(withId(R.id.btn_start_stop)).perform(click())   // Stop
             waitMs(40)
         }
 
-        // Activity must still be alive
         onView(withId(R.id.tv_elapsed_time)).check(matches(isDisplayed()))
     }
 
@@ -194,20 +183,14 @@ class StopwatchWorkflowTest {
     // W-6  Lap button state management
     // -----------------------------------------------------------------------
 
-    /**
-     * Before the stopwatch is started the Lap button should be disabled
-     * (it makes no sense to record a lap with no elapsed time).
-     */
+    /** Before the stopwatch is started the Lap button should be disabled. */
     @Test
     fun lapButtonIsDisabledBeforeStart() {
         onView(withId(R.id.btn_lap))
             .check(matches(not(isEnabled())))
     }
 
-    /**
-     * Once the stopwatch is running the Lap button must become enabled so the
-     * user can record laps.
-     */
+    /** Once the stopwatch is running the Lap button must become enabled. */
     @Test
     fun lapButtonBecomesEnabledAfterStart() {
         onView(withId(R.id.btn_start_stop)).perform(click())
@@ -216,18 +199,73 @@ class StopwatchWorkflowTest {
             .check(matches(isEnabled()))
     }
 
-    /**
-     * After a Reset the Lap button must return to the disabled state.
-     */
+    // -----------------------------------------------------------------------
+    // W-7  Lap button disabled after Reset
+    // -----------------------------------------------------------------------
+
+    /** After a Reset the Lap button must return to the disabled state. */
     @Test
     fun lapButtonIsDisabledAfterReset() {
         onView(withId(R.id.btn_start_stop)).perform(click())
         waitMs(100)
-        onView(withId(R.id.btn_start_stop)).perform(click()) // Stop
-        onView(withId(R.id.btn_reset)).perform(click())      // Reset
+        onView(withId(R.id.btn_start_stop)).perform(click())   // Stop
+        onView(withId(R.id.btn_reset)).perform(click())        // Reset
         waitMs(50)
 
         onView(withId(R.id.btn_lap))
             .check(matches(not(isEnabled())))
+    }
+
+    // -----------------------------------------------------------------------
+    // W-8  Reset button reachability
+    // -----------------------------------------------------------------------
+
+    /** Reset button must be visible and enabled before, during, and after a run. */
+    @Test
+    fun resetButtonIsAlwaysReachable() {
+        // Before start
+        onView(withId(R.id.btn_reset)).check(matches(isDisplayed()))
+
+        // During run
+        onView(withId(R.id.btn_start_stop)).perform(click())
+        waitMs(100)
+        onView(withId(R.id.btn_reset)).check(matches(isDisplayed()))
+
+        // After stop
+        onView(withId(R.id.btn_start_stop)).perform(click())
+        onView(withId(R.id.btn_reset)).check(matches(isDisplayed()))
+
+        // After reset
+        onView(withId(R.id.btn_reset)).perform(click())
+        onView(withId(R.id.btn_reset)).check(matches(isDisplayed()))
+    }
+
+    // -----------------------------------------------------------------------
+    // W-9  10 laps stress test
+    // -----------------------------------------------------------------------
+
+    /**
+     * Recording 10 laps must not crash and the RecyclerView must show
+     * exactly 10 items.
+     */
+    @Test
+    fun tenLapsStressTest() {
+        onView(withId(R.id.btn_start_stop)).perform(click())
+
+        repeat(10) {
+            waitMs(80)
+            onView(withId(R.id.btn_lap)).perform(click())
+        }
+
+        waitMs(50)
+
+        onView(withId(R.id.rv_laps)).check { view, noViewFoundException ->
+            noViewFoundException?.let { throw it }
+            val rv = view as RecyclerView
+            val itemCount = rv.adapter?.itemCount ?: 0
+            assert(itemCount == 10) {
+                "Expected 10 lap items but found $itemCount"
+            }
+        }
     }
 }
