@@ -1,484 +1,323 @@
-/* =========================================================
-   Style.css — Global Time Clock (dark theme, orange accents)
-   No neon effects. No old-English / decorative fonts.
-   ========================================================= */
-
-/* ---------------------------------------------------------
-   Reset & base
-   --------------------------------------------------------- */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body {
-  height: 100%;
-}
+/* ─── Reset & Base ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
-  font-size: 16px;
-  background: #1a1a1a;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #121212;
   color: #e0e0e0;
   min-height: 100vh;
   padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* ---------------------------------------------------------
-   Dark / light theme
-   --------------------------------------------------------- */
-body.dark-theme {
-  background: #1a1a1a;
-  color: #e0e0e0;
 }
 
 body.light-theme {
-  background: #f5f5f5;
+  background: #f4f4f4;
   color: #1a1a1a;
 }
 
-/* ---------------------------------------------------------
-   Clock panel
-   --------------------------------------------------------- */
-#clockPanel {
+/* ─── Clock Panel ───────────────────────────────────────────────────────────── */
+#clockPanel { margin-bottom: 24px; }
+
+#clockContainer {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  justify-content: center;
 }
 
 .clock-card {
-  background: #252525;
-  border: 1px solid #383838;
+  background: #1e1e1e;
+  border: 1px solid #333;
   border-radius: 8px;
-  padding: 16px 20px;
-  min-width: 160px;
-  flex: 1 1 160px;
-  max-width: 220px;
-  text-align: center;
+  padding: 14px 20px;
+  min-width: 180px;
+  flex: 1 1 180px;
 }
 
 body.light-theme .clock-card {
-  background: #ffffff;
-  border-color: #cccccc;
+  background: #fff;
+  border-color: #ccc;
 }
 
 .clock-label {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #999;
+  color: #888;
   margin-bottom: 6px;
 }
 
 .clock-time {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   font-weight: 600;
-  font-family: 'Courier New', Courier, monospace;
-  color: #ff9800;
   letter-spacing: 0.04em;
+  color: #f0f0f0;
 }
 
-.clock-date {
-  font-size: 0.78rem;
-  color: #aaa;
-  margin-top: 4px;
+body.light-theme .clock-time { color: #111; }
+
+/* ─── Section headings ──────────────────────────────────────────────────────── */
+h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #888;
+  margin-bottom: 8px;
 }
 
-/* ---------------------------------------------------------
-   Theme & mute controls
-   --------------------------------------------------------- */
-#controls {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
+/* ─── Connectivity Panel ────────────────────────────────────────────────────── */
+#connectivityPanel {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
 }
 
-#controls button {
-  background: #ff9800;
-  color: #1a1a1a;
+body.light-theme #connectivityPanel { background: #fff; border-color: #ccc; }
+
+.status-online  { color: #4caf50; font-weight: 600; }
+.status-offline { color: #f44336; font-weight: 600; }
+
+#connectivityPanel button {
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: #e65c00;
+  color: #fff;
   border: none;
   border-radius: 6px;
-  padding: 8px 18px;
-  font-size: 0.9rem;
-  font-weight: 600;
   cursor: pointer;
+  font-size: 0.85rem;
 }
 
-#controls button:hover {
-  background: #ffa726;
-}
+#connectivityPanel button:hover { background: #cc5200; }
 
-/* ---------------------------------------------------------
-   Connectivity panel
-   --------------------------------------------------------- */
-#connectivityPanel {
-  background: #252525;
-  border: 1px solid #383838;
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-body.light-theme #connectivityPanel {
-  background: #ffffff;
-  border-color: #cccccc;
-}
-
-#connectivityStatus {
+/* ─── Microphone Permission Status ──────────────────────────────────────────── */
+.mic-status {
+  padding: 10px 14px;
+  border-radius: 6px;
   font-size: 0.88rem;
-  color: #ccc;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
 }
 
-#networkTypeDisplay {
-  font-size: 0.8rem;
-  color: #aaa;
-}
+.mic-granted { background: #1b3a1f; border-color: #2e7d32; color: #81c784; }
+.mic-prompt  { background: #3b2c00; border-color: #f57f17; color: #ffca28; }
+.mic-denied  { background: #3b0f0f; border-color: #c62828; color: #ef9a9a; }
+.mic-unknown { background: #1e1e1e; border-color: #555;    color: #aaa;    }
 
-#networkList {
-  font-size: 0.8rem;
-  color: #bbb;
-}
+body.light-theme .mic-granted { background: #e8f5e9; border-color: #66bb6a; color: #2e7d32; }
+body.light-theme .mic-prompt  { background: #fff8e1; border-color: #ffb300; color: #e65100; }
+body.light-theme .mic-denied  { background: #ffebee; border-color: #ef5350; color: #b71c1c; }
+body.light-theme .mic-unknown { background: #f5f5f5; border-color: #bbb;    color: #555;    }
 
-#mobileNetworkOption label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-#mobileNetworkOption input[type="checkbox"] {
-  accent-color: #ff9800;
-  width: 16px;
-  height: 16px;
-}
-
-/* ---------------------------------------------------------
-   Microphone permission pre-check
-   --------------------------------------------------------- */
-#micPermissionSection {
-  background: #252525;
-  border: 1px solid #383838;
+/* ─── Caller ID Panel ───────────────────────────────────────────────────────── */
+#callerIdPanel {
+  background: #1e1e1e;
+  border: 1px solid #333;
   border-radius: 8px;
-  padding: 10px 16px;
+  padding: 14px;
+  margin-bottom: 16px;
 }
 
-body.light-theme #micPermissionSection {
-  background: #ffffff;
-  border-color: #cccccc;
-}
-
-#micPermissionStatus {
-  font-size: 0.85rem;
-  padding: 6px 10px;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-#micPermissionStatus.granted {
-  background: #1b4332;
-  color: #6ee7b7;
-}
-
-#micPermissionStatus.prompt {
-  background: #3d2e00;
-  color: #fcd34d;
-}
-
-#micPermissionStatus.denied {
-  background: #4c0519;
-  color: #fca5a5;
-}
-
-/* ---------------------------------------------------------
-   Caller ID name section
-   --------------------------------------------------------- */
-#callerIdSection {
-  background: #252525;
-  border: 1px solid #383838;
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-body.light-theme #callerIdSection {
-  background: #ffffff;
-  border-color: #cccccc;
-}
-
-#callerIdSection label {
-  font-size: 0.82rem;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
+body.light-theme #callerIdPanel { background: #fff; border-color: #ccc; }
 
 #callerIdNameInput {
-  background: #1a1a1a;
-  border: 1px solid #555;
-  border-radius: 5px;
+  width: 100%;
+  padding: 8px 10px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
   color: #e0e0e0;
   font-size: 0.95rem;
-  padding: 8px 10px;
-  outline: none;
-  width: 100%;
+  margin-bottom: 8px;
 }
 
-#callerIdNameInput:focus {
-  border-color: #ff9800;
-}
-
-body.light-theme #callerIdNameInput {
-  background: #f5f5f5;
-  color: #1a1a1a;
-  border-color: #bbb;
-}
+body.light-theme #callerIdNameInput { background: #f9f9f9; border-color: #ccc; color: #111; }
 
 #setCallerIdNameBtn {
-  background: #ff9800;
-  color: #1a1a1a;
+  padding: 7px 18px;
+  background: #e65c00;
+  color: #fff;
   border: none;
   border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 0.88rem;
-  font-weight: 600;
   cursor: pointer;
-  align-self: flex-start;
+  font-size: 0.9rem;
 }
 
-#setCallerIdNameBtn:hover {
-  background: #ffa726;
-}
+#setCallerIdNameBtn:hover { background: #cc5200; }
 
 #callerIdNameDisplay {
-  font-size: 0.82rem;
-  color: #ff9800;
-  min-height: 1.2em;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #aaa;
 }
 
-/* ---------------------------------------------------------
-   Dialer panel
-   --------------------------------------------------------- */
-#dialerPanel {
-  background: #252525;
-  border: 1px solid #383838;
+/* ─── Call Panel ────────────────────────────────────────────────────────────── */
+#callPanel {
+  background: #1e1e1e;
+  border: 1px solid #333;
   border-radius: 8px;
   padding: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  margin-bottom: 16px;
 }
 
-body.light-theme #dialerPanel {
-  background: #ffffff;
-  border-color: #cccccc;
-}
+body.light-theme #callPanel { background: #fff; border-color: #ccc; }
 
-/* Number display box */
-#dialDisplay {
-  background: #1a1a1a;
-  border: 1px solid #555;
+/* ─── Dialer Display ────────────────────────────────────────────────────────── */
+.dialer-display {
+  background: #111;
+  border: 1px solid #444;
   border-radius: 6px;
-  width: 100%;
-  max-width: 320px;
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-}
-
-body.light-theme #dialDisplay {
-  background: #f0f0f0;
-  border-color: #bbb;
-}
-
-#dialNumber {
-  font-family: 'Courier New', Courier, monospace;
+  padding: 10px 14px;
   font-size: 1.5rem;
-  font-weight: 700;
-  color: #ff9800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
+  min-height: 2.6rem;
+  margin-bottom: 6px;
+  color: #f0f0f0;
+  text-align: right;
   word-break: break-all;
-  text-align: center;
 }
 
-/* Live readout */
-#dialReadout {
+body.light-theme .dialer-display { background: #f0f0f0; border-color: #bbb; color: #111; }
+
+.dial-readout {
   font-size: 0.8rem;
-  color: #999;
-  text-align: center;
+  color: #888;
+  text-align: right;
+  min-height: 1.1em;
+  margin-bottom: 12px;
 }
 
-#dialReadoutSpan {
-  color: #e0e0e0;
-  font-weight: 600;
+/* ─── Shake Animation (full-clear visual feedback) ──────────────────────────── */
+@keyframes shake {
+  0%   { transform: translateX(0);     }
+  15%  { transform: translateX(-6px);  }
+  30%  { transform: translateX(6px);   }
+  45%  { transform: translateX(-5px);  }
+  60%  { transform: translateX(5px);   }
+  75%  { transform: translateX(-3px);  }
+  88%  { transform: translateX(3px);   }
+  100% { transform: translateX(0);     }
 }
 
-/* Keypad grid */
+.dialer-display.shake {
+  animation: shake 0.42s ease-in-out;
+}
+
+/* ─── Keypad ────────────────────────────────────────────────────────────────── */
 #keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  width: 100%;
-  max-width: 260px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .key-btn {
-  background: #ff9800;
-  color: #1a1a1a;
+  padding: 14px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: #e65c00;
+  color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 16px 0;
-  font-size: 1.2rem;
-  font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
   user-select: none;
+  -webkit-user-select: none;
 }
 
-.key-btn:hover {
-  background: #ffa726;
-}
+.key-btn:hover  { background: #cc5200; }
+.key-btn:active { background: #b34700; }
 
-.key-btn:active {
-  background: #e65100;
-}
-
-/* Dialer action buttons */
-#dialerActions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
+/* Backspace button — full width row below the keypad grid */
+.backspace-btn {
   width: 100%;
-  max-width: 260px;
-}
-
-#backspaceBtn,
-#callBtn,
-#endCallBtn {
-  flex: 1;
-  border: none;
-  border-radius: 8px;
-  padding: 14px 0;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-#backspaceBtn {
+  margin-bottom: 10px;
+  font-size: 1.3rem;
   background: #555;
-  color: #e0e0e0;
 }
 
-#backspaceBtn:hover {
-  background: #666;
+.backspace-btn:hover  { background: #444; }
+.backspace-btn:active { background: #333; }
+
+/* ─── Call Controls ─────────────────────────────────────────────────────────── */
+#callControls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 #callBtn {
+  flex: 1;
+  padding: 12px 0;
   background: #2e7d32;
-  color: #ffffff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-#callBtn:hover {
-  background: #388e3c;
-}
+#callBtn:hover { background: #256327; }
 
 #endCallBtn {
-  background: #b71c1c;
-  color: #ffffff;
-}
-
-#endCallBtn:hover {
+  flex: 1;
+  padding: 12px 0;
   background: #c62828;
-}
-
-/* ---------------------------------------------------------
-   Call panel
-   --------------------------------------------------------- */
-#callPanel {
-  background: #252525;
-  border: 1px solid #383838;
+  color: #fff;
+  border: none;
   border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-body.light-theme #callPanel {
-  background: #ffffff;
-  border-color: #cccccc;
-}
+#endCallBtn:hover { background: #ad2020; }
 
+/* ─── Call Status / Timer ───────────────────────────────────────────────────── */
 #callStatus {
   font-size: 0.9rem;
-  color: #e0e0e0;
-  text-align: center;
-  min-height: 1.4em;
+  color: #bbb;
+  min-height: 1.3em;
+  margin-top: 4px;
 }
 
-/* Network type badge */
+/* ─── Network Type Badge ────────────────────────────────────────────────────── */
 #networkTypeIndicator {
   display: inline-block;
+  margin-top: 8px;
   padding: 3px 10px;
   border-radius: 12px;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  background: #37474f;
-  color: #eceff1;
+  letter-spacing: 0.06em;
+  background: #e65c00;
+  color: #fff;
+  vertical-align: middle;
 }
 
-#networkTypeIndicator.badge-wifi   { background: #1565c0; color: #e3f2fd; }
-#networkTypeIndicator.badge-4g     { background: #1b5e20; color: #e8f5e9; }
-#networkTypeIndicator.badge-3g     { background: #e65100; color: #fff3e0; }
-#networkTypeIndicator.badge-2g     { background: #4a148c; color: #f3e5f5; }
-#networkTypeIndicator.badge-cell   { background: #37474f; color: #eceff1; }
-#networkTypeIndicator.badge-unknown{ background: #424242; color: #eeeeee; }
+/* ─── App Controls ──────────────────────────────────────────────────────────── */
+#controls {
+  display: flex;
+  gap: 10px;
+}
 
-/* ---------------------------------------------------------
-   Responsive — narrow screens (Android phones)
-   --------------------------------------------------------- */
+#controls button {
+  flex: 1;
+  padding: 10px 0;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+#controls button:hover { background: #333; }
+
+/* ─── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
-  body {
-    padding: 10px;
-    gap: 12px;
-  }
-
-  .clock-card {
-    min-width: 130px;
-    padding: 12px 14px;
-  }
-
-  .clock-time {
-    font-size: 1.4rem;
-  }
-
-  #keypad {
-    max-width: 240px;
-    gap: 8px;
-  }
-
-  .key-btn {
-    padding: 14px 0;
-    font-size: 1.1rem;
-  }
-
-  #dialNumber {
-    font-size: 1.25rem;
-  }
+  .clock-time { font-size: 1.25rem; }
+  .key-btn    { padding: 16px 0; }
+  .dialer-display { font-size: 1.25rem; }
 }
