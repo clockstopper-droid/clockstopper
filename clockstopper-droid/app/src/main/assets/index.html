@@ -2,80 +2,96 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Global Time Clock</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="dark-theme">
+<body class="dark">
 
-  <!-- ── Clock Panel ─────────────────────────────────────────────────── -->
-  <section id="clockPanel">
+  <!-- ── Clocks ─────────────────────────────────────────────────────────── -->
+  <section id="clockSection" aria-label="World Clocks">
     <div id="clockContainer"></div>
   </section>
 
-  <!-- ── Connectivity Panel ──────────────────────────────────────────── -->
-  <section id="connectivityPanel">
-    <h2>Network</h2>
-    <div id="connectivityStatus" class="status-online">Checking…</div>
-    <button onclick="probeConnectivity()">Check Connection</button>
-  </section>
-
-  <!-- ── Microphone Permission Status ────────────────────────────────── -->
-  <div id="micPermissionStatus" class="mic-status mic-unknown">
-    Checking microphone permission…
+  <!-- ── Controls ───────────────────────────────────────────────────────── -->
+  <div id="controls">
+    <button id="themeToggle"  aria-label="Toggle theme">🌙 Theme</button>
+    <button id="muteToggle"   aria-label="Toggle mute" aria-pressed="false">🔔 Mute</button>
   </div>
 
-  <!-- ── Caller ID Name ──────────────────────────────────────────────── -->
-  <section id="callerIdPanel">
-    <h2>Caller ID Name</h2>
-    <input type="text" id="callerIdNameInput" placeholder="Your display name for recipients" />
-    <button id="setCallerIdNameBtn">Save</button>
-    <div id="callerIdNameDisplay">No caller ID name set.</div>
+  <!-- ── Connectivity Panel ─────────────────────────────────────────────── -->
+  <section id="connectivityPanel" aria-label="Connectivity">
+    <h2>Connectivity</h2>
+
+    <div id="onlineStatus" class="status-online" aria-live="polite">Checking…</div>
+    <div id="networkInfo">Network: —</div>
+
+    <!--
+      #connectivityProbeStatus
+      ─────────────────────────
+      Populated dynamically by updateConnectivityUI() in app.js.
+      Structure injected at runtime:
+        <span class="probe-result-label"> ✅ Probe OK | ⚠️ Probe failed | — Probe pending </span>
+        <span class="probe-timestamp probe-success"> Last verified: H:MM:SS AM/PM </span>
+        <span class="probe-timestamp probe-failure"> Last failed:   H:MM:SS AM/PM </span>  (only when applicable)
+    -->
+    <div id="connectivityProbeStatus" aria-live="polite">— Probe pending</div>
   </section>
 
-  <!-- ── Dialer ───────────────────────────────────────────────────────── -->
-  <section id="callPanel">
-    <!-- Number display box -->
-    <div id="dialerDisplay" class="dialer-display"></div>
-    <!-- Live readout beneath display -->
-    <div id="dialReadout" class="dial-readout"></div>
+  <!-- ── Mic Permission Pre-Check ───────────────────────────────────────── -->
+  <section id="micSection" aria-label="Microphone Permission">
+    <div id="micPermissionStatus" aria-live="polite">Checking microphone…</div>
+  </section>
 
-    <!-- Keypad -->
-    <div id="keypad">
-      <button class="key-btn" onclick="dialDigit('1')">1</button>
-      <button class="key-btn" onclick="dialDigit('2')">2</button>
-      <button class="key-btn" onclick="dialDigit('3')">3</button>
-      <button class="key-btn" onclick="dialDigit('4')">4</button>
-      <button class="key-btn" onclick="dialDigit('5')">5</button>
-      <button class="key-btn" onclick="dialDigit('6')">6</button>
-      <button class="key-btn" onclick="dialDigit('7')">7</button>
-      <button class="key-btn" onclick="dialDigit('8')">8</button>
-      <button class="key-btn" onclick="dialDigit('9')">9</button>
-      <button class="key-btn" onclick="dialDigit('*')">*</button>
-      <button class="key-btn" onclick="dialDigit('0')">0</button>
-      <button class="key-btn" onclick="dialDigit('#')">#</button>
+  <!-- ── Dialer ─────────────────────────────────────────────────────────── -->
+  <section id="dialerSection" aria-label="Dialer">
+
+    <!-- Number display -->
+    <div id="numberDisplay" aria-label="Number being dialed" aria-live="polite"></div>
+    <div id="dialedNumberReadout" aria-live="polite"></div>
+
+    <!-- Caller ID name -->
+    <div id="callerIdSection">
+      <label for="callerIdNameInput">Caller ID Name:</label>
+      <input id="callerIdNameInput" type="text" placeholder="Your display name" maxlength="64" />
+      <button id="saveCallerIdName">Save</button>
+      <div id="callerIdNameDisplay" aria-live="polite"></div>
     </div>
 
-    <!-- Backspace — NO onclick; long-press handler wired in app.js -->
-    <button id="backspaceBtn" class="key-btn backspace-btn" aria-label="Backspace">⌫</button>
+    <!-- Keypad -->
+    <div id="keypad" role="group" aria-label="Dial pad">
+      <button data-digit="1"  class="key-btn">1</button>
+      <button data-digit="2"  class="key-btn">2 <span class="key-sub">ABC</span></button>
+      <button data-digit="3"  class="key-btn">3 <span class="key-sub">DEF</span></button>
+
+      <button data-digit="4"  class="key-btn">4 <span class="key-sub">GHI</span></button>
+      <button data-digit="5"  class="key-btn">5 <span class="key-sub">JKL</span></button>
+      <button data-digit="6"  class="key-btn">6 <span class="key-sub">MNO</span></button>
+
+      <button data-digit="7"  class="key-btn">7 <span class="key-sub">PQRS</span></button>
+      <button data-digit="8"  class="key-btn">8 <span class="key-sub">TUV</span></button>
+      <button data-digit="9"  class="key-btn">9 <span class="key-sub">WXYZ</span></button>
+
+      <button data-digit="*"  class="key-btn">&#42;</button>
+      <button data-digit="0"  class="key-btn">0</button>
+      <button data-digit="#"  class="key-btn">&#35;</button>
+
+      <button data-digit="+"  class="key-btn key-plus">+</button>
+      <button id="backspaceBtn" class="key-btn key-backspace" aria-label="Backspace — hold to clear all">⌫</button>
+    </div>
 
     <!-- Call controls -->
     <div id="callControls">
-      <button id="callBtn"    onclick="initiateCall()">Call</button>
-      <button id="endCallBtn" onclick="endCall()">End</button>
+      <button id="callBtn"    class="btn-call"    aria-label="Place call">📞 Call</button>
+      <button id="endCallBtn" class="btn-end-call" aria-label="End call" style="display:none;">🔴 End</button>
     </div>
 
-    <!-- Status / call duration timer -->
-    <div id="callStatus"></div>
+    <!-- Call status / duration timer -->
+    <div id="callStatus" aria-live="polite"></div>
 
-    <!-- Network type badge (visible during active call only) -->
-    <span id="networkTypeIndicator" style="display:none;"></span>
-  </section>
+    <!-- Network type badge (visible during active call) -->
+    <div id="networkTypeIndicator" class="network-badge" style="display:none;" aria-live="polite"></div>
 
-  <!-- ── Controls ─────────────────────────────────────────────────────── -->
-  <section id="controls">
-    <button id="muteBtn"  onclick="toggleMute()">Mute</button>
-    <button id="themeBtn" onclick="toggleTheme()">Toggle Theme</button>
   </section>
 
   <script src="js/app.js"></script>
