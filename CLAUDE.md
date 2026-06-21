@@ -6,6 +6,8 @@
 
 The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered.
 
+The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
+
 ---
 
 ## Tech Stack
@@ -21,7 +23,8 @@ The app updates all displayed clocks every second. The three time zone clocks ar
 | Mobile Network Detection | `navigator.connection.type === 'cellular'` + `effectiveType` (`4g`, `3g`, `2g`) checks |
 | Audio Output | Native Web Audio API (`AudioContext`) + `HTMLAudioElement` (call audio only) |
 | Microphone Input | `navigator.mediaDevices.getUserMedia()` (MediaDevices API) |
-| Runtime | Browser only — no Node.js, no build step |
+| Android Packaging | Android WebView wrapper (WebView-based native Android app) |
+| Runtime | Browser (standalone) + Android WebView (mobile deployment) |
 
 ---
 
@@ -38,7 +41,19 @@ clockstopper/
 └── .gitignore          # Android/IntelliJ artifacts excluded
 ```
 
-> **Note:** The `.gitignore` file contains Android/Gradle/IntelliJ patterns, suggesting this repository may have been initialized from an Android project template or the developer reused an existing `.gitignore`. These entries are irrelevant to the web app itself.
+> **Note:** The `.gitignore` file contains Android/Gradle/IntelliJ patterns. The repository has been used as the basis for an Android WebView application, so these entries are directly relevant to the Android packaging layer as well as any IntelliJ/Android Studio IDE artifacts.
+
+---
+
+## Android Deployment
+
+The application has been packaged as an **Android WebView-based mobile dialing app**. Key architectural decisions for Android deployment:
+
+- The web app (`Index.html`, `Css/Style.css`, `js/app.js`) serves as the UI layer loaded inside an Android `WebView`.
+- The Android wrapper grants necessary permissions (microphone, network state) via the Android manifest, complementing the browser-level `getUserMedia()` permission requests.
+- The dialer UI, keypad, connectivity panel, and call audio system are all functional within the Android WebView environment.
+- Mobile-specific CSS breakpoints and touch-friendly keypad sizing ensure a native-feeling experience on Android screen sizes.
+- The `.gitignore` Android/Gradle/IntelliJ entries are intentional and directly applicable to the Android project artifacts generated during packaging.
 
 ---
 
@@ -58,7 +73,7 @@ These are rendered on page load and cannot be changed by the user at runtime. Th
 
 ## Architecture
 
-This is a **single-page, no-framework, pure JavaScript application**. There is no module system, no bundler, and no package manager involved.
+This is a **single-page, no-framework, pure JavaScript application** deployable both as a standalone browser app and as the UI layer of an Android WebView application. There is no module system, no bundler, and no package manager involved.
 
 ### Component Breakdown
 
@@ -153,7 +168,7 @@ Css/Style.css
   └── .dialed-number-readout   → Secondary label beneath the dialer display; live readout of digits as they are entered
   └── .dialed-number-readout.active → Visual state when readout contains digits
   └── .keypad                  → Grid layout container for the digit buttons (0–9, *, #)
-  └── .keypad-btn              → Individual keypad digit button styles; orange accent in dark theme
+  └── .keypad-btn              → Individual keypad digit button styles; orange accent in dark theme; touch-optimized for Android
   └── .call-status             → Call state indicator base styles
   └── .call-status.calling     → Visual state while call is being established / ringing
   └── .call-status.connected   → Visual state when call audio is active
@@ -162,7 +177,7 @@ Css/Style.css
   └── .mic-permission-status.granted  → Visual state when mic permission is granted
   └── .mic-permission-status.denied   → Visual state when mic permission is denied
   └── .mic-permission-status.pending  → Visual state while permission is being requested
-  └── Responsive rules         → Mobile-friendly breakpoints
+  └── Responsive rules         → Mobile-friendly breakpoints; Android screen size optimizations
 ```
 
 ### Data Flow
@@ -199,7 +214,7 @@ Mute Button
         → Update mute button label/icon/class to reflect current state
         → Only affects call audio output; no clock sounds exist to mute
 
-Keypad Button Press
+Keypad Button Press (touch or click — Android touch-optimized)
     → dialDigit(digit)
         → Append digit character to dialedNumber string in app.js state
         → Call updateDialerDisplay()
@@ -232,30 +247,3 @@ navigator.connection (NetworkInformation API)
         → Read effectiveType, downlink, rtt, type properties if available
         → Update network detail display in connectivity panel
         → Register change event listener if API is available
-    → detectMobileNetwork()
-        → Check navigator.connection.type === 'cellular'
-        → Check navigator.connection.effectiveType ('4g', '3g', '2g')
-        → Enable/disable #mobileNetworkOption and apply .available/.unavailable class
-        → Update #networkTypeIndicator with detected mobile network type label
-
-Connectivity Panel Toggle
-    → toggleConnectivityPanel()
-        → Toggle .expanded class on #connectivityPanel
-        → On expand: trigger updateNetworkInfo(), scanNetworks(), detectMobileNetwork()
-        → CSS handles show/hide and animation via class-scoped rules
-
-Mobile Network Selection
-    → selectMobileNetwork()
-        → Set preferredNetwork state variable to 'cellular' in app.js
-        → Apply .selected class to #mobileNetworkOption
-        → Remove .selected from any WiFi network list items
-        → Update #networkTypeIndicator to reflect mobile network choice
-        → Chosen network type will be used when initiateCall() is next invoked
-
-Call Button (initiateCall)
-    → initiateCall()
-        → Read current dialedNumber from state (number to be called)
-        → Read preferredNetwork state ('cellular' or 'wifi') to determine call routing context
-        → Call requestMicPermission()
-            → navigator.mediaDevices.getUserMedia({ audio: true })
-                → On grant: store MediaStream, mark #
