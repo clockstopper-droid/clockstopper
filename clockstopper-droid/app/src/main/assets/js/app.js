@@ -1,581 +1,488 @@
-/* ==========================================================================
-   app.js — Global Time Clock + Dialer
-   All application logic: clocks, theme, mute, connectivity, dialer, caller ID,
-   call audio, mic permission pre-check, call duration timer, network type badge,
-   keyboard input, backspace long-press clear.
-   ========================================================================== */
+// ─── Theme Persistence ────────────────────────────────────────────────────────
+const THEME_STORAGE_KEY = 'clockstopper_theme';
+const DARK_CLASS = 'dark-theme';
 
-'use strict';
+/**
+ * Read the saved theme from localStorage and apply it to <body> immediately,
+ * before any rendering occurs, to eliminate the flash of the default theme.
+ */
+(function applyStoredTheme() {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY);
+  if (saved === DARK_CLASS) {
+    document.body.classList.add(DARK_CLASS);
+  }
+})();
 
-/* --------------------------------------------------------------------------
-   Constants
-   -------------------------------------------------------------------------- */
-const LONG_PRESS_THRESHOLD_MS = 700;   // ms hold before backspace clears all
+// ─── App State ────────────────────────────────────────────────────────────────
+const state = {
+  muted: false,
+  dialedNumber: '',
+  callerIdName: '',
+  callActive: false,
+  callStartTime: null,
+  callDurationInterval: null,
+  networkType: 'Unknown',
+  connectivityOnline: navigator.onLine,
+  connectivityTimestamp: null,
+  probeRetryDelay: 2000,
+  probeRetryHandle: null,
+  micPermissionState: 'unknown',
+  selectedNetwork: 'wifi',    // 'wifi' | 'mobile'
+  stream: null,               // active MediaStream
+};
 
-// Connectivity probe backoff settings
-const PROBE_INITIAL_DELAY_MS  = 2000;  // first retry after 2 s
-const PROBE_BACKOFF_FACTOR    = 2;     // double each retry
-const PROBE_MAX_DELAY_MS      = 30000; // cap at 30 s
-const PROBE_URL               = 'https://www.gstatic.com/generate_204'; // 204 No Content
+// Backspace long-press constants
+const LONG_PRESS_THRESHOLD_MS = 700;
 
-/* --------------------------------------------------------------------------
-   State
-   -------------------------------------------------------------------------- */
-let isMuted        = false;
-let dialedNumber   = '';
-let callerIdName   = '';
-let callActive     = false;
-let callStartTime  = null;
-let callTimerInterval = null;
-let networkChangeListener = null;
+// Connectivity probe constants
+const PROBE_URL = 'https://www.gstatic.com/generate_204';
+const PROBE_INITIAL_DELAY_MS  = 2000;
+const PROBE_MAX_DELAY_MS      = 60000;
 
-// Probe retry state
-let probeRetryTimeout   = null;   // handle from setTimeout
-let probeRetryDelay     = PROBE_INITIAL_DELAY_MS;
-let lastProbeSuccess    = null;   // Date | null
-let lastProbeFailure    = null;   // Date | null
-
-/* --------------------------------------------------------------------------
-   Utility — format a Date as a locale time string (h:mm:ss AM/PM)
-   -------------------------------------------------------------------------- */
-function formatProbeTime(date) {
-  if (!date) return 'Never';
-  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-}
-
-/* --------------------------------------------------------------------------
-   Clock — three fixed time zones
-   -------------------------------------------------------------------------- */
-const TIMEZONES = [
-  { label: 'Eastern Time',  zone: 'America/New_York'    },
-  { label: 'Central Time',  zone: 'America/Chicago'     },
-  { label: 'Western Time',  zone: 'America/Los_Angeles' },
+// ─── Fixed Time Zones ─────────────────────────────────────────────────────────
+const TIME_ZONES = [
+  { label: 'Eastern Time',  tz: 'America/New_York'    },
+  { label: 'Central Time',  tz: 'America/Chicago'     },
+  { label: 'Western Time',  tz: 'America/Los_Angeles' },
 ];
 
+// ─── Clock Rendering ─────────────────────────────────────────────────────────
 function renderClocks() {
-  const container = document.getElementById('clockContainer');
+  const container = document.getElementById('clocks');
   if (!container) return;
   container.innerHTML = '';
+
   const now = new Date();
-  TIMEZONES.forEach(({ label, zone }) => {
+  TIME_ZONES.forEach(({ label, tz }) => {
     const timeStr = new Intl.DateTimeFormat('en-US', {
-      timeZone: zone,
-      hour:     'numeric',
+      timeZone: tz,
+      hour:     '2-digit',
       minute:   '2-digit',
       second:   '2-digit',
       hour12:   true,
     }).format(now);
+
     const dateStr = new Intl.DateTimeFormat('en-US', {
-      timeZone: zone,
+      timeZone: tz,
       weekday: 'short',
       month:   'short',
       day:     'numeric',
+      year:    'numeric',
     }).format(now);
+
     const card = document.createElement('div');
     card.className = 'clock-card';
     card.innerHTML = `
       <div class="clock-label">${label}</div>
       <div class="clock-time">${timeStr}</div>
-      <div class="clock-date">${dateStr}</div>`;
+      <div class="clock-date">${dateStr}</div>
+    `;
     container.appendChild(card);
   });
 }
 
-/* --------------------------------------------------------------------------
-   Theme toggle
-   -------------------------------------------------------------------------- */
-function initThemeToggle() {
-  const btn = document.getElementById('themeToggle');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-  });
-}
-
-/* --------------------------------------------------------------------------
-   Mute toggle
-   -------------------------------------------------------------------------- */
-function initMuteToggle() {
-  const btn = document.getElementById('muteToggle');
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    isMuted = !isMuted;
-    btn.textContent = isMuted ? '🔇 Unmute' : '🔔 Mute';
-    btn.setAttribute('aria-pressed', String(isMuted));
-  });
-}
-
-/* --------------------------------------------------------------------------
-   Connectivity UI update
-   Reflects navigator.onLine state + probe timestamps in #connectivityProbeStatus
-   -------------------------------------------------------------------------- */
-function updateConnectivityUI(probeResult) {
-  const onlineIndicator = document.getElementById('onlineStatus');
-  const probeStatusEl   = document.getElementById('connectivityProbeStatus');
-
-  const isOnline = navigator.onLine;
-
-  // Online / offline indicator
-  if (onlineIndicator) {
-    onlineIndicator.textContent = isOnline ? '✅ Online' : '❌ Offline';
-    onlineIndicator.className   = isOnline ? 'status-online' : 'status-offline';
-  }
-
-  // Probe status + timestamps
-  if (probeStatusEl) {
-    let probeLabel = '';
-    if (probeResult === true) {
-      probeLabel = '✅ Probe OK';
-    } else if (probeResult === false) {
-      probeLabel = '⚠️ Probe failed';
-    } else {
-      // Called without a new result — keep existing probe label visible
-      const existing = probeStatusEl.querySelector('.probe-result-label');
-      probeLabel = existing ? existing.textContent : '— Probe pending';
-    }
-
-    const successLine = lastProbeSuccess
-      ? `<span class="probe-timestamp probe-success">Last verified: ${formatProbeTime(lastProbeSuccess)}</span>`
-      : `<span class="probe-timestamp probe-never">Last verified: Never</span>`;
-
-    const failureLine = lastProbeFailure
-      ? `<span class="probe-timestamp probe-failure">Last failed: ${formatProbeTime(lastProbeFailure)}</span>`
-      : '';
-
-    probeStatusEl.innerHTML =
-      `<span class="probe-result-label">${probeLabel}</span>` +
-      successLine +
-      failureLine;
-  }
-}
-
-/* --------------------------------------------------------------------------
-   Connectivity probe with exponential backoff retry
-   -------------------------------------------------------------------------- */
-
+// ─── Theme Toggle ─────────────────────────────────────────────────────────────
 /**
- * Cancel any pending retry timeout (called before scheduling a new one, or
- * when a probe succeeds and no retry is needed).
+ * Toggle the dark theme class on <body> and persist the choice to localStorage
+ * so the preference survives page reloads.
  */
-function cancelProbeRetry() {
-  if (probeRetryTimeout !== null) {
-    clearTimeout(probeRetryTimeout);
-    probeRetryTimeout = null;
-  }
-}
-
-/**
- * Schedule a retry after the current backoff delay, then double the delay
- * (up to PROBE_MAX_DELAY_MS) for the next failure.
- */
-function scheduleProbeRetry() {
-  cancelProbeRetry();
-  const delay = probeRetryDelay;
-  probeRetryTimeout = setTimeout(() => {
-    probeRetryTimeout = null;
-    probeConnectivity();
-  }, delay);
-  // Advance the delay for the next potential failure (capped)
-  probeRetryDelay = Math.min(probeRetryDelay * PROBE_BACKOFF_FACTOR, PROBE_MAX_DELAY_MS);
-}
-
-/**
- * Fetch-based connectivity probe.
- *
- * On success:
- *   - Records lastProbeSuccess timestamp
- *   - Resets backoff delay to initial value
- *   - Cancels any pending retry
- *   - Updates UI with probe-ok state
- *
- * On failure:
- *   - Records lastProbeFailure timestamp
- *   - Schedules a retry with exponential backoff (2 s → 4 s → 8 s … ≤ 30 s)
- *   - Updates UI with probe-failed state
- */
-async function probeConnectivity() {
+function toggleTheme() {
+  const isDark = document.body.classList.toggle(DARK_CLASS);
   try {
-    const response = await fetch(PROBE_URL, {
-      method:  'HEAD',
-      cache:   'no-store',
-      mode:    'no-cors',   // gstatic 204 endpoint — no-cors is fine
-    });
-    // Treat any response (including opaque) as success when mode is no-cors
-    lastProbeSuccess = new Date();
-    probeRetryDelay  = PROBE_INITIAL_DELAY_MS;  // reset backoff
-    cancelProbeRetry();
-    updateConnectivityUI(true);
-  } catch {
-    lastProbeFailure = new Date();
-    updateConnectivityUI(false);
-    scheduleProbeRetry();
+    if (isDark) {
+      localStorage.setItem(THEME_STORAGE_KEY, DARK_CLASS);
+    } else {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+    }
+  } catch (e) {
+    // localStorage may be unavailable in some sandboxed contexts; fail silently.
+    console.warn('clockstopper: unable to persist theme preference', e);
   }
 }
 
-/* --------------------------------------------------------------------------
-   Connectivity panel — init
-   -------------------------------------------------------------------------- */
-function initConnectivity() {
-  // Reflect immediate navigator.onLine state (no new probe result yet)
-  updateConnectivityUI(null);
-
-  // Browser online / offline events
-  window.addEventListener('online',  () => {
-    updateConnectivityUI(null);
-    // When we come back online reset backoff and probe immediately
-    probeRetryDelay = PROBE_INITIAL_DELAY_MS;
-    probeConnectivity();
-  });
-  window.addEventListener('offline', () => {
-    cancelProbeRetry();
-    lastProbeFailure = new Date();
-    updateConnectivityUI(false);
-    // Re-arm backoff so retries resume when navigator.onLine flips back
-    scheduleProbeRetry();
-  });
-
-  // Initial probe on load
-  probeConnectivity();
-
-  // Network-change listener (NetworkInformation API)
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (conn) {
-    conn.addEventListener('change', () => {
-      updateNetworkInfoUI();
-      // Re-probe whenever the network interface changes
-      probeRetryDelay = PROBE_INITIAL_DELAY_MS;
-      probeConnectivity();
-    });
-  }
-
-  updateNetworkInfoUI();
+// ─── Mute Toggle ──────────────────────────────────────────────────────────────
+function toggleMute() {
+  state.muted = !state.muted;
+  const btn = document.getElementById('muteBtn');
+  if (btn) btn.textContent = state.muted ? 'Unmute' : 'Mute';
 }
 
-/* --------------------------------------------------------------------------
-   Network Information UI (WiFi / cellular type display)
-   -------------------------------------------------------------------------- */
-function getNetworkLabel() {
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (!conn) return 'Unknown';
-  if (conn.type === 'wifi') return 'WiFi';
-  if (conn.type === 'cellular') {
-    const et = conn.effectiveType;
-    if (et === '4g') return '4G';
-    if (et === '3g') return '3G';
-    if (et === '2g') return '2G';
-    return 'Cellular';
-  }
-  return conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Unknown';
-}
-
-function updateNetworkInfoUI() {
-  const el = document.getElementById('networkInfo');
-  if (!el) return;
-  el.textContent = `Network: ${getNetworkLabel()}`;
-}
-
-/* --------------------------------------------------------------------------
-   Mic permission pre-check
-   -------------------------------------------------------------------------- */
-function updateMicPermissionUI(state) {
+// ─── Microphone Permission Pre-Check ─────────────────────────────────────────
+async function checkMicPermission() {
   const el = document.getElementById('micPermissionStatus');
   if (!el) return;
-  switch (state) {
-    case 'granted':
-      el.textContent = '🎤 Microphone: Granted';
-      el.className = 'mic-granted';
-      break;
-    case 'denied':
-      el.textContent = '🚫 Microphone: Denied — enable in device settings';
-      el.className = 'mic-denied';
-      break;
-    case 'prompt':
-      el.textContent = '⚠️ Microphone: Permission required — you will be prompted when calling';
-      el.className = 'mic-prompt';
-      break;
-    default:
-      el.textContent = '❓ Microphone: Status unknown';
-      el.className = 'mic-unknown';
-  }
-}
 
-async function checkMicPermission() {
+  el.className = 'mic-status';
+
   if (navigator.permissions && navigator.permissions.query) {
     try {
       const result = await navigator.permissions.query({ name: 'microphone' });
-      updateMicPermissionUI(result.state);
-      result.addEventListener('change', () => updateMicPermissionUI(result.state));
+      applyMicState(result.state, el);
+      result.onchange = () => applyMicState(result.state, el);
       return;
-    } catch {
-      // Fall through to getUserMedia probe
+    } catch (_) {
+      // Permissions API may not support 'microphone' on all browsers — fall through.
     }
   }
-  // Fallback: passive getUserMedia probe
+
+  // Fallback: probe via getUserMedia
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(t => t.stop());
-    updateMicPermissionUI('granted');
+    applyMicState('granted', el);
   } catch (err) {
-    updateMicPermissionUI(err.name === 'NotAllowedError' ? 'denied' : 'prompt');
+    applyMicState(err.name === 'NotAllowedError' ? 'denied' : 'prompt', el);
   }
 }
 
-/* --------------------------------------------------------------------------
-   Dialer — digit input
-   -------------------------------------------------------------------------- */
-function dialDigit(digit) {
-  dialedNumber += digit;
-  updateDialerDisplay();
+function applyMicState(permState, el) {
+  state.micPermissionState = permState;
+  el.className = `mic-status mic-${permState}`;
+  const labels = {
+    granted: '🎤 Microphone access granted',
+    denied:  '🚫 Microphone access denied — please enable in settings',
+    prompt:  '⚠️ Microphone permission will be requested when you call',
+  };
+  el.textContent = labels[permState] || `Microphone: ${permState}`;
 }
 
-function clearLastDigit() {
-  dialedNumber = dialedNumber.slice(0, -1);
-  updateDialerDisplay();
+// ─── Connectivity Panel ───────────────────────────────────────────────────────
+function formatTimestamp(date) {
+  return date.toLocaleTimeString('en-US', { hour12: false });
 }
 
-function clearDialed() {
-  dialedNumber = '';
-  updateDialerDisplay();
+function setConnectivityStatus(online, label) {
+  state.connectivityOnline  = online;
+  state.connectivityTimestamp = new Date();
+
+  const statusEl    = document.getElementById('connectivityStatus');
+  const timestampEl = document.getElementById('connectivityTimestamp');
+
+  if (statusEl) {
+    statusEl.textContent = label;
+    statusEl.className   = `connectivity-status ${online ? 'status-online' : 'status-offline'}`;
+  }
+  if (timestampEl) {
+    timestampEl.textContent = `Last updated: ${formatTimestamp(state.connectivityTimestamp)}`;
+  }
 }
 
-function updateDialerDisplay() {
-  const display    = document.getElementById('numberDisplay');
-  const liveReadout = document.getElementById('dialedNumberReadout');
-  if (display)     display.textContent    = dialedNumber || '';
-  if (liveReadout) liveReadout.textContent = dialedNumber
-    ? `Dialing: ${dialedNumber}`
+// ─── Connectivity Probe with Exponential Backoff ──────────────────────────────
+function scheduleProbe(delayMs) {
+  clearTimeout(state.probeRetryHandle);
+  state.probeRetryHandle = setTimeout(runProbe, delayMs);
+}
+
+async function runProbe() {
+  try {
+    const resp = await fetch(PROBE_URL, { method: 'HEAD', cache: 'no-store' });
+    if (resp.ok || resp.status === 204) {
+      setConnectivityStatus(true, 'Online');
+      state.probeRetryDelay = PROBE_INITIAL_DELAY_MS; // reset backoff
+    } else {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+  } catch (_) {
+    setConnectivityStatus(false, 'Offline (probe failed)');
+    state.probeRetryDelay = Math.min(state.probeRetryDelay * 2, PROBE_MAX_DELAY_MS);
+    scheduleProbe(state.probeRetryDelay);
+  }
+}
+
+function initConnectivity() {
+  setConnectivityStatus(navigator.onLine, navigator.onLine ? 'Online' : 'Offline');
+  runProbe();
+
+  window.addEventListener('online', () => {
+    clearTimeout(state.probeRetryHandle);
+    state.probeRetryDelay = PROBE_INITIAL_DELAY_MS;
+    setConnectivityStatus(true, 'Online (network restored)');
+    runProbe();
+  });
+
+  window.addEventListener('offline', () => {
+    clearTimeout(state.probeRetryHandle);
+    state.probeRetryDelay = PROBE_INITIAL_DELAY_MS;
+    setConnectivityStatus(false, 'Offline');
+  });
+
+  detectNetworkType();
+  if (navigator.connection) {
+    navigator.connection.addEventListener('change', detectNetworkType);
+  }
+}
+
+// ─── Network Type Detection ───────────────────────────────────────────────────
+function detectNetworkType() {
+  const conn = navigator.connection;
+  if (!conn) { state.networkType = 'Unknown'; return; }
+
+  if (conn.type === 'wifi') {
+    state.networkType = 'WiFi';
+  } else if (conn.type === 'cellular') {
+    const map = { '4g': '4G', '3g': '3G', '2g': '2G' };
+    state.networkType = map[conn.effectiveType] || 'Cellular';
+  } else {
+    state.networkType = conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Unknown';
+  }
+
+  const badge = document.getElementById('networkTypeIndicator');
+  if (badge && state.callActive) {
+    badge.textContent = state.networkType;
+    badge.dataset.nettype = state.networkType.toLowerCase();
+  }
+}
+
+// ─── Mobile Network Selection ─────────────────────────────────────────────────
+function selectNetwork(type) {
+  state.selectedNetwork = type; // 'wifi' | 'mobile'
+  const wifiBtn   = document.getElementById('selectWifi');
+  const mobileBtn = document.getElementById('selectMobile');
+  if (wifiBtn)   wifiBtn.classList.toggle('active',  type === 'wifi');
+  if (mobileBtn) mobileBtn.classList.toggle('active', type === 'mobile');
+}
+
+// ─── Dialer ───────────────────────────────────────────────────────────────────
+function updateDialDisplay() {
+  const display = document.getElementById('dialDisplay');
+  const readout = document.getElementById('dialReadout');
+  if (display) display.textContent = state.dialedNumber || '';
+  if (readout) readout.textContent = state.dialedNumber
+    ? `Dialing: ${state.dialedNumber}`
     : '';
 }
 
-/* --------------------------------------------------------------------------
-   Caller ID name
-   -------------------------------------------------------------------------- */
-function initCallerIdName() {
-  const input  = document.getElementById('callerIdNameInput');
-  const saveBtn = document.getElementById('saveCallerIdName');
-  const display = document.getElementById('callerIdNameDisplay');
-  if (!input || !saveBtn) return;
-
-  saveBtn.addEventListener('click', () => {
-    callerIdName = input.value.trim();
-    if (display) display.textContent = callerIdName
-      ? `Caller ID: "${callerIdName}"`
-      : '';
-  });
+function dialDigit(digit) {
+  if (state.callActive) return;
+  state.dialedNumber += digit;
+  updateDialDisplay();
 }
 
-/* --------------------------------------------------------------------------
-   Network type badge (shown during active call)
-   -------------------------------------------------------------------------- */
-function showNetworkBadge() {
-  const badge = document.getElementById('networkTypeIndicator');
-  if (!badge) return;
-  const label = getNetworkLabel();
-  badge.textContent = label;
-  badge.className   = 'network-badge network-badge--' + label.toLowerCase().replace(/\s+/g, '-');
-  badge.style.display = 'inline-block';
+function clearLastDigit() {
+  state.dialedNumber = state.dialedNumber.slice(0, -1);
+  updateDialDisplay();
+}
 
-  // Update dynamically if network changes during the call
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (conn) {
-    networkChangeListener = () => {
-      const newLabel = getNetworkLabel();
-      badge.textContent = newLabel;
-      badge.className   = 'network-badge network-badge--' + newLabel.toLowerCase().replace(/\s+/g, '-');
-    };
-    conn.addEventListener('change', networkChangeListener);
+function clearDialed() {
+  state.dialedNumber = '';
+  updateDialDisplay();
+}
+
+// ─── Caller ID Name ───────────────────────────────────────────────────────────
+function saveCallerIdName() {
+  const input = document.getElementById('callerIdInput');
+  if (!input) return;
+  state.callerIdName = input.value.trim();
+  const saved = document.getElementById('callerIdSaved');
+  if (saved) {
+    saved.textContent = state.callerIdName
+      ? `Caller ID set to: "${state.callerIdName}"`
+      : 'Caller ID name cleared.';
   }
 }
 
-function hideNetworkBadge() {
-  const badge = document.getElementById('networkTypeIndicator');
-  if (badge) badge.style.display = 'none';
-
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (conn && networkChangeListener) {
-    conn.removeEventListener('change', networkChangeListener);
-    networkChangeListener = null;
-  }
-}
-
-/* --------------------------------------------------------------------------
-   Call duration timer
-   -------------------------------------------------------------------------- */
-function formatElapsed(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
+// ─── Call Duration Timer ──────────────────────────────────────────────────────
+function formatElapsed(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
   const mm = String(m).padStart(2, '0');
   const ss = String(s).padStart(2, '0');
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 function startCallTimer() {
-  callStartTime = Date.now();
+  state.callStartTime = Date.now();
   const statusEl = document.getElementById('callStatus');
-  callTimerInterval = setInterval(() => {
+  state.callDurationInterval = setInterval(() => {
     if (!statusEl) return;
-    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-    statusEl.textContent = `In call — ${formatElapsed(elapsed)}`;
+    const elapsed = Date.now() - state.callStartTime;
+    statusEl.textContent = `Call connected — ${formatElapsed(elapsed)}`;
   }, 1000);
 }
 
 function stopCallTimer() {
-  if (callTimerInterval) {
-    clearInterval(callTimerInterval);
-    callTimerInterval = null;
-  }
-  callStartTime = null;
+  clearInterval(state.callDurationInterval);
+  state.callDurationInterval = null;
+  state.callStartTime = null;
 }
 
-/* --------------------------------------------------------------------------
-   Call audio — outgoing call
-   -------------------------------------------------------------------------- */
-async function initiateCall() {
-  if (callActive || !dialedNumber) return;
-  const statusEl = document.getElementById('callStatus');
+// ─── Network Type Badge ───────────────────────────────────────────────────────
+function showNetworkBadge() {
+  detectNetworkType();
+  const badge = document.getElementById('networkTypeIndicator');
+  if (!badge) return;
+  badge.textContent = state.networkType;
+  badge.dataset.nettype = state.networkType.toLowerCase();
+  badge.hidden = false;
+}
 
-  try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch {
-    if (statusEl) statusEl.textContent = 'Microphone access denied — cannot place call.';
+function hideNetworkBadge() {
+  const badge = document.getElementById('networkTypeIndicator');
+  if (badge) badge.hidden = true;
+}
+
+// ─── Call Control ─────────────────────────────────────────────────────────────
+async function initiateCall() {
+  if (state.callActive) return;
+  if (!state.dialedNumber) {
+    const statusEl = document.getElementById('callStatus');
+    if (statusEl) statusEl.textContent = 'Enter a number to dial.';
     return;
   }
 
-  callActive = true;
-  if (statusEl) statusEl.textContent = 'Connecting…';
+  const statusEl = document.getElementById('callStatus');
+  if (statusEl) statusEl.textContent = 'Requesting microphone…';
 
-  // Simulate call connect after short delay
-  setTimeout(() => {
-    if (!callActive) return;
-    if (statusEl) statusEl.textContent = 'In call — 00:00';
-    startCallTimer();
-    showNetworkBadge();
-    const endBtn = document.getElementById('endCallBtn');
-    if (endBtn) endBtn.style.display = 'inline-block';
-    const callBtn = document.getElementById('callBtn');
-    if (callBtn) callBtn.disabled = true;
-  }, 800);
+  try {
+    state.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `Microphone error: ${err.message}`;
+    applyMicState(err.name === 'NotAllowedError' ? 'denied' : 'prompt',
+      document.getElementById('micPermissionStatus') || document.createElement('span'));
+    return;
+  }
+
+  state.callActive = true;
+
+  if (statusEl) statusEl.textContent = 'Call connected — 00:00';
+  startCallTimer();
+  showNetworkBadge();
+
+  const callBtn = document.getElementById('callBtn');
+  const endBtn  = document.getElementById('endCallBtn');
+  if (callBtn) callBtn.hidden = true;
+  if (endBtn)  endBtn.hidden  = false;
+
+  // Update mic status to granted now that stream is live
+  applyMicState('granted',
+    document.getElementById('micPermissionStatus') || document.createElement('span'));
 }
 
 function endCall() {
-  if (!callActive) return;
-  callActive = false;
+  if (!state.callActive) return;
+
+  if (state.stream) {
+    state.stream.getTracks().forEach(t => t.stop());
+    state.stream = null;
+  }
+
+  state.callActive = false;
   stopCallTimer();
   hideNetworkBadge();
 
   const statusEl = document.getElementById('callStatus');
   if (statusEl) statusEl.textContent = 'Call ended.';
 
+  const callBtn = document.getElementById('callBtn');
   const endBtn  = document.getElementById('endCallBtn');
-  const callBtn = document.getElementById('callBtn');
-  if (endBtn)  endBtn.style.display = 'none';
-  if (callBtn) callBtn.disabled = false;
+  if (callBtn) callBtn.hidden = false;
+  if (endBtn)  endBtn.hidden  = true;
 }
 
-/* --------------------------------------------------------------------------
-   Dialer keypad — init buttons
-   -------------------------------------------------------------------------- */
-function initDialpad() {
-  // Digit / symbol buttons
-  document.querySelectorAll('[data-digit]').forEach(btn => {
-    btn.addEventListener('click', () => dialDigit(btn.dataset.digit));
-  });
-
-  // Call button
-  const callBtn = document.getElementById('callBtn');
-  if (callBtn) callBtn.addEventListener('click', initiateCall);
-
-  // End-call button
-  const endBtn = document.getElementById('endCallBtn');
-  if (endBtn) {
-    endBtn.style.display = 'none';
-    endBtn.addEventListener('click', endCall);
-  }
-
-  // Backspace — short tap vs long-press
-  const backspaceBtn = document.getElementById('backspaceBtn');
-  if (backspaceBtn) {
-    let longPressTimer    = null;
-    let longPressTriggered = false;
-
-    const startLongPress = (e) => {
-      e.preventDefault(); // suppress Android WebView context menu
-      longPressTriggered = false;
-      longPressTimer = setTimeout(() => {
-        longPressTriggered = true;
-        clearDialed();
-      }, LONG_PRESS_THRESHOLD_MS);
-    };
-
-    const endLongPress = () => {
-      if (longPressTimer !== null) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      if (!longPressTriggered) {
-        clearLastDigit();
-      }
-      longPressTriggered = false;
-    };
-
-    const cancelLongPress = () => {
-      if (longPressTimer !== null) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      longPressTriggered = false;
-    };
-
-    backspaceBtn.addEventListener('pointerdown',   startLongPress);
-    backspaceBtn.addEventListener('pointerup',     endLongPress);
-    backspaceBtn.addEventListener('pointercancel', cancelLongPress);
-  }
-}
-
-/* --------------------------------------------------------------------------
-   Keyboard input
-   -------------------------------------------------------------------------- */
+// ─── Keyboard Input ───────────────────────────────────────────────────────────
 function initKeyboardInput() {
   document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.repeat) return;
 
-    if (/^[0-9\*\#\+]$/.test(e.key)) {
-      dialDigit(e.key);
+    const digit = e.key;
+    if (/^[0-9*#+]$/.test(digit)) {
+      dialDigit(digit);
     } else if (e.key === 'Backspace') {
       e.preventDefault();
       clearLastDigit();
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      initiateCall();
+      state.callActive ? endCall() : initiateCall();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      endCall();
+      if (state.callActive) endCall();
+      else clearDialed();
     }
   });
 }
 
-/* --------------------------------------------------------------------------
-   Boot
-   -------------------------------------------------------------------------- */
+// ─── Backspace Long-Press ─────────────────────────────────────────────────────
+function initBackspaceLongPress() {
+  const btn = document.getElementById('backspaceBtn');
+  if (!btn) return;
+
+  let longPressHandle = null;
+  let longPressTriggered = false;
+
+  function onDown(e) {
+    e.preventDefault(); // suppress Android WebView long-press context menu
+    longPressTriggered = false;
+    longPressHandle = setTimeout(() => {
+      longPressTriggered = true;
+      clearDialed();
+    }, LONG_PRESS_THRESHOLD_MS);
+  }
+
+  function onUp() {
+    clearTimeout(longPressHandle);
+    longPressHandle = null;
+    if (!longPressTriggered) {
+      clearLastDigit();
+    }
+    longPressTriggered = false;
+  }
+
+  btn.addEventListener('pointerdown',  onDown);
+  btn.addEventListener('pointerup',    onUp);
+  btn.addEventListener('pointercancel', onUp);
+}
+
+// ─── Wire Up UI Events ────────────────────────────────────────────────────────
+function initUI() {
+  // Theme
+  const themeBtn = document.getElementById('themeToggle');
+  if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+  // Mute
+  const muteBtn = document.getElementById('muteBtn');
+  if (muteBtn) muteBtn.addEventListener('click', toggleMute);
+
+  // Keypad digits
+  document.querySelectorAll('[data-digit]').forEach(btn => {
+    btn.addEventListener('click', () => dialDigit(btn.dataset.digit));
+  });
+
+  // Backspace (long-press wired separately below)
+  initBackspaceLongPress();
+
+  // Call / End
+  const callBtn = document.getElementById('callBtn');
+  if (callBtn) callBtn.addEventListener('click', initiateCall);
+
+  const endBtn = document.getElementById('endCallBtn');
+  if (endBtn) {
+    endBtn.addEventListener('click', endCall);
+    endBtn.hidden = true;
+  }
+
+  // Caller ID
+  const callerIdSaveBtn = document.getElementById('saveCallerIdBtn');
+  if (callerIdSaveBtn) callerIdSaveBtn.addEventListener('click', saveCallerIdName);
+
+  // Network selection
+  const wifiBtn   = document.getElementById('selectWifi');
+  const mobileBtn = document.getElementById('selectMobile');
+  if (wifiBtn)   wifiBtn.addEventListener('click',   () => selectNetwork('wifi'));
+  if (mobileBtn) mobileBtn.addEventListener('click', () => selectNetwork('mobile'));
+
+  // Hide network badge until a call is active
+  hideNetworkBadge();
+}
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Clocks
   renderClocks();
   setInterval(renderClocks, 1000);
 
-  // Controls
-  initThemeToggle();
-  initMuteToggle();
-
-  // Connectivity
-  initConnectivity();
-
-  // Dialer
-  initDialpad();
-  initCallerIdName();
+  initUI();
   initKeyboardInput();
-  updateDialerDisplay();
-
-  // Mic permission pre-check
+  initConnectivity();
   checkMicPermission();
 });
