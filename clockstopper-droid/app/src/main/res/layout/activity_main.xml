@@ -1,21 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<!--
+    Root layout for MainActivity.
+
+    FragmentContainerView is the recommended host for Fragment transactions; it
+    correctly handles animation Z-ordering and back-stack transitions that plain
+    FrameLayout does not.  The ID "fragmentContainer" is referenced by
+    MainActivity when it calls supportFragmentManager.commit { replace(...) }.
+-->
+<androidx.fragment.app.FragmentContainerView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/fragmentContainer"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <!--
-        Full-screen WebView that hosts the ClockStopper HTML/CSS/JS application.
-        It is constrained to all four edges so it fills the entire screen.
-    -->
-    <WebView
-        android:id="@+id/webView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+    android:layout_height="match_parent" />
