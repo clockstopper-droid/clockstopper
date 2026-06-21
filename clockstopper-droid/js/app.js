@@ -1,20 +1,21 @@
 // ============================================================
 // Global Time Clock — app.js
 // Pure vanilla JS: clocks, theme, mute, connectivity,
-// mobile network, dialer, caller ID name, call audio
+// mobile network, dialer, caller ID name, call audio,
+// keyboard input
 // ============================================================
 
 // ── State ────────────────────────────────────────────────────
-let isMuted = false;
-let isOnline = navigator.onLine;
+let isMuted               = false;
+let isOnline              = navigator.onLine;
 let connectivityPanelOpen = false;
-let preferredNetwork = 'wifi'; // 'wifi' | 'cellular'
+let preferredNetwork      = 'wifi';   // 'wifi' | 'cellular'
 let mobileNetworkAvailable = false;
-let callActive = false;
-let micStream = null;
-let audioCtx = null;
-let dialedNumber = '';
-let callerIdName = '';
+let callActive            = false;
+let micStream             = null;
+let audioCtx              = null;
+let dialedNumber          = '';
+let callerIdName          = '';       // Custom caller ID name string
 
 // ── Fixed time zones ─────────────────────────────────────────
 const TIME_ZONES = [
@@ -23,11 +24,15 @@ const TIME_ZONES = [
   { label: 'Western Time',  iana: 'America/Los_Angeles' },
 ];
 
-// ── Clock rendering ──────────────────────────────────────────
+// ============================================================
+// CLOCK RENDERING
+// ============================================================
+
 function renderClocks() {
   const grid = document.getElementById('clocksGrid');
   if (!grid) return;
   grid.innerHTML = '';
+
   TIME_ZONES.forEach(tz => {
     const card = document.createElement('div');
     card.className = 'clock-card';
@@ -62,12 +67,18 @@ function updateClocks() {
   });
 }
 
-// ── Theme ────────────────────────────────────────────────────
+// ============================================================
+// THEME
+// ============================================================
+
 function toggleTheme() {
   document.body.classList.toggle('dark-theme');
 }
 
-// ── Mute ─────────────────────────────────────────────────────
+// ============================================================
+// MUTE
+// ============================================================
+
 function toggleMute() {
   isMuted = !isMuted;
   const btn = document.getElementById('muteBtn');
@@ -77,7 +88,10 @@ function toggleMute() {
   }
 }
 
-// ── Connectivity panel ────────────────────────────────────────
+// ============================================================
+// CONNECTIVITY PANEL
+// ============================================================
+
 function toggleConnectivityPanel() {
   connectivityPanelOpen = !connectivityPanelOpen;
   const panel = document.getElementById('connectivityPanel');
@@ -97,8 +111,9 @@ function initConnectivity() {
   updateNetworkInfo();
   detectMobileNetwork();
 
-  if (navigator.connection) {
-    navigator.connection.addEventListener('change', () => {
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) {
+    conn.addEventListener('change', () => {
       updateNetworkInfo();
       detectMobileNetwork();
     });
@@ -123,13 +138,17 @@ function probeConnectivity() {
   status.className = 'probe-status';
   status.textContent = 'Probing…';
 
-  fetch('https://www.google.com/favicon.ico', { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
+  fetch('https://www.google.com/favicon.ico', {
+    method: 'HEAD',
+    mode:   'no-cors',
+    cache:  'no-store',
+  })
     .then(() => {
-      status.className = 'probe-status verified';
+      status.className  = 'probe-status verified';
       status.textContent = 'Internet verified';
     })
     .catch(() => {
-      status.className = 'probe-status unverified';
+      status.className  = 'probe-status unverified';
       status.textContent = 'Probe failed';
     });
 }
@@ -139,9 +158,12 @@ function updateNetworkInfo() {
   if (!conn) return;
   const typeIndicator = document.getElementById('networkTypeIndicator');
   if (typeIndicator && !callActive) {
-    const t = conn.type || 'unknown';
+    const t  = conn.type          || 'unknown';
     const et = conn.effectiveType || '';
-    typeIndicator.textContent = t === 'cellular' ? `Mobile (${et.toUpperCase()})` : t.charAt(0).toUpperCase() + t.slice(1);
+    typeIndicator.textContent =
+      t === 'cellular'
+        ? `Mobile (${et.toUpperCase()})`
+        : t.charAt(0).toUpperCase() + t.slice(1);
   }
 }
 
@@ -168,25 +190,69 @@ function scanNetworks() {
 }
 
 // ── Mobile network selection ──────────────────────────────────
+
 function selectMobileNetwork() {
   preferredNetwork = 'cellular';
   detectMobileNetwork();
   const typeIndicator = document.getElementById('networkTypeIndicator');
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  const et = (conn && conn.effectiveType) ? conn.effectiveType.toUpperCase() : '';
+  const et   = (conn && conn.effectiveType) ? conn.effectiveType.toUpperCase() : '';
   if (typeIndicator) {
-    typeIndicator.className = 'network-type-indicator cellular' + (et === '4G' ? ' fourG' : et === '3G' ? ' threeG' : '');
+    typeIndicator.className  = 'network-type-indicator cellular' +
+      (et === '4G' ? ' fourG' : et === '3G' ? ' threeG' : '');
     typeIndicator.textContent = `Mobile${et ? ' (' + et + ')' : ''}`;
   }
 }
 
-// ── Dialer ────────────────────────────────────────────────────
+// ============================================================
+// CALLER ID NAME
+// ============================================================
+
+/**
+ * Reads the value from #callerIdNameInput, saves it to the `callerIdName`
+ * state variable, and updates #callerIdNameDisplay so the user can see
+ * exactly what the recipient's caller ID will show.
+ *
+ * Called by the "Set Name" button and also by pressing Enter while the
+ * input is focused (see keyboard handler at bottom).
+ */
+function setCallerIdName() {
+  const input   = document.getElementById('callerIdNameInput');
+  const display = document.getElementById('callerIdNameDisplay');
+  if (!input) return;
+
+  // Trim whitespace but preserve internal spacing (e.g. "John Smith")
+  const val = input.value.trim();
+  callerIdName = val;
+
+  // Style the input to confirm a value is saved
+  input.classList.toggle('has-value', val.length > 0);
+
+  // Update the live confirmation display
+  if (display) {
+    if (val) {
+      display.textContent = `Caller ID: "${val}"`;
+      display.classList.add('active');
+    } else {
+      display.textContent = 'No caller ID name set';
+      display.classList.remove('active');
+    }
+  }
+}
+
+// ============================================================
+// DIALER
+// ============================================================
+
 function dialDigit(digit) {
   if (dialedNumber.length >= 20) return;
   dialedNumber += String(digit);
   updateDialerDisplay();
 }
 
+/**
+ * @param {boolean} clearAll  true = wipe entire number; false = remove last digit
+ */
 function clearDialed(clearAll) {
   if (clearAll || dialedNumber.length <= 1) {
     dialedNumber = '';
@@ -197,8 +263,9 @@ function clearDialed(clearAll) {
 }
 
 function updateDialerDisplay() {
-  const display  = document.getElementById('dialerDisplay');
-  const readout  = document.getElementById('dialedNumberReadout');
+  const display = document.getElementById('dialerDisplay');
+  const readout = document.getElementById('dialedNumberReadout');
+
   if (display) {
     display.textContent = dialedNumber || '';
     display.classList.toggle('has-number', dialedNumber.length > 0);
@@ -209,26 +276,10 @@ function updateDialerDisplay() {
   }
 }
 
-// ── Caller ID name ────────────────────────────────────────────
-function setCallerIdName() {
-  const input = document.getElementById('callerIdNameInput');
-  const display = document.getElementById('callerIdNameDisplay');
-  if (!input) return;
-  const val = input.value.trim();
-  callerIdName = val;
-  if (display) {
-    if (val) {
-      display.textContent = `Caller ID: ${val}`;
-      display.classList.add('active');
-    } else {
-      display.textContent = 'No caller ID name set';
-      display.classList.remove('active');
-    }
-  }
-  input.classList.toggle('has-value', val.length > 0);
-}
+// ============================================================
+// CALL AUDIO
+// ============================================================
 
-// ── Call audio ────────────────────────────────────────────────
 function requestMicPermission() {
   return navigator.mediaDevices.getUserMedia({ audio: true })
     .then(stream => {
@@ -236,7 +287,7 @@ function requestMicPermission() {
       const micStatus = document.getElementById('micPermissionStatus');
       if (micStatus) {
         micStatus.textContent = 'Microphone: Granted';
-        micStatus.className = 'mic-permission-status granted';
+        micStatus.className   = 'mic-permission-status granted';
       }
       return stream;
     })
@@ -244,7 +295,7 @@ function requestMicPermission() {
       const micStatus = document.getElementById('micPermissionStatus');
       if (micStatus) {
         micStatus.textContent = 'Microphone: Denied';
-        micStatus.className = 'mic-permission-status denied';
+        micStatus.className   = 'mic-permission-status denied';
       }
       throw err;
     });
@@ -261,9 +312,9 @@ function initiateCall() {
   requestMicPermission()
     .then(() => {
       callActive = true;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
 
-      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      const conn    = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
       const netType = preferredNetwork === 'cellular'
         ? (conn ? conn.type || 'cellular' : 'cellular')
         : 'wifi';
@@ -294,16 +345,18 @@ function endCall() {
 }
 
 function updateCallUI(active, netType, effectiveType) {
-  const panel    = document.getElementById('callPanel');
-  const status   = document.getElementById('callStatus');
-  const typeInd  = document.getElementById('networkTypeIndicator');
-  const cidDisp  = document.getElementById('callerIdNameDisplay');
+  const panel   = document.getElementById('callPanel');
+  const status  = document.getElementById('callStatus');
+  const typeInd = document.getElementById('networkTypeIndicator');
+  const cidDisp = document.getElementById('callerIdNameDisplay');
 
   if (panel) panel.classList.toggle('active', active);
 
   if (status) {
     if (active) {
-      const cid = callerIdName ? ` as "${callerIdName}"` : '';
+      // Show the custom caller ID name in the call status so the user
+      // knows what the recipient will see on their caller ID display.
+      const cid = callerIdName ? ` — showing as "${callerIdName}"` : '';
       status.textContent = `Calling ${dialedNumber}${cid}…`;
     } else {
       status.textContent = 'Call ended.';
@@ -312,71 +365,72 @@ function updateCallUI(active, netType, effectiveType) {
 
   if (typeInd) {
     if (active) {
-      let cls = 'network-type-indicator';
+      let cls   = 'network-type-indicator';
       let label = '';
       if (netType === 'cellular' || preferredNetwork === 'cellular') {
         cls += ' cellular';
-        if (effectiveType === '4G') { cls += ' fourG'; label = `4G LTE`; }
-        else if (effectiveType === '3G') { cls += ' threeG'; label = `3G`; }
+        if (effectiveType === '4G')      { cls += ' fourG';  label = '4G LTE'; }
+        else if (effectiveType === '3G') { cls += ' threeG'; label = '3G';     }
         else { label = effectiveType ? `Mobile (${effectiveType})` : 'Cellular'; }
       } else {
-        cls += ' wifi';
+        cls  += ' wifi';
         label = 'WiFi';
       }
-      typeInd.className = cls;
+      typeInd.className   = cls;
       typeInd.textContent = label;
     } else {
-      typeInd.className = 'network-type-indicator';
+      typeInd.className   = 'network-type-indicator';
       typeInd.textContent = '';
     }
   }
 
-  if (cidDisp && active && callerIdName) {
-    cidDisp.textContent = `Caller ID: ${callerIdName}`;
-    cidDisp.classList.add('active');
+  // Keep the caller ID display visible and accurate during/after the call
+  if (cidDisp) {
+    if (active && callerIdName) {
+      cidDisp.textContent = `Caller ID: "${callerIdName}"`;
+      cidDisp.classList.add('active');
+    } else if (!active && callerIdName) {
+      // Retain the saved name display after the call ends
+      cidDisp.textContent = `Caller ID: "${callerIdName}"`;
+      cidDisp.classList.add('active');
+    }
   }
 }
 
-// ── Keyboard input for dialer ─────────────────────────────────
+// ============================================================
+// KEYBOARD INPUT FOR DIALER
+// ============================================================
+
 /**
- * Map a KeyboardEvent.key value to the corresponding dialer digit string.
- * Returns null if the key is not a dialer key.
+ * Map a KeyboardEvent.key to a dialer digit string.
+ * Returns null if the key should not be handled by the dialer.
  */
 function keyToDialerDigit(key) {
   if (/^[0-9]$/.test(key)) return key;
-  if (key === '*' || key === '#') return key;
+  if (key === '*' || key === '#' || key === '+') return key;
   return null;
 }
 
 /**
- * Find the on-screen keypad button element that corresponds to a given digit.
- */
-function findKeypadButton(digit) {
-  // Keypad buttons call dialDigit('X') inline — find a button whose
-  // text content matches the digit character.
-  const buttons = document.querySelectorAll('.keypad-btn');
-  for (const btn of buttons) {
-    if (btn.textContent.trim() === String(digit)) return btn;
-  }
-  return null;
-}
-
-/**
- * Briefly add the `.key-flash` class to a keypad button to give visual feedback.
+ * Briefly flash the on-screen keypad button that corresponds to `digit`
+ * to give visual feedback when a hardware/software key is pressed.
  */
 function flashKeypadButton(digit) {
-  const btn = findKeypadButton(digit);
-  if (!btn) return;
-  btn.classList.add('key-flash');
-  // Remove the class after the animation completes (200 ms matches CSS duration)
-  setTimeout(() => btn.classList.remove('key-flash'), 200);
+  const buttons = document.querySelectorAll('.keypad-btn');
+  for (const btn of buttons) {
+    if (btn.textContent.trim() === String(digit)) {
+      btn.classList.add('key-flash');
+      setTimeout(() => btn.classList.remove('key-flash'), 200);
+      break;
+    }
+  }
 }
 
 function initKeyboardDialer() {
   document.addEventListener('keydown', function handleDialerKey(e) {
-    // Do not intercept keys when the user is typing in a text input or textarea
+    // Never intercept keys while the user is typing in a text field
     const tag = document.activeElement && document.activeElement.tagName.toLowerCase();
-    if (tag === 'input' || tag === 'textarea') return;
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
     const digit = keyToDialerDigit(e.key);
 
@@ -390,7 +444,7 @@ function initKeyboardDialer() {
     if (e.key === 'Backspace') {
       e.preventDefault();
       clearDialed(false);
-      // Flash a clear/backspace button if one exists
+      // Flash backspace/clear button if present
       const clearBtn = document.querySelector('.keypad-clear-btn, .keypad-backspace-btn');
       if (clearBtn) {
         clearBtn.classList.add('key-flash');
@@ -404,15 +458,37 @@ function initKeyboardDialer() {
       initiateCall();
       return;
     }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      endCall();
+      return;
+    }
   });
 }
 
-// ── Bootstrap ─────────────────────────────────────────────────
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+
 document.addEventListener('DOMContentLoaded', () => {
   renderClocks();
   updateClocks();
   setInterval(updateClocks, 1000);
+
   initConnectivity();
   initKeyboardDialer();
   updateDialerDisplay();
+
+  // Allow pressing Enter inside the caller ID name input to save the name
+  const callerIdInput = document.getElementById('callerIdNameInput');
+  if (callerIdInput) {
+    callerIdInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setCallerIdName();
+        callerIdInput.blur();
+      }
+    });
+  }
 });

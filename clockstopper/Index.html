@@ -2,105 +2,123 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Global Time Clock</title>
   <link rel="stylesheet" href="Css/Style.css" />
 </head>
-<body>
+<body class="dark-theme">
 
+  <!-- ═══════════════════════════════════════════════════════
+       TOP CONTROLS
+  ════════════════════════════════════════════════════════ -->
   <div class="container">
-    <h1 class="app-title">&#9648; Global Time Clock</h1>
-
-    <!-- ── Clock Grid ── -->
-    <div id="clocksGrid" class="clocks-grid"></div>
-
-    <!-- ── Controls ── -->
-    <div class="controls">
-      <button onclick="toggleTheme()" class="ctrl-btn theme-btn">&#9790; Theme</button>
-      <button onclick="toggleMute()"  class="ctrl-btn mute-btn" id="muteBtn">&#128266; Mute</button>
-      <button onclick="toggleConnectivityPanel()" class="ctrl-btn wifi-btn">&#128246; Network</button>
-    </div>
-
-    <!-- ── Connectivity Panel ── -->
-    <div id="connectivityPanel" class="connectivity-panel">
-      <div class="panel-header">Network Status</div>
-
-      <div id="wifiStatus" class="wifi-status">
-        <span class="wifi-icon">&#128246;</span>
-        <span id="wifiStatusText">Checking…</span>
+    <header class="app-header">
+      <h1 class="app-title">Global Time Clock</h1>
+      <div class="header-controls">
+        <button id="muteBtn"   class="control-btn mute-btn"  onclick="toggleMute()">🔔 Mute</button>
+        <button id="themeBtn"  class="control-btn theme-btn" onclick="toggleTheme()">🌙 Theme</button>
       </div>
+    </header>
 
-      <div id="connectivityProbeStatus" class="probe-status">
-        <span id="probeStatusText">Probe: pending…</span>
+    <!-- ═══════════════════════════════════════════════════
+         CLOCK GRID  (3 fixed zones)
+    ════════════════════════════════════════════════════ -->
+    <section id="clocksGrid" class="clocks-grid" aria-label="World clocks"></section>
+
+    <!-- ═══════════════════════════════════════════════════
+         CONNECTIVITY PANEL
+    ════════════════════════════════════════════════════ -->
+    <section class="connectivity-panel" id="connectivityPanel">
+      <button class="panel-toggle-btn" onclick="toggleConnectivityPanel()">
+        <span id="wifiStatus" class="wifi-status">Checking…</span>
+        <span class="panel-toggle-arrow">▼</span>
+      </button>
+
+      <div class="panel-body">
+        <div id="connectivityProbeStatus" class="probe-status">—</div>
+        <div id="networkTypeIndicator"    class="network-type-indicator"></div>
+
+        <!-- Mobile network option -->
+        <div id="mobileNetworkOption" class="mobile-network-option unavailable">
+          <span class="mobile-network-label">📱 Mobile / Cellular</span>
+          <button class="mobile-select-btn" onclick="selectMobileNetwork()">Use Mobile</button>
+        </div>
+
+        <!-- Network list -->
+        <ul id="networkList" class="network-list"></ul>
       </div>
+    </section>
 
-      <div class="network-info" id="networkInfo"></div>
+    <!-- ═══════════════════════════════════════════════════
+         DIALER  &  CALL PANEL
+    ════════════════════════════════════════════════════ -->
+    <section id="callPanel" class="call-panel">
+      <h2 class="panel-heading">Dialer</h2>
 
-      <div class="panel-sub-header">Available Networks</div>
-      <ul id="networkList" class="network-list">
-        <li class="network-list-item placeholder">Scanning…</li>
-      </ul>
-    </div>
+      <!-- ── Caller ID Name ─────────────────────────────── -->
+      <div class="caller-id-name-section">
+        <label class="caller-id-label" for="callerIdNameInput">Your Caller ID Name</label>
+        <p class="caller-id-hint">
+          Recipients will see this name on their caller ID instead of your number.
+          Type any words you like and tap <strong>Set Name</strong>.
+        </p>
 
-    <!-- ══════════════════════════════════════════
-         CALL PANEL
-    ══════════════════════════════════════════ -->
-    <div id="callPanel" class="call-panel">
+        <div class="caller-id-input-row">
+          <input
+            type="text"
+            id="callerIdNameInput"
+            class="caller-id-name-input"
+            placeholder="e.g. John Smith or Acme Corp"
+            maxlength="64"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Custom caller ID name"
+          />
+          <button
+            id="setCallerIdNameBtn"
+            class="set-caller-id-btn"
+            onclick="setCallerIdName()"
+            aria-label="Save caller ID name"
+          >Set Name</button>
+        </div>
 
-      <div class="call-panel-header">&#128222; Outgoing Call</div>
-
-      <!-- ── Number Display Box ── -->
-      <div class="dialer-display-wrap">
-        <div class="dialer-label">Number to Dial</div>
-        <div id="dialerDisplay" class="dialer-display">
-          <span id="dialerNumber" class="dialer-number">&#8213;</span>
-          <span id="dialerCursor" class="dialer-cursor">|</span>
+        <!-- Live confirmation of what recipients will see -->
+        <div id="callerIdNameDisplay" class="caller-id-name-display" aria-live="polite">
+          No caller ID name set
         </div>
       </div>
 
-      <!-- ── Dial Pad ── -->
-      <div class="dial-pad" id="dialPad">
-        <button class="pad-key" onclick="dialPadPress('1')"><span class="pad-digit">1</span><span class="pad-alpha"></span></button>
-        <button class="pad-key" onclick="dialPadPress('2')"><span class="pad-digit">2</span><span class="pad-alpha">ABC</span></button>
-        <button class="pad-key" onclick="dialPadPress('3')"><span class="pad-digit">3</span><span class="pad-alpha">DEF</span></button>
+      <!-- ── Dialer display ─────────────────────────────── -->
+      <div id="dialerDisplay"       class="dialer-display"        aria-live="polite" aria-label="Number being dialed"></div>
+      <div id="dialedNumberReadout" class="dialed-number-readout" aria-live="polite"></div>
 
-        <button class="pad-key" onclick="dialPadPress('4')"><span class="pad-digit">4</span><span class="pad-alpha">GHI</span></button>
-        <button class="pad-key" onclick="dialPadPress('5')"><span class="pad-digit">5</span><span class="pad-alpha">JKL</span></button>
-        <button class="pad-key" onclick="dialPadPress('6')"><span class="pad-digit">6</span><span class="pad-alpha">MNO</span></button>
-
-        <button class="pad-key" onclick="dialPadPress('7')"><span class="pad-digit">7</span><span class="pad-alpha">PQRS</span></button>
-        <button class="pad-key" onclick="dialPadPress('8')"><span class="pad-digit">8</span><span class="pad-alpha">TUV</span></button>
-        <button class="pad-key" onclick="dialPadPress('9')"><span class="pad-digit">9</span><span class="pad-alpha">WXYZ</span></button>
-
-        <button class="pad-key" onclick="dialPadPress('*')"><span class="pad-digit">*</span><span class="pad-alpha"></span></button>
-        <button class="pad-key" onclick="dialPadPress('0')"><span class="pad-digit">0</span><span class="pad-alpha">+</span></button>
-        <button class="pad-key" onclick="dialPadPress('#')"><span class="pad-digit">#</span><span class="pad-alpha"></span></button>
-
-        <!-- Backspace + Clear row -->
-        <button class="pad-key pad-backspace" onclick="dialPadBackspace()" title="Backspace">&#9003;</button>
-        <button class="pad-key pad-clear"     onclick="dialPadClear()"     title="Clear">&#10005;</button>
+      <!-- ── Keypad ─────────────────────────────────────── -->
+      <div class="keypad" role="group" aria-label="Dial pad">
+        <button class="keypad-btn" onclick="dialDigit('1')"  aria-label="1">1</button>
+        <button class="keypad-btn" onclick="dialDigit('2')"  aria-label="2">2</button>
+        <button class="keypad-btn" onclick="dialDigit('3')"  aria-label="3">3</button>
+        <button class="keypad-btn" onclick="dialDigit('4')"  aria-label="4">4</button>
+        <button class="keypad-btn" onclick="dialDigit('5')"  aria-label="5">5</button>
+        <button class="keypad-btn" onclick="dialDigit('6')"  aria-label="6">6</button>
+        <button class="keypad-btn" onclick="dialDigit('7')"  aria-label="7">7</button>
+        <button class="keypad-btn" onclick="dialDigit('8')"  aria-label="8">8</button>
+        <button class="keypad-btn" onclick="dialDigit('9')"  aria-label="9">9</button>
+        <button class="keypad-btn" onclick="dialDigit('*')"  aria-label="star">*</button>
+        <button class="keypad-btn" onclick="dialDigit('0')"  aria-label="0">0</button>
+        <button class="keypad-btn" onclick="dialDigit('#')"  aria-label="hash">#</button>
       </div>
 
-      <!-- ── Call Status + Mic Permission ── -->
-      <div id="callStatus" class="call-status">
-        <span id="callStatusText">Ready</span>
+      <!-- ── Action row ─────────────────────────────────── -->
+      <div class="dialer-actions">
+        <button class="keypad-clear-btn keypad-backspace-btn action-btn" onclick="clearDialed(false)" aria-label="Backspace">⌫</button>
+        <button class="call-btn action-btn"  onclick="initiateCall()" aria-label="Call">📞 Call</button>
+        <button class="end-btn  action-btn"  onclick="endCall()"      aria-label="End call">🔴 End</button>
       </div>
 
-      <div id="micPermissionStatus" class="mic-permission-status">
-        <span id="micStatusText">Mic: not requested</span>
-      </div>
-
-      <!-- ── Call Action Buttons ── -->
-      <div class="call-actions">
-        <button class="call-btn call-start-btn" onclick="initiateCall()" id="callStartBtn">
-          <span class="call-btn-icon">&#128222;</span> Call
-        </button>
-        <button class="call-btn call-end-btn"   onclick="endCall()"      id="callEndBtn" disabled>
-          <span class="call-btn-icon">&#128263;</span> End
-        </button>
-      </div>
-
-    </div><!-- /#callPanel -->
+      <!-- ── Status indicators ──────────────────────────── -->
+      <div id="callStatus"          class="call-status"           aria-live="polite"></div>
+      <div id="micPermissionStatus" class="mic-permission-status" aria-live="polite"></div>
+    </section>
 
   </div><!-- /.container -->
 
