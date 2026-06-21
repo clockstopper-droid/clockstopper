@@ -4,7 +4,7 @@
 
 **Global Time Clock** is a lightweight, client-side web application that displays multiple world clocks simultaneously across different IANA time zones. It is a pure frontend application with no backend dependencies, build tools, or frameworks — designed to run directly in a browser by opening `Index.html`.
 
-The app updates all displayed clocks every second and allows users to dynamically add or remove time zones via a simple UI. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts/ticking sounds without removing clocks. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe.
+The app updates all displayed clocks every second and allows users to dynamically add or remove time zones via a simple UI. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts/ticking sounds without removing clocks. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API.
 
 ---
 
@@ -18,6 +18,8 @@ The app updates all displayed clocks every second and allows users to dynamicall
 | Time Zone Handling | Native `Intl.DateTimeFormat` API (IANA time zones) |
 | Connectivity Detection | Native `navigator.onLine` API + `online`/`offline` window events + fetch-based probe |
 | Network Information | `navigator.connection` / `NetworkInformation` API (where available) |
+| Audio Output | Native Web Audio API (`AudioContext`) + `HTMLAudioElement` |
+| Microphone Input | `navigator.mediaDevices.getUserMedia()` (MediaDevices API) |
 | Runtime | Browser only — no Node.js, no build step |
 
 ---
@@ -28,9 +30,9 @@ The app updates all displayed clocks every second and allows users to dynamicall
 clockstopper/
 ├── Index.html          # Entry point — main HTML shell
 ├── Css/
-│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel
+│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection
+│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, call audio
 ├── README.md           # Project documentation
 └── .gitignore          # Android/IntelliJ artifacts excluded
 ```
@@ -53,13 +55,18 @@ Index.html
   └── #wifiStatus              → Status indicator element within the connectivity panel
   └── #networkList             → Dynamic list of detected/available networks within the panel
   └── #connectivityProbeStatus → Displays result of fetch-based internet probe
+  └── #callPanel               → Outgoing call UI panel container
+  └── #callStatus              → Text/icon display of current call state
+  └── #micPermissionStatus     → Displays microphone permission state
   └── addTimezone()            → Called inline via button onclick
   └── toggleTheme()            → Called inline via theme toggle button onclick
   └── toggleMute()             → Called inline via mute button onclick
   └── toggleConnectivityPanel()→ Called inline to expand/collapse the connectivity panel
+  └── initiateCall()           → Called inline to start an outgoing call with audio
+  └── endCall()                → Called inline to end an active call and release audio/mic resources
 
 js/app.js
-  └── State management         → Tracks list of active time zones, mute state, connectivity state, network info
+  └── State management         → Tracks list of active time zones, mute state, connectivity state, network info, call state
   └── Clock rendering          → Generates DOM elements for each clock card
   └── Tick loop                → setInterval (every 1000ms) updates all clocks
   └── addTimezone()            → Validates and adds a new time zone
@@ -72,6 +79,10 @@ js/app.js
   └── probeConnectivity()      → Fetch-based probe to verify actual internet access beyond navigator.onLine
   └── updateNetworkInfo()      → Reads navigator.connection and updates network detail display
   └── scanNetworks()           → Attempts to enumerate available networks (where browser API permits)
+  └── initiateCall()           → Requests microphone permission, sets up audio output, begins outgoing call audio
+  └── endCall()                → Stops call audio, releases microphone stream, updates call UI state
+  └── requestMicPermission()   → Calls navigator.mediaDevices.getUserMedia() and handles permission grant/deny
+  └── updateCallUI()           → Updates #callPanel, #callStatus, #micPermissionStatus classes and text
 
 Css/Style.css
   └── .container               → Page wrapper, centered layout
@@ -91,6 +102,16 @@ Css/Style.css
   └── .probe-status            → Styles for the fetch-probe result indicator
   └── .probe-status.verified   → Visual state when internet access is confirmed via probe
   └── .probe-status.unverified → Visual state when probe fails despite navigator.onLine = true
+  └── .call-panel              → Outgoing call UI panel container styles
+  └── .call-panel.active       → Visual state when a call is in progress
+  └── .call-status             → Call state indicator base styles
+  └── .call-status.calling     → Visual state while call is being established / ringing
+  └── .call-status.connected   → Visual state when call audio is active
+  └── .call-status.ended       → Visual state when call has ended
+  └── .mic-permission-status   → Microphone permission indicator base styles
+  └── .mic-permission-status.granted  → Visual state when mic permission is granted
+  └── .mic-permission-status.denied   → Visual state when mic permission is denied
+  └── .mic-permission-status.pending  → Visual state while permission is being requested
   └── Responsive rules         → Mobile-friendly breakpoints
 ```
 
@@ -143,6 +164,25 @@ Connectivity Panel Toggle
         → Toggle .expanded class on #connectivityPanel
         → On expand: trigger updateNetworkInfo() and scanNetworks()
         → CSS handles show/hide and animation via class-scoped rules
+
+Call Button (initiateCall)
+    → initiateCall()
+        → Call requestMicPermission()
+            → navigator.mediaDevices.getUserMedia({ audio: true })
+                → On grant: store MediaStream, mark #micPermissionStatus as .granted
+                → On deny: mark #micPermissionStatus as .denied, abort call setup
+        → On mic granted: set up outgoing call audio (ringback tone via AudioContext or HTMLAudioElement)
+        → Update #callStatus to .calling, mark #callPanel as .active
+        → On audio connected: update #callStatus to .connected
+        → Respect isMuted flag for audio output
+
+End Call Button (endCall)
+    → endCall()
+        → Stop all audio output (AudioContext / HTMLAudioElement)
+        → Stop all tracks on the active MediaStream (release microphone)
+        → Update #callStatus to .ended
+        → Remove .active from #callPanel
+        → Reset call state variables in app.js
 ```
 
 ---
@@ -151,30 +191,35 @@ Connectivity Panel Toggle
 
 ### `Index.html`
 - The **sole HTML file** and application entry point.
-- Defines the page structure: a heading, the `#clocksGrid` div (dynamically populated), the controls section, a **theme toggle button**, a **mute button**, and an **enhanced `#connectivityPanel`** containing the `#wifiStatus` indicator, `#networkList`, and `#connectivityProbeStatus` elements.
+- Defines the page structure: a heading, the `#clocksGrid` div (dynamically populated), the controls section, a **theme toggle button**, a **mute button**, an **enhanced `#connectivityPanel`** containing the `#wifiStatus` indicator, `#networkList`, and `#connectivityProbeStatus` elements, and a **`#callPanel`** containing `#callStatus` and `#micPermissionStatus` for outgoing call audio and microphone permission UI.
 - Loads `css/style.css` and `js/app.js` via relative paths.
-- Uses inline `onclick="addTimezone()"` on the Add Clock button, `onclick="toggleTheme()"` on the theme toggle button, `onclick="toggleMute()"` on the mute button, and `onclick="toggleConnectivityPanel()"` on the connectivity panel trigger — all functions must be globally scoped in `app.js`.
-- The `#wifiStatus`, `#networkList`, and `#connectivityProbeStatus` elements are updated programmatically — they do not use `onclick` handlers.
+- Uses inline `onclick="addTimezone()"` on the Add Clock button, `onclick="toggleTheme()"` on the theme toggle button, `onclick="toggleMute()"` on the mute button, `onclick="toggleConnectivityPanel()"` on the connectivity panel trigger, `onclick="initiateCall()"` on the call button, and `onclick="endCall()"` on the end call button — all functions must be globally scoped in `app.js`.
+- The `#wifiStatus`, `#networkList`, `#connectivityProbeStatus`, `#callStatus`, and `#micPermissionStatus` elements are updated programmatically — they do not use `onclick` handlers.
 - **Case sensitivity note:** The file is named `Index.html` (capital I). On case-sensitive file systems (Linux servers, some CI environments), references must match exactly.
 
 ### `js/app.js`
-- Contains **all application logic** including theme toggling, mute toggling, and the full connectivity/network detection system.
-- Manages the time zone state array, mute state (`isMuted` boolean), connectivity state, network info state, DOM rendering, the update interval, add/remove operations, dark theme toggle, mute toggle, connectivity panel updates, and network scanning.
+- Contains **all application logic** including theme toggling, mute toggling, connectivity/network detection, and the full outgoing call audio and microphone permission system.
+- Manages the time zone state array, mute state (`isMuted` boolean), connectivity state, network info state, call state (`isCallActive` boolean, active `MediaStream` reference, active `AudioContext`/audio element reference), DOM rendering, the update interval, add/remove operations, dark theme toggle, mute toggle, connectivity panel updates, network scanning, call initiation, and call teardown.
 - Uses the `Intl.DateTimeFormat` API for locale-aware, time-zone-aware formatting — no external date libraries needed.
 - Uses `navigator.onLine` for the initial connectivity state on page load.
 - Uses `navigator.connection` (NetworkInformation API) where available to surface network type, effective type, downlink speed, and RTT.
 - Implements `probeConnectivity()` using `fetch()` to a known lightweight endpoint to verify actual internet access, supplementing the unreliable `navigator.onLine` value.
 - Registers `window` event listeners for `'online'` and `'offline'` events to reactively update the connectivity panel.
-- `toggleTheme()`, `toggleMute()`, and `toggleConnectivityPanel()` must remain globally scoped as they are referenced via HTML `onclick` attributes.
+- Implements `requestMicPermission()` using `navigator.mediaDevices.getUserMedia({ audio: true })` — gracefully handles permission denial; updates `#micPermissionStatus` accordingly.
+- Implements `initiateCall()` which triggers mic permission request, sets up outgoing call audio (ringback/call tone via `AudioContext` or `HTMLAudioElement`), and manages call state.
+- Implements `endCall()` which stops all audio tracks, releases the `MediaStream`, tears down the `AudioContext` or audio element, and resets call UI state.
+- Audio output during calls respects the `isMuted` flag.
+- `toggleTheme()`, `toggleMute()`, `toggleConnectivityPanel()`, `initiateCall()`, and `endCall()` must remain globally scoped as they are referenced via HTML `onclick` attributes.
 - `initConnectivity()` is called on page load (e.g., `DOMContentLoaded` or at script execution time) to set up listeners, render initial state, and run the initial probe.
 
 ### `Css/Style.css`
-- Handles all visual presentation including the **dark theme**, **mute button states**, and **enhanced connectivity panel**.
+- Handles all visual presentation including the **dark theme**, **mute button states**, **enhanced connectivity panel**, and **call panel with mic permission indicator**.
 - Implements a **CSS Grid** layout for the clock cards (`#clocksGrid`).
 - Dark theme is implemented via a `.dark-theme` class on `<body>`, using **orange as the primary accent color** for buttons (keypad/controls area).
 - Mute button uses a `.muted` class (toggled on the button element) to visually indicate the muted state.
 - Connectivity panel uses `.expanded` class for show/hide toggling and animation; `.online`/`.offline` on `#wifiStatus`; `.verified`/`.unverified` on `#connectivityProbeStatus`; `.selected` on active network list items.
-- Dark theme styles for the connectivity panel are scoped under `.dark-theme` for consistency with the theming system.
+- Call panel uses `.active` class on `#callPanel`; `.calling`/`.connected`/`.ended` on `#callStatus`; `.granted`/`.denied`/`.pending` on `#micPermissionStatus`.
+- Dark theme styles for the connectivity panel and call panel are scoped under `.dark-theme` for consistency with the theming system.
 - Includes responsive/mobile-friendly rules.
 - **Case sensitivity note:** The folder is `Css/` and file is `Style.css` (both capitalized). References in HTML must match.
 
@@ -189,7 +234,7 @@ Connectivity Panel Toggle
 - **Orange accent** is applied to the controls/keypad area (buttons, input borders, interactive elements) when dark theme is active.
 - The toggle is handled by `toggleTheme()` in `app.js`, called via an `onclick` button in `Index.html`.
 - Theme state is **not persisted** across page refreshes (no localStorage for theme preference currently).
-- The connectivity panel's dark-theme appearance is also scoped under `.dark-theme` for visual consistency.
+- The connectivity panel's and call panel's dark-theme appearance is also scoped under `.dark-theme` for visual consistency.
 
 ### Theme Color Palette (Dark Mode)
 | Element | Style |
@@ -202,58 +247,6 @@ Connectivity Panel Toggle
 | Connectivity indicator (offline) | Red (dark-theme scoped) |
 | Probe verified | Green (dark-theme scoped) |
 | Probe unverified | Amber/yellow (dark-theme scoped) |
-
----
-
-## Mute System
-
-### Mute Button
-
-- A **mute button** is present in the controls area in `Index.html`, wired to `onclick="toggleMute()"`.
-- `toggleMute()` in `app.js` maintains an `isMuted` boolean state variable.
-- When toggled, the button receives or loses a `.muted` CSS class to provide clear visual feedback of the current mute state (e.g., changed label, icon, or color).
-- Any audio output (ticking sounds, alerts) in the application must check `isMuted` before playing.
-- Mute state is **not persisted** across page refreshes — resets to unmuted on reload.
-- Follows the same **CSS class toggle pattern** used by the theme system — no inline styles.
-
----
-
-## Connectivity Detection System
-
-### Enhanced Connectivity Panel
-
-- A **`#connectivityPanel`** container is present in `Index.html`, replacing the former simple `#wifiStatus` element as a standalone indicator.
-- The panel is **collapsible/expandable** via `toggleConnectivityPanel()`, which toggles an `.expanded` CSS class on the panel container.
-- The panel contains three sub-components:
-  1. **`#wifiStatus`** — Basic online/offline indicator driven by `navigator.onLine` and `window` `online`/`offline` events.
-  2. **`#connectivityProbeStatus`** — Fetch-based probe result indicating whether actual internet access is confirmed (`.verified`) or unconfirmed (`.unverified`), addressing the known limitation that `navigator.onLine` can return `true` without real WAN access.
-  3. **`#networkList`** — Dynamic list of available/detected networks populated by `scanNetworks()`; entries use `.selected` class to mark the active network.
-- Initial state is determined by `navigator.onLine` at page load time via `initConnectivity()` in `app.js`.
-- `probeConnectivity()` uses `fetch()` to a known lightweight endpoint and updates `#connectivityProbeStatus` independently of `navigator.onLine`.
-- `updateNetworkInfo()` reads from `navigator.connection` (NetworkInformation API) where available — gracefully degrades on unsupported browsers.
-- `scanNetworks()` attempts to enumerate available networks using browser APIs where permitted; degrades gracefully where not available.
-- All state changes are reflected via CSS class toggling — no inline styles.
-- Follows the same **CSS class toggle / state-driven UI pattern** used by the theme and mute systems.
-- No external libraries or APIs are used; relies entirely on native browser capabilities (`navigator.onLine`, `navigator.connection`, `fetch()`, `window` events).
-
-### Connectivity API Availability Notes
-
-| API | Availability | Fallback Behavior |
-|---|---|---|
-| `navigator.onLine` | All modern browsers | Primary signal; known to be unreliable for WAN detection |
-| `window` `online`/`offline` events | All modern browsers | Primary reactive update mechanism |
-| `fetch()` probe | All modern browsers | Used to verify actual internet access |
-| `navigator.connection` (NetworkInformation) | Chrome/Android; not Safari/Firefox | Gracefully omitted if unavailable |
-| Network enumeration/selection | Very limited browser support | Panel degrades to status-only display |
-
----
-
-## Coding Conventions
-
-- **No modules or imports** — all JavaScript is in a single global script file.
-- **Global functions** — `addTimezone()`, `removeTimezone()`, `toggleTheme()`, `toggleMute()`, and `toggleConnectivityPanel()` must remain globally accessible because they are referenced in HTML `onclick` attributes.
-- **IANA time zone strings** — time zones are identified by standard IANA keys (e.g., `America/New_York`, `Asia/Tokyo`, `UTC`).
-- **Native browser APIs only** — `Intl.DateTimeFormat`, `navigator.onLine`, `navigator.connection`, `fetch()`, `window` events, `setInterval`, `document.getElementById`, `document.createElement` — no polyfills or libraries.
-- **State via boolean flags** — simple feature toggles (mute, theme, panel expanded) use boolean variables in `app.js` combined with CSS class toggling on relevant elements.
-- **Theme/state toggling via CSS class** — use `classList.toggle()` or `classList.add/remove()` pattern; avoid inline styles for stateful UI changes. This pattern applies to theme, mute, connectivity indicator states, panel expansion, probe status, and network selection states.
-- **Graceful degradation** — features relying
+| Call active / mic granted | Green (dark-theme scoped) |
+| Call ended / mic denied | Red (dark-theme scoped) |
+| Call ringing / mic pending | Amber/yellow
