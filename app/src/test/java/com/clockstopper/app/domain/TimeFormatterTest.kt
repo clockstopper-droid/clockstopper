@@ -1,185 +1,198 @@
 package com.clockstopper.app.domain
 
 import org.junit.Assert.*
-import org.junit.Before
 import org.junit.Test
 
 /**
+ * TimeFormatterTest
+ * ─────────────────
  * Unit tests for [TimeFormatter].
  *
- * Verifies that millisecond durations are formatted into human-readable strings
- * correctly across a full range of boundary values.
+ * Every public function is exercised across representative boundary values:
+ *   - Zero input
+ *   - Sub-second values
+ *   - Minute and hour rollovers
+ *   - Very large durations
+ *   - Negative inputs (treated as zero or with sign character)
  *
- * These run on the JVM — no Android framework required.
- * Run with:  ./gradlew test
- *
- * Test areas:
- *   TF-1  Zero / initial display
- *   TF-2  Sub-second precision (centiseconds / milliseconds)
- *   TF-3  Minute roll-over
- *   TF-4  Hour roll-over
- *   TF-5  Large durations (multi-hour)
- *   TF-6  Format consistency (non-empty, colon-separated)
+ * No Android framework imports — these tests run on the JVM via `./gradlew test`.
  */
 class TimeFormatterTest {
 
-    private lateinit var formatter: TimeFormatter
-
-    @Before
-    fun setUp() {
-        formatter = TimeFormatter()
-    }
-
-    // -----------------------------------------------------------------------
-    // TF-1  Zero state
-    // -----------------------------------------------------------------------
+    // ── formatElapsed ─────────────────────────────────────────────────────
 
     @Test
-    fun zeroMillisecondsFormatsToZeroedDisplay() {
-        val result = formatter.format(0L)
-        // Accept any canonical zero format: "00:00.00", "00:00:00", "00:00:00.000"
-        assertNotNull(result)
-        assertTrue("Zero-ms format must not be blank", result.isNotBlank())
+    fun `formatElapsed zero returns ZERO_TIME constant`() {
+        assertEquals(TimeFormatter.ZERO_TIME, TimeFormatter.formatElapsed(0L))
+    }
+
+    @Test
+    fun `formatElapsed negative value treated as zero`() {
+        assertEquals(TimeFormatter.ZERO_TIME, TimeFormatter.formatElapsed(-1L))
+        assertEquals(TimeFormatter.ZERO_TIME, TimeFormatter.formatElapsed(-999_999L))
+    }
+
+    @Test
+    fun `formatElapsed centisecond precision`() {
+        // 10 ms = 1 centisecond
+        assertEquals("00:00.01", TimeFormatter.formatElapsed(10L))
+        // 99 centiseconds = 990 ms
+        assertEquals("00:00.99", TimeFormatter.formatElapsed(990L))
+    }
+
+    @Test
+    fun `formatElapsed sub-second value`() {
+        assertEquals("00:00.05", TimeFormatter.formatElapsed(50L))
+        assertEquals("00:00.12", TimeFormatter.formatElapsed(120L))
+    }
+
+    @Test
+    fun `formatElapsed exactly one second`() {
+        assertEquals("00:01.00", TimeFormatter.formatElapsed(1_000L))
+    }
+
+    @Test
+    fun `formatElapsed seconds rollover at 60`() {
+        assertEquals("01:00.00", TimeFormatter.formatElapsed(60_000L))
+        assertEquals("01:01.00", TimeFormatter.formatElapsed(61_000L))
+    }
+
+    @Test
+    fun `formatElapsed 59 minutes 59 seconds 99 centiseconds`() {
+        val ms = 59 * 60_000L + 59 * 1_000L + 990L
+        assertEquals("59:59.99", TimeFormatter.formatElapsed(ms))
+    }
+
+    @Test
+    fun `formatElapsed exactly one hour switches to HH format`() {
+        val oneHourMs = 3_600_000L
+        assertEquals("01:00:00.00", TimeFormatter.formatElapsed(oneHourMs))
+    }
+
+    @Test
+    fun `formatElapsed one hour 23 minutes 45 seconds 67 centiseconds`() {
+        val ms = 3_600_000L + 23 * 60_000L + 45 * 1_000L + 670L
+        assertEquals("01:23:45.67", TimeFormatter.formatElapsed(ms))
+    }
+
+    @Test
+    fun `formatElapsed hours field is uncapped for very long durations`() {
+        val seventyTwoHoursMs = 72L * 3_600_000L
+        assertEquals("72:00:00.00", TimeFormatter.formatElapsed(seventyTwoHoursMs))
+    }
+
+    @Test
+    fun `formatElapsed milliseconds below centisecond threshold are truncated not rounded`() {
+        // 1 009 ms → 1 s + 9 ms → 0 centiseconds (truncated)
+        assertEquals("00:01.00", TimeFormatter.formatElapsed(1_009L))
+        // 1 019 ms → 1 s + 19 ms → 1 centisecond
+        assertEquals("00:01.01", TimeFormatter.formatElapsed(1_010L))
+    }
+
+    // ── formatSplit ───────────────────────────────────────────────────────
+
+    @Test
+    fun `formatSplit zero returns zeroed split`() {
+        assertEquals("00:00.00", TimeFormatter.formatSplit(0L))
+    }
+
+    @Test
+    fun `formatSplit negative value treated as zero`() {
+        assertEquals("00:00.00", TimeFormatter.formatSplit(-500L))
+    }
+
+    @Test
+    fun `formatSplit 3 seconds 21 centiseconds`() {
+        assertEquals("00:03.21", TimeFormatter.formatSplit(3_210L))
+    }
+
+    @Test
+    fun `formatSplit exactly one minute`() {
+        assertEquals("01:00.00", TimeFormatter.formatSplit(60_000L))
+    }
+
+    @Test
+    fun `formatSplit minutes grow beyond two digits for extreme values`() {
+        // 100 min exactly (no hours field in split format)
+        val hundredMinMs = 100L * 60_000L
+        assertEquals("100:00.00", TimeFormatter.formatSplit(hundredMinMs))
+    }
+
+    @Test
+    fun `formatSplit centisecond precision`() {
+        assertEquals("00:01.05", TimeFormatter.formatSplit(1_050L))
+        assertEquals("00:01.99", TimeFormatter.formatSplit(1_990L))
+    }
+
+    // ── formatDelta ───────────────────────────────────────────────────────
+
+    @Test
+    fun `formatDelta zero produces plus zero`() {
+        assertEquals("+00.00", TimeFormatter.formatDelta(0L))
+    }
+
+    @Test
+    fun `formatDelta positive value uses plus sign`() {
+        // +1.23 s → +01.23
+        assertEquals("+01.23", TimeFormatter.formatDelta(1_230L))
+    }
+
+    @Test
+    fun `formatDelta negative value uses unicode minus`() {
+        // −0.45 s → −00.45
+        val result = TimeFormatter.formatDelta(-450L)
         assertTrue(
-            "Zero-ms format should contain only zeros and separators, got: '$result'",
-            result.all { it.isDigit() || it == ':' || it == '.' },
+            "Expected unicode minus sign (\u2212) but got: $result",
+            result.startsWith("\u2212"),
         )
-        assertFalse(
-            "Zero-ms format must not contain any non-zero digit, got: '$result'",
-            result.any { it in '1'..'9' },
-        )
-    }
-
-    // -----------------------------------------------------------------------
-    // TF-2  Sub-second precision
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun hundredMillisecondsFormatIsNonZero() {
-        val result = formatter.format(100L)
-        assertNotNull(result)
-        assertTrue("100 ms must produce a non-blank string", result.isNotBlank())
-        // At least one digit must be non-zero
-        assertTrue(
-            "100 ms format must contain a non-zero digit, got: '$result'",
-            result.any { it in '1'..'9' },
-        )
+        assertEquals("\u221200.45", result)
     }
 
     @Test
-    fun nineHundredNinetyNineMsIsLessThanOneSecond() {
-        val result999 = formatter.format(999L)
-        val result1000 = formatter.format(1_000L)
-        assertNotEquals(
-            "999 ms and 1000 ms should produce different strings",
-            result999, result1000,
-        )
-    }
-
-    // -----------------------------------------------------------------------
-    // TF-3  Minute roll-over
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun exactlyOneMinute() {
-        val result = formatter.format(60_000L)
-        assertTrue(
-            "1-minute format should contain '01' for the minutes field, got: '$result'",
-            result.contains("01"),
-        )
+    fun `formatDelta shows minutes when delta exceeds 59 seconds`() {
+        val sixtyTwoSeconds = 62_000L
+        val result = TimeFormatter.formatDelta(sixtyTwoSeconds)
+        assertTrue(result.startsWith("+"))
+        assertEquals("+01:02.00", result)
     }
 
     @Test
-    fun ninetySeconds() {
-        val result = formatter.format(90_000L)
-        assertTrue(
-            "90-second format should contain '01' for minutes and '30' for seconds, got: '$result'",
-            result.contains("01") && result.contains("30"),
-        )
-    }
-
-    // -----------------------------------------------------------------------
-    // TF-4  Hour roll-over
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun exactlyOneHour() {
-        val result = formatter.format(3_600_000L)
-        // The formatted string must contain an hours component that is non-zero.
-        // We accept "1:00:00", "01:00:00", "01:00:00.000" etc.
-        assertTrue(
-            "1-hour format must contain a non-zero hour component, got: '$result'",
-            result.contains("1"),
-        )
+    fun `formatDelta negative exceeding 59 seconds includes minutes`() {
+        val result = TimeFormatter.formatDelta(-62_000L)
+        assertEquals("\u221201:02.00", result)
     }
 
     @Test
-    fun oneHourOneMinuteOneSecond() {
-        val ms = 3_600_000L + 60_000L + 1_000L  // 1 h 1 m 1 s
-        val result = formatter.format(ms)
-        assertNotNull(result)
-        assertTrue("Must be non-blank for 1h1m1s", result.isNotBlank())
-        assertTrue(
-            "1h1m1s should contain '01' three times (for each unit), got: '$result'",
-            result.count { it == '1' } >= 3,
-        )
+    fun `formatDelta small centisecond delta`() {
+        assertEquals("+00.01", TimeFormatter.formatDelta(10L))
+        assertEquals("\u221200.01", TimeFormatter.formatDelta(-10L))
     }
 
-    // -----------------------------------------------------------------------
-    // TF-5  Large durations
-    // -----------------------------------------------------------------------
+    // ── ZERO_TIME constant ────────────────────────────────────────────────
 
     @Test
-    fun tenHoursDoesNotOverflow() {
-        val ms = 36_000_000L  // 10 hours
-        val result = formatter.format(ms)
-        assertNotNull(result)
-        assertTrue("10-hour format must not be blank", result.isNotBlank())
-        assertTrue(
-            "10-hour format should contain '10' for the hours field, got: '$result'",
-            result.contains("10"),
-        )
+    fun `ZERO_TIME constant equals formatElapsed(0)`() {
+        assertEquals(TimeFormatter.formatElapsed(0L), TimeFormatter.ZERO_TIME)
     }
 
-    // -----------------------------------------------------------------------
-    // TF-6  Format structural consistency
-    // -----------------------------------------------------------------------
+    // ── isZeroDisplay ─────────────────────────────────────────────────────
 
     @Test
-    fun formatNeverReturnsNull() {
-        listOf(0L, 1L, 999L, 1_000L, 60_000L, 3_600_000L).forEach { ms ->
-            val result = formatter.format(ms)
-            assertNotNull("format($ms) must not return null", result)
-        }
+    fun `isZeroDisplay returns true for ZERO_TIME`() {
+        assertTrue(TimeFormatter.isZeroDisplay(TimeFormatter.ZERO_TIME))
     }
 
     @Test
-    fun formatAlwaysContainsAtLeastOneColon() {
-        listOf(0L, 500L, 5_000L, 65_000L, 3_700_000L).forEach { ms ->
-            val result = formatter.format(ms)
-            assertTrue(
-                "format($ms) = '$result' must contain at least one ':'",
-                result.contains(':'),
-            )
-        }
+    fun `isZeroDisplay returns false for non-zero display`() {
+        assertFalse(TimeFormatter.isZeroDisplay("00:01.00"))
+        assertFalse(TimeFormatter.isZeroDisplay("01:00:00.00"))
+        assertFalse(TimeFormatter.isZeroDisplay(""))
     }
 
     @Test
-    fun formatOutputIsMonotonicallyNonDecreasingForIncreasingInput() {
-        // A formatted string should lexicographically increase (or stay equal)
-        // as the millisecond input increases, when both inputs produce strings
-        // of the same length (same time-range bucket).
-        val a = formatter.format(30_000L)   // 30 s
-        val b = formatter.format(45_000L)   // 45 s
-        val c = formatter.format(60_000L)   // 60 s
-
-        assertTrue(
-            "30 s format ('$a') should be <= 45 s format ('$b')",
-            a <= b,
-        )
-        assertTrue(
-            "45 s format ('$b') should be <= 60 s format ('$c')",
-            b <= c,
-        )
+    fun `isZeroDisplay returns true only for exact match`() {
+        // Leading/trailing space must not match
+        assertFalse(TimeFormatter.isZeroDisplay(" 00:00.00"))
+        assertFalse(TimeFormatter.isZeroDisplay("00:00.00 "))
     }
 }
