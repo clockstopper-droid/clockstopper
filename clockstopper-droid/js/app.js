@@ -1,334 +1,240 @@
-/**
- * app.js — Global Time Clock / Dialer
- * ─────────────────────────────────────────────────────────────────────────
- * All application logic for the WebView-based Android dialer:
- *   • Three fixed world clocks (Eastern, Central, Western)
- *   • Connectivity panel with exponential-backoff probe & timestamps
- *   • Mobile network selection
- *   • Microphone permission pre-check
- *   • Caller ID name
- *   • Dialer UI with physical + virtual keyboard input
- *   • Call audio via Web Audio API / MediaDevices
- *   • Call duration timer
- *   • Network type badge
- *   • Backspace long-press to clear
- *   • Dark-theme persistence via localStorage
- *   • Call volume indicator — adjusts on hardware volume key press
- *     (volume keys are bridged from Android MainActivity via
- *      window.adjustCallVolume(delta))
- * ─────────────────────────────────────────────────────────────────────────
- */
+/* ============================================================
+   Global Time Clock — app.js
+   All application logic:
+   - Three fixed world clocks (Eastern, Central, Pacific)
+   - Dark theme toggle with localStorage persistence
+   - Mute toggle (audio alerts)
+   - Connectivity panel with exponential backoff probe + timestamps
+   - Mobile network detection & selection
+   - Microphone permission pre-check
+   - Dialer UI with keyboard input, backspace long-press clear
+   - Caller ID name
+   - Outgoing call audio (MediaDevices API)
+   - Call duration timer
+   - Network type badge
+   - Call volume indicator
+   - MIC MUTE during active call (new)
+   ============================================================ */
 
 'use strict';
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   1. CONSTANTS & MODULE-LEVEL STATE
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Utility ─────────────────────────────────────────────── */
+function pad2(n) { return String(n).padStart(2, '0'); }
 
-// ── Clocks ──────────────────────────────────────────────────────────────────
+/* ── Theme persistence ───────────────────────────────────── */
+const THEME_KEY = 'darkTheme';
+
+function applyTheme(dark) {
+  document.body.classList.toggle('dark', dark);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = dark ? '☀ Light Mode' : '🌙 Dark Mode';
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  const dark = saved === null ? true : saved === 'true';
+  applyTheme(dark);
+}
+
+function toggleTheme() {
+  const dark = document.body.classList.contains('dark');
+  const next = !dark;
+  localStorage.setItem(THEME_KEY, String(next));
+  applyTheme(next);
+}
+
+/* ── World Clocks ────────────────────────────────────────── */
 const CLOCKS = [
-  { id: 'eastern', label: 'Eastern', tz: 'America/New_York'    },
-  { id: 'central', label: 'Central', tz: 'America/Chicago'     },
-  { id: 'western', label: 'Western', tz: 'America/Los_Angeles' },
+  { id: 'clockEastern', zone: 'America/New_York',    label: 'Eastern' },
+  { id: 'clockCentral', zone: 'America/Chicago',     label: 'Central' },
+  { id: 'clockWestern', zone: 'America/Los_Angeles', label: 'Pacific' },
 ];
-
-// ── Connectivity probe ───────────────────────────────────────────────────────
-const PROBE_URL             = 'https://www.google.com/generate_204';
-const PROBE_INITIAL_DELAY   = 2000;   // ms — first retry after failure
-const PROBE_MAX_DELAY       = 60000;  // ms — backoff ceiling
-const PROBE_TIMEOUT         = 5000;   // ms — fetch timeout
-
-// ── Backspace long-press ─────────────────────────────────────────────────────
-const LONG_PRESS_THRESHOLD  = 600;    // ms
-
-// ── Volume indicator ─────────────────────────────────────────────────────────
-/** Number of volume steps between 0 and 1 (exclusive). */
-const VOLUME_STEPS          = 16;
-/** How long (ms) the volume indicator remains visible after the last key. */
-const VOLUME_HIDE_DELAY     = 2500;
-
-// ── App state ────────────────────────────────────────────────────────────────
-let dialedNumber      = '';
-let isMuted           = false;
-let isInCall          = false;
-let callStartTime     = null;
-let callTimerInterval = null;
-let audioContext      = null;
-let callGainNode      = null;      // GainNode that controls call audio level
-let callStream        = null;      // MediaStream from getUserMedia
-let callerIdName      = '';
-
-// Volume state — value in [0, 1] representing the current call volume.
-let callVolume        = 0.8;       // default 80 %
-let volumeHideTimer   = null;      // setTimeout handle for auto-hiding indicator
-
-// Connectivity probe backoff state
-let probeDelay        = PROBE_INITIAL_DELAY;
-let probeRetryTimer   = null;
-
-// Network preference selected by the user
-let preferredNetwork  = 'auto';
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   2. DOM REFERENCES
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-const $ = id => document.getElementById(id);
-
-const elDialNumber         = $('dialNumber');
-const elDialReadout        = $('dialReadout');
-const elCallStatus         = $('callStatus');
-const elNetworkTypeInd     = $('networkTypeIndicator');
-const elCallBtn            = $('callBtn');
-const elEndCallBtn         = $('endCallBtn');
-const elBackspaceBtn       = $('backspaceBtn');
-const elMuteBtn            = $('muteBtn');
-const elProbeBtn           = $('probeBtn');
-const elThemeBtn           = $('themeToggleBtn');
-const elConnStatus         = $('connectivityStatus');
-const elConnBadge          = $('connectivityBadge');
-const elConnType           = $('connectionType');
-const elConnTimestamp      = $('connectivityTimestamp');
-const elNetworkSelect      = $('networkSelect');
-const elCallerIdInput      = $('callerIdInput');
-const elCallerIdSaveBtn    = $('callerIdSaveBtn');
-const elCallerIdSaved      = $('callerIdSaved');
-const elMicPermStatus      = $('micPermissionStatus');
-
-// Volume indicator elements
-const elVolumeIndicator    = $('volumeIndicator');
-const elVolumeBarFill      = $('volumeBarFill');
-const elVolumePercent      = $('volumePercent');
-const elVolumeBarTrack     = elVolumeIndicator
-                               ? elVolumeIndicator.querySelector('.volume-bar-track')
-                               : null;
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   3. CLOCK DISPLAY
-   ═══════════════════════════════════════════════════════════════════════════ */
 
 function updateClocks() {
   const now = new Date();
-  CLOCKS.forEach(({ id, tz }) => {
-    const timeStr = new Intl.DateTimeFormat('en-US', {
-      timeZone   : tz,
-      hour       : '2-digit',
-      minute     : '2-digit',
-      second     : '2-digit',
-      hour12     : false,
+  CLOCKS.forEach(({ id, zone }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      hour:     '2-digit',
+      minute:   '2-digit',
+      second:   '2-digit',
+      hour12:   true,
     }).format(now);
-
-    const dateStr = new Intl.DateTimeFormat('en-US', {
-      timeZone : tz,
-      weekday  : 'short',
-      month    : 'short',
-      day      : 'numeric',
-    }).format(now);
-
-    const timeEl = $(`time-${id}`);
-    const dateEl = $(`date-${id}`);
-    if (timeEl) timeEl.textContent = timeStr;
-    if (dateEl) dateEl.textContent = dateStr;
   });
 }
 
-setInterval(updateClocks, 1000);
-updateClocks();
+/* ── Mute (audio alerts) ─────────────────────────────────── */
+let alertsMuted = false;
 
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   4. CONNECTIVITY — probe with exponential backoff & timestamps
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function fmtTimestamp(date) {
-  if (!date) return '—';
-  return date.toLocaleTimeString('en-US', { hour12: false });
-}
-
-function setConnTimestamp() {
-  if (elConnTimestamp) elConnTimestamp.textContent = fmtTimestamp(new Date());
-}
-
-function setConnUI(online, label) {
-  if (elConnStatus) elConnStatus.textContent = label;
-  if (elConnBadge) {
-    elConnBadge.textContent = online ? 'Online' : 'Offline';
-    elConnBadge.className   = `badge badge--${online ? 'online' : 'offline'}`;
-  }
-  setConnTimestamp();
-  updateConnectionType();
-}
-
-function updateConnectionType() {
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (!elConnType) return;
-  if (conn) {
-    const type    = conn.type          || '—';
-    const effType = conn.effectiveType || '';
-    elConnType.textContent = effType ? `${type} (${effType})` : type;
-  } else {
-    elConnType.textContent = navigator.onLine ? 'Online' : 'Offline';
+function toggleMute() {
+  alertsMuted = !alertsMuted;
+  const btn = document.getElementById('muteBtn');
+  if (btn) {
+    btn.textContent    = alertsMuted ? '🔇 Unmute' : '🔔 Mute';
+    btn.dataset.muted  = String(alertsMuted);
   }
 }
 
-async function runConnectivityProbe() {
+/* ── Connectivity probe with exponential backoff ─────────── */
+const PROBE_URL        = 'https://www.gstatic.com/generate_204';
+const PROBE_TIMEOUT_MS = 5000;
+const BACKOFF_BASE_MS  = 2000;
+const BACKOFF_MAX_MS   = 60000;
+
+let probeBackoffMs   = BACKOFF_BASE_MS;
+let probeTimer       = null;
+let probeController  = null;
+
+function setConnectivityStatus(msg, ts) {
+  const statusEl = document.getElementById('connectivityStatus');
+  const tsEl     = document.getElementById('connectivityTimestamp');
+  if (statusEl) statusEl.textContent = msg;
+  if (tsEl)     tsEl.textContent     = ts ? `(${ts})` : '';
+}
+
+function scheduleProbe(delayMs) {
+  clearTimeout(probeTimer);
+  probeTimer = setTimeout(runProbe, delayMs);
+}
+
+async function runProbe() {
+  if (probeController) probeController.abort();
+  probeController = new AbortController();
+  const ts = new Date().toLocaleTimeString();
   try {
-    const ctrl      = new AbortController();
-    const timeoutId = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT);
-    const resp      = await fetch(PROBE_URL, {
-      method : 'HEAD',
-      cache  : 'no-store',
-      signal : ctrl.signal,
+    const res = await fetch(PROBE_URL, {
+      method: 'HEAD',
+      cache:  'no-store',
+      signal: probeController.signal,
     });
-    clearTimeout(timeoutId);
-
-    if (resp.ok || resp.status === 204) {
-      probeDelay = PROBE_INITIAL_DELAY; // reset backoff on success
-      setConnUI(true, 'Connected');
+    if (res.ok || res.status === 204) {
+      probeBackoffMs = BACKOFF_BASE_MS;
+      setConnectivityStatus('Online ✔', ts);
+      scheduleProbe(30000);
     } else {
-      scheduleProbeRetry();
-      setConnUI(false, `Probe failed (${resp.status})`);
+      throw new Error(`HTTP ${res.status}`);
     }
-  } catch {
-    scheduleProbeRetry();
-    setConnUI(false, 'Probe failed');
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    const failTs = new Date().toLocaleTimeString();
+    setConnectivityStatus(`Probe failed — retrying in ${probeBackoffMs / 1000}s`, failTs);
+    scheduleProbe(probeBackoffMs);
+    probeBackoffMs = Math.min(probeBackoffMs * 2, BACKOFF_MAX_MS);
   }
 }
 
-function scheduleProbeRetry() {
-  clearTimeout(probeRetryTimer);
-  probeRetryTimer = setTimeout(() => {
-    runConnectivityProbe();
-    probeDelay = Math.min(probeDelay * 2, PROBE_MAX_DELAY);
-  }, probeDelay);
+function onOnline() {
+  probeBackoffMs = BACKOFF_BASE_MS;
+  const ts = new Date().toLocaleTimeString();
+  setConnectivityStatus('Network online — probing…', ts);
+  runProbe();
 }
 
-window.addEventListener('online', () => {
-  clearTimeout(probeRetryTimer);
-  probeDelay = PROBE_INITIAL_DELAY;
-  setConnUI(true, 'Online');
-  runConnectivityProbe();
-});
-
-window.addEventListener('offline', () => {
-  clearTimeout(probeRetryTimer);
-  setConnUI(false, 'Offline');
-});
-
-if (elProbeBtn) {
-  elProbeBtn.addEventListener('click', () => {
-    clearTimeout(probeRetryTimer);
-    probeDelay = PROBE_INITIAL_DELAY;
-    setConnUI(navigator.onLine, 'Checking…');
-    runConnectivityProbe();
-  });
+function onOffline() {
+  clearTimeout(probeTimer);
+  const ts = new Date().toLocaleTimeString();
+  setConnectivityStatus('Offline ✖', ts);
 }
 
-const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-if (conn) {
-  conn.addEventListener('change', () => {
-    updateConnectionType();
-    if (isInCall) updateNetworkTypeBadge();
-  });
+/* ── Network information / mobile network ────────────────── */
+let preferMobileNetwork = false;
+
+function getNetworkType() {
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (!conn) return 'unknown';
+  return conn.type || conn.effectiveType || 'unknown';
 }
 
-// Initial probe on load
-runConnectivityProbe();
+function updateNetworkInfo() {
+  const type   = getNetworkType();
+  const el     = document.getElementById('networkInfo');
+  if (el) el.textContent = `Network: ${type}`;
 
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   5. NETWORK PREFERENCE
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-if (elNetworkSelect) {
-  elNetworkSelect.addEventListener('change', e => {
-    preferredNetwork = e.target.value;
-  });
+  const mobileOpt = document.getElementById('mobileNetworkOption');
+  if (mobileOpt) {
+    const isCellular = ['cellular', '4g', '3g', '2g'].includes(type);
+    mobileOpt.style.display = isCellular ? 'block' : 'none';
+  }
 }
 
+function toggleMobileNetwork() {
+  preferMobileNetwork = !preferMobileNetwork;
+  const btn = document.getElementById('mobileNetworkBtn');
+  if (btn) btn.textContent = preferMobileNetwork
+    ? '📶 Mobile Network: ON'
+    : '📶 Mobile Network: OFF';
+}
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   6. MICROPHONE PERMISSION PRE-CHECK
-   ═══════════════════════════════════════════════════════════════════════════ */
-
+/* ── Microphone permission pre-check ─────────────────────── */
 async function checkMicPermission() {
-  if (!elMicPermStatus) return;
+  const el = document.getElementById('micPermissionStatus');
+  if (!el) return;
 
   if (navigator.permissions) {
     try {
       const result = await navigator.permissions.query({ name: 'microphone' });
-      applyMicPermUI(result.state);
-      result.onchange = () => applyMicPermUI(result.state);
+      applyMicStatus(el, result.state);
+      result.onchange = () => applyMicStatus(el, result.state);
       return;
-    } catch { /* fall through to getUserMedia probe */ }
+    } catch (_) { /* fall through to getUserMedia probe */ }
   }
 
-  // Fallback: probe getUserMedia
+  // Fallback: getUserMedia probe
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(t => t.stop());
-    applyMicPermUI('granted');
+    applyMicStatus(el, 'granted');
   } catch (err) {
-    applyMicPermUI(err.name === 'NotAllowedError' ? 'denied' : 'prompt');
+    applyMicStatus(el, err.name === 'NotAllowedError' ? 'denied' : 'prompt');
   }
 }
 
-function applyMicPermUI(state) {
-  if (!elMicPermStatus) return;
-  elMicPermStatus.className = `mic-permission-status ${state}`;
-  const messages = {
-    granted : '🎙 Microphone access granted.',
-    prompt  : '🎙 Microphone permission not yet granted — you will be asked when dialing.',
-    denied  : '🎙 Microphone access denied. Please enable it in Android Settings → App Permissions.',
+function applyMicStatus(el, state) {
+  const map = {
+    granted: { text: '🎤 Microphone: Granted',  cls: 'mic-granted' },
+    denied:  { text: '🎤 Microphone: Denied ✖', cls: 'mic-denied'  },
+    prompt:  { text: '🎤 Microphone: Not yet requested', cls: 'mic-prompt' },
   };
-  elMicPermStatus.textContent = messages[state] || '';
+  const info = map[state] || { text: `🎤 Microphone: ${state}`, cls: '' };
+  el.textContent = info.text;
+  el.className   = 'mic-status ' + info.cls;
 }
 
-checkMicPermission();
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   7. CALLER ID NAME
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-if (elCallerIdSaveBtn) {
-  elCallerIdSaveBtn.addEventListener('click', saveCallerIdName);
-}
-
-if (elCallerIdInput) {
-  elCallerIdInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveCallerIdName();
-  });
-}
+/* ── Caller ID name ──────────────────────────────────────── */
+let callerIdName = '';
 
 function saveCallerIdName() {
-  const val = elCallerIdInput ? elCallerIdInput.value.trim() : '';
-  callerIdName = val;
-  if (elCallerIdSaved) {
-    elCallerIdSaved.textContent = val ? `Saved: "${val}"` : 'Cleared.';
-    setTimeout(() => { if (elCallerIdSaved) elCallerIdSaved.textContent = ''; }, 3000);
-  }
+  const input = document.getElementById('callerIdInput');
+  if (!input) return;
+  callerIdName = input.value.trim();
+  const display = document.getElementById('callerIdDisplay');
+  if (display) display.textContent = callerIdName
+    ? `Caller ID: ${callerIdName}`
+    : 'Caller ID: (not set)';
 }
 
+/* ── Dialer state ────────────────────────────────────────── */
+let dialedNumber = '';
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   8. DIALER — digit entry, display, keyboard
-   ═══════════════════════════════════════════════════════════════════════════ */
+function updateDialDisplay() {
+  const box     = document.getElementById('dialDisplay');
+  const readout = document.getElementById('dialReadout');
+  if (box)     box.textContent     = dialedNumber || ' ';
+  if (readout) readout.textContent = dialedNumber
+    ? `Dialing: ${dialedNumber}`
+    : 'Enter a number';
+}
 
-function dialDigit(digit) {
-  if (!isInCall && dialedNumber.length < 20) {
-    dialedNumber += digit;
-    updateDialDisplay();
-  }
+function dialDigit(d) {
+  dialedNumber += d;
+  updateDialDisplay();
 }
 
 function clearLastDigit() {
-  if (dialedNumber.length > 0) {
-    dialedNumber = dialedNumber.slice(0, -1);
-    updateDialDisplay();
-  }
+  dialedNumber = dialedNumber.slice(0, -1);
+  updateDialDisplay();
 }
 
 function clearDialed() {
@@ -336,364 +242,341 @@ function clearDialed() {
   updateDialDisplay();
 }
 
-function updateDialDisplay() {
-  if (elDialNumber) {
-    elDialNumber.textContent = dialedNumber || '\u00a0';
-  }
-  if (elDialReadout) {
-    elDialReadout.textContent = dialedNumber ? `Dialing: ${dialedNumber}` : '';
-  }
-}
+/* ── Backspace long-press ────────────────────────────────── */
+const LONG_PRESS_MS = 600;
+let longPressTimer  = null;
 
-// Keypad button clicks
-document.querySelectorAll('.key-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const digit = btn.dataset.digit;
-    if (digit) dialDigit(digit);
-  });
-});
+function attachBackspaceLongPress() {
+  const btn = document.getElementById('backspaceBtn');
+  if (!btn) return;
 
-// Physical / software keyboard input
-document.addEventListener('keydown', e => {
-  if (e.target === elCallerIdInput) return; // don't intercept when typing name
+  const startLongPress = () => {
+    longPressTimer = setTimeout(() => {
+      clearDialed();
+      longPressTimer = null;
+    }, LONG_PRESS_MS);
+  };
 
-  if (/^[0-9*#+]$/.test(e.key)) {
-    dialDigit(e.key);
-  } else if (e.key === 'Backspace') {
-    e.preventDefault();
-    clearLastDigit();
-  } else if (e.key === 'Delete') {
-    clearDialed();
-  } else if (e.key === 'Enter') {
-    if (isInCall) endCall(); else initiateCall();
-  } else if (e.key === 'Escape') {
-    if (isInCall) endCall(); else clearDialed();
-  }
-});
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   9. BACKSPACE — short tap vs long-press
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-let longPressTimer = null;
-let longPressFired = false;
-
-function startLongPress() {
-  longPressFired = false;
-  longPressTimer = setTimeout(() => {
-    longPressFired = true;
-    clearDialed();
-  }, LONG_PRESS_THRESHOLD);
-}
-
-function endLongPress() {
-  clearTimeout(longPressTimer);
-  if (!longPressFired) clearLastDigit();
-}
-
-if (elBackspaceBtn) {
-  elBackspaceBtn.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    startLongPress();
-  });
-  elBackspaceBtn.addEventListener('pointerup',     endLongPress);
-  elBackspaceBtn.addEventListener('pointercancel', () => clearTimeout(longPressTimer));
-  // Prevent context menu on long-press (Android)
-  elBackspaceBtn.addEventListener('contextmenu', e => e.preventDefault());
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   10. CALL AUDIO — AudioContext + GainNode
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function ensureAudioContext() {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioContext.state === 'suspended') {
-    audioContext.resume();
-  }
-  return audioContext;
-}
-
-function createCallGain() {
-  const ctx = ensureAudioContext();
-  callGainNode = ctx.createGain();
-  callGainNode.gain.value = callVolume;
-  callGainNode.connect(ctx.destination);
-  return callGainNode;
-}
-
-function destroyCallGain() {
-  if (callGainNode) {
-    try { callGainNode.disconnect(); } catch {}
-    callGainNode = null;
-  }
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   11. NETWORK TYPE BADGE
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function updateNetworkTypeBadge() {
-  if (!elNetworkTypeInd) return;
-  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  let label = 'Unknown';
-
-  if (c) {
-    if (c.type === 'wifi')     label = 'WiFi';
-    else if (c.type === 'cellular') {
-      label = c.effectiveType ? c.effectiveType.toUpperCase() : 'Cellular';
-    } else if (c.type) {
-      label = c.type;
-    } else if (c.effectiveType) {
-      label = c.effectiveType.toUpperCase();
+  const cancelLongPress = (doShortAction) => {
+    if (longPressTimer !== null) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      if (doShortAction) clearLastDigit();
     }
-  } else if (navigator.onLine) {
-    label = 'Online';
-  }
+  };
 
-  elNetworkTypeInd.textContent = label;
+  btn.addEventListener('pointerdown',   () => startLongPress());
+  btn.addEventListener('pointerup',     () => cancelLongPress(true));
+  btn.addEventListener('pointercancel', () => cancelLongPress(false));
 }
 
+/* ── Keyboard input ──────────────────────────────────────── */
+function handleKeydown(e) {
+  const key = e.key;
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   12. CALL DURATION TIMER
-   ═══════════════════════════════════════════════════════════════════════════ */
+  if (callActive) {
+    // During a call: allow mic mute toggle via 'm' key
+    if (key === 'm' || key === 'M') {
+      toggleMicMute();
+      return;
+    }
+    if (key === 'Escape') { endCall(); return; }
+    return; // swallow other keys during call
+  }
+
+  if (/^[0-9*#+]$/.test(key)) { dialDigit(key);    return; }
+  if (key === 'Backspace')     { clearLastDigit();  return; }
+  if (key === 'Enter')         { initiateCall();    return; }
+  if (key === 'Escape')        { clearDialed();     return; }
+}
+
+/* ── Call duration timer ─────────────────────────────────── */
+let callStartTime  = null;
+let callTimerInterval = null;
 
 function startCallTimer() {
-  callStartTime     = Date.now();
-  callTimerInterval = setInterval(updateCallTimer, 500);
+  callStartTime = Date.now();
+  callTimerInterval = setInterval(updateCallTimer, 1000);
   updateCallTimer();
 }
 
 function stopCallTimer() {
   clearInterval(callTimerInterval);
   callTimerInterval = null;
+  callStartTime     = null;
 }
 
 function updateCallTimer() {
-  if (!callStartTime || !elCallStatus) return;
+  const el = document.getElementById('callStatus');
+  if (!el || !callStartTime) return;
   const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s = elapsed % 60;
-  const pad = n => String(n).padStart(2, '0');
-  elCallStatus.textContent = h > 0
-    ? `${pad(h)}:${pad(m)}:${pad(s)}`
-    : `${pad(m)}:${pad(s)}`;
+  const formatted = h > 0
+    ? `${pad2(h)}:${pad2(m)}:${pad2(s)}`
+    : `${pad2(m)}:${pad2(s)}`;
+  el.textContent = `In call: ${formatted}`;
 }
 
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   13. VOLUME INDICATOR
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/**
- * Render the volume indicator with the current callVolume value.
- * Shows the indicator, updates the bar fill width, percentage text, and
- * ARIA attributes.  Schedules auto-hide after VOLUME_HIDE_DELAY ms.
- */
-function showVolumeIndicator() {
-  if (!elVolumeIndicator) return;
-
-  const pct = Math.round(callVolume * 100);
-
-  // Update fill width
-  if (elVolumeBarFill) {
-    elVolumeBarFill.style.width = `${pct}%`;
-    // Color cues
-    elVolumeBarFill.classList.toggle('volume--low', pct <= 15);
-    elVolumeBarFill.classList.toggle('volume--max', pct >= 100);
-  }
-
-  // Update percentage label
-  if (elVolumePercent) {
-    elVolumePercent.textContent = `${pct}%`;
-  }
-
-  // Update ARIA
-  if (elVolumeBarTrack) {
-    elVolumeBarTrack.setAttribute('aria-valuenow', pct);
-  }
-
-  // Show the element
-  elVolumeIndicator.classList.remove('fading-out');
-  elVolumeIndicator.removeAttribute('hidden');
-
-  // Schedule auto-hide
-  clearTimeout(volumeHideTimer);
-  volumeHideTimer = setTimeout(hideVolumeIndicator, VOLUME_HIDE_DELAY);
+/* ── Network type badge ──────────────────────────────────── */
+function updateNetworkTypeBadge() {
+  const el = document.getElementById('networkTypeIndicator');
+  if (!el) return;
+  const type = getNetworkType();
+  const labels = {
+    wifi:     'WiFi',
+    cellular: 'Cellular',
+    '4g':     '4G',
+    '3g':     '3G',
+    '2g':     '2G',
+    ethernet: 'Ethernet',
+  };
+  el.textContent = labels[type] || 'Unknown';
+  el.style.display = callActive ? 'inline-block' : 'none';
 }
 
-/**
- * Fade-out and then hide the volume indicator.
- */
-function hideVolumeIndicator() {
-  if (!elVolumeIndicator) return;
-  elVolumeIndicator.classList.add('fading-out');
-  // After the CSS transition completes (~300 ms) apply hidden
-  setTimeout(() => {
-    if (elVolumeIndicator) {
-      elVolumeIndicator.setAttribute('hidden', '');
-      elVolumeIndicator.classList.remove('fading-out');
-    }
-  }, 350);
+/* ── Call volume indicator ───────────────────────────────── */
+let callAudioEl = null;
+
+function updateVolumeIndicator() {
+  const el = document.getElementById('callVolumeIndicator');
+  if (!el) return;
+  const vol = callAudioEl ? callAudioEl.volume : 1;
+  const pct = Math.round(vol * 100);
+  el.textContent   = `🔊 ${pct}%`;
+  el.style.display = callActive ? 'inline-block' : 'none';
 }
 
-/**
- * Immediately hide the volume indicator without transition (used on call end).
- */
-function forceHideVolumeIndicator() {
-  clearTimeout(volumeHideTimer);
-  if (elVolumeIndicator) {
-    elVolumeIndicator.classList.remove('fading-out');
-    elVolumeIndicator.setAttribute('hidden', '');
+function handleVolumeKey(e) {
+  if (!callActive || !callAudioEl) return;
+  if (e.key === 'VolumeUp') {
+    callAudioEl.volume = Math.min(1, callAudioEl.volume + 0.1);
+    updateVolumeIndicator();
+    e.preventDefault();
+  } else if (e.key === 'VolumeDown') {
+    callAudioEl.volume = Math.max(0, callAudioEl.volume - 0.1);
+    updateVolumeIndicator();
+    e.preventDefault();
   }
 }
 
+/* ── Mic mute during call (NEW) ──────────────────────────── */
+let callStream    = null;   // MediaStream from getUserMedia
+let micMuted      = false;  // current mic-mute state
+
 /**
- * Apply callVolume to the Web Audio GainNode if one exists.
+ * Toggle the microphone mute state during an active call.
+ * Muting disables every audio track on the live MediaStream so
+ * the remote party cannot hear the local caller.  The UI button
+ * and status element are updated to reflect the new state.
  */
-function applyVolumeToGain() {
-  if (callGainNode) {
-    callGainNode.gain.value = isMuted ? 0 : callVolume;
+function toggleMicMute() {
+  if (!callStream) return;
+
+  micMuted = !micMuted;
+
+  // Enable/disable each audio track on the live stream
+  callStream.getAudioTracks().forEach(track => {
+    track.enabled = !micMuted;
+  });
+
+  _applyMicMuteUI();
+}
+
+/**
+ * Update all mic-mute UI elements to match the current `micMuted` state.
+ * Called after any state change (mute, unmute, call start, call end).
+ */
+function _applyMicMuteUI() {
+  const btn       = document.getElementById('micMuteBtn');
+  const statusEl  = document.getElementById('micMuteStatus');
+
+  if (btn) {
+    btn.textContent       = micMuted ? '🎙️ Unmute Mic' : '🎙️ Mute Mic';
+    btn.dataset.micMuted  = String(micMuted);
+    btn.setAttribute('aria-pressed', String(micMuted));
+    btn.classList.toggle('active', micMuted);
+  }
+
+  if (statusEl) {
+    statusEl.textContent = micMuted ? 'Mic muted 🔇' : 'Mic live 🔴';
+    statusEl.className   = micMuted ? 'mic-mute-status muted' : 'mic-mute-status live';
   }
 }
 
 /**
- * Adjust call volume by `delta` steps (each step = 1/VOLUME_STEPS).
- * Clamps to [0, 1].  Updates the gain node and shows the indicator.
- *
- * This is the entry-point called by the Android ↔ JS volume key bridge.
- * It is also exposed on `window` so WebAppFragment.kt can invoke it via
- * evaluateJavascript.
- *
- * @param {number} delta  +1 for volume-up, -1 for volume-down.
+ * Show mic-mute controls (visible only during an active call).
  */
-function adjustCallVolume(delta) {
-  if (!isInCall) return;
-
-  const step = 1 / VOLUME_STEPS;
-  callVolume = Math.min(1, Math.max(0, callVolume + delta * step));
-
-  applyVolumeToGain();
-  showVolumeIndicator();
+function showMicMuteControls() {
+  const wrap = document.getElementById('micMuteControls');
+  if (wrap) wrap.style.display = 'flex';
 }
 
-// Expose on window so the Android bridge can call it via evaluateJavascript
-window.adjustCallVolume = adjustCallVolume;
+/**
+ * Hide mic-mute controls and reset mute state when call ends.
+ */
+function hideMicMuteControls() {
+  // Unmute tracks before releasing stream so no audio stays suppressed
+  if (callStream) {
+    callStream.getAudioTracks().forEach(track => { track.enabled = true; });
+  }
+  micMuted = false;
+  _applyMicMuteUI();
 
+  const wrap = document.getElementById('micMuteControls');
+  if (wrap) wrap.style.display = 'none';
+}
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   14. CALL LIFECYCLE — initiate / end
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Call state ──────────────────────────────────────────── */
+let callActive = false;
 
 async function initiateCall() {
-  if (isInCall || !dialedNumber) return;
+  if (callActive)        return;
+  if (!dialedNumber)     return;
 
+  const statusEl = document.getElementById('callStatus');
+  if (statusEl) statusEl.textContent = 'Requesting microphone…';
+
+  let stream;
   try {
-    callStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    applyMicPermUI('granted');
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
-    const state = err.name === 'NotAllowedError' ? 'denied' : 'prompt';
-    applyMicPermUI(state);
-    if (elCallStatus) elCallStatus.textContent = 'Microphone unavailable.';
+    if (statusEl) statusEl.textContent = `Mic error: ${err.message}`;
     return;
   }
 
-  isInCall = true;
-  // Expose call-active flag for the Android volume key bridge
-  window.clockstopperCallActive = true;
+  callStream = stream;
+  micMuted   = false;           // always start unmuted
 
-  createCallGain();
-  applyVolumeToGain();
+  // Wire stream to an audio element for call audio output
+  callAudioEl         = new Audio();
+  callAudioEl.srcObject = stream;
+  callAudioEl.muted   = true;   // prevent local echo; remote audio handled separately
+  callAudioEl.play().catch(() => {});
 
-  // Wire microphone stream into the audio graph
-  const ctx = ensureAudioContext();
-  const src = ctx.createMediaStreamSource(callStream);
-  src.connect(callGainNode);
+  callActive = true;
 
-  if (elCallBtn)    elCallBtn.setAttribute('hidden', '');
-  if (elEndCallBtn) elEndCallBtn.removeAttribute('hidden');
+  if (statusEl) statusEl.textContent = 'Connecting…';
 
-  if (elNetworkTypeInd) {
+  // Simulate connection after short delay (replace with real signalling)
+  setTimeout(() => {
+    if (!callActive) return;
+    if (statusEl) statusEl.textContent = 'In call: 00:00';
+    startCallTimer();
     updateNetworkTypeBadge();
-    elNetworkTypeInd.removeAttribute('hidden');
-  }
+    updateVolumeIndicator();
+    showMicMuteControls();     // ← reveal mic mute controls
 
-  startCallTimer();
-
-  // Show the volume indicator briefly at call start so the user can see
-  // the current level before pressing any volume keys.
-  showVolumeIndicator();
+    // Listen for network changes during call
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) conn.addEventListener('change', onNetworkChangeDuringCall);
+  }, 1000);
 }
 
 function endCall() {
-  if (!isInCall) return;
+  if (!callActive) return;
+  callActive = false;
 
-  isInCall = false;
-  window.clockstopperCallActive = false;
-
-  // Stop mic tracks
+  // Stop mic stream
   if (callStream) {
     callStream.getTracks().forEach(t => t.stop());
     callStream = null;
   }
 
-  destroyCallGain();
-  stopCallTimer();
-
-  if (elCallBtn)    elCallBtn.removeAttribute('hidden');
-  if (elEndCallBtn) elEndCallBtn.setAttribute('hidden', '');
-
-  if (elNetworkTypeInd) elNetworkTypeInd.setAttribute('hidden', '');
-  if (elCallStatus)     elCallStatus.textContent = '';
-
-  forceHideVolumeIndicator();
-}
-
-if (elCallBtn)    elCallBtn.addEventListener('click',    initiateCall);
-if (elEndCallBtn) elEndCallBtn.addEventListener('click', endCall);
-
-if (elMuteBtn) {
-  elMuteBtn.addEventListener('click', () => {
-    isMuted = !isMuted;
-    elMuteBtn.setAttribute('aria-pressed', String(isMuted));
-    applyVolumeToGain();
-  });
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   15. DARK THEME — toggle & localStorage persistence
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-const THEME_KEY = 'darkTheme';
-
-function applyTheme(dark) {
-  document.body.classList.toggle('light', !dark);
-  if (elThemeBtn) {
-    elThemeBtn.textContent = dark ? '🌙 Dark' : '☀️ Light';
+  if (callAudioEl) {
+    callAudioEl.pause();
+    callAudioEl.srcObject = null;
+    callAudioEl = null;
   }
+
+  stopCallTimer();
+  hideMicMuteControls();        // ← hide and reset mic mute controls
+
+  const statusEl = document.getElementById('callStatus');
+  if (statusEl) statusEl.textContent = 'Call ended';
+
+  updateNetworkTypeBadge();
+  updateVolumeIndicator();
+
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) conn.removeEventListener('change', onNetworkChangeDuringCall);
 }
 
-// Restore on load
-(function restoreTheme() {
-  const stored = localStorage.getItem(THEME_KEY);
-  // Default to dark if no preference stored
-  const dark = stored === null ? true : stored === 'true';
-  applyTheme(dark);
-})();
+function onNetworkChangeDuringCall() {
+  updateNetworkTypeBadge();
+  updateVolumeIndicator();
+}
 
-if (elThemeBtn) {
-  elThemeBtn.addEventListener('click', () => {
-    const isDark = !document.body.classList.contains('light');
-    const newDark = !isDark;
-    applyTheme(newDark);
-    localStorage.setItem(THEME_KEY, String(newDark));
+/* ── Init ────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Theme
+  loadTheme();
+  const themeBtn = document.getElementById('themeToggle');
+  if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+  // Mute (audio alerts)
+  const muteBtn = document.getElementById('muteBtn');
+  if (muteBtn) muteBtn.addEventListener('click', toggleMute);
+
+  // Clocks
+  updateClocks();
+  setInterval(updateClocks, 1000);
+
+  // Connectivity
+  window.addEventListener('online',  onOnline);
+  window.addEventListener('offline', onOffline);
+  const initialTs = new Date().toLocaleTimeString();
+  if (navigator.onLine) {
+    setConnectivityStatus('Online ✔', initialTs);
+    scheduleProbe(2000);
+  } else {
+    setConnectivityStatus('Offline ✖', initialTs);
+  }
+
+  // Network info
+  updateNetworkInfo();
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) conn.addEventListener('change', updateNetworkInfo);
+
+  // Mobile network toggle
+  const mobileBtn = document.getElementById('mobileNetworkBtn');
+  if (mobileBtn) mobileBtn.addEventListener('click', toggleMobileNetwork);
+
+  // Mic permission pre-check
+  checkMicPermission();
+
+  // Caller ID name
+  const saveIdBtn = document.getElementById('saveCallerIdBtn');
+  if (saveIdBtn) saveIdBtn.addEventListener('click', saveCallerIdName);
+
+  // Dialer keypad
+  document.querySelectorAll('.dial-key').forEach(btn => {
+    btn.addEventListener('click', () => dialDigit(btn.dataset.digit));
   });
-}
+  updateDialDisplay();
+
+  // Backspace long-press
+  attachBackspaceLongPress();
+
+  // Call buttons
+  const callBtn = document.getElementById('callBtn');
+  const endBtn  = document.getElementById('endCallBtn');
+  if (callBtn) callBtn.addEventListener('click', initiateCall);
+  if (endBtn)  endBtn.addEventListener('click',  endCall);
+
+  // Mic mute button
+  const micMuteBtn = document.getElementById('micMuteBtn');
+  if (micMuteBtn) micMuteBtn.addEventListener('click', toggleMicMute);
+
+  // Hide mic mute controls initially
+  hideMicMuteControls();
+
+  // Keyboard input
+  document.addEventListener('keydown', handleKeydown);
+  document.addEventListener('keydown', handleVolumeKey);
+
+  // Initial badge/volume state
+  updateNetworkTypeBadge();
+  updateVolumeIndicator();
+});
