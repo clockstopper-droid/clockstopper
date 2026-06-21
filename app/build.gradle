@@ -1,28 +1,7 @@
-/*
- * app/build.gradle
- * ────────────────
- * Application-level Gradle build configuration for the Clockstopper Android app.
- *
- * SDK levels
- * ──────────
- *   compileSdk 34  — build against the latest stable APIs
- *   minSdk     26  — Android 8.0 Oreo; covers ~95 %+ of active devices
- *   targetSdk  34  — opt-in to all API 34 behaviour changes
- *
- * ViewBinding
- * ───────────
- * Enabled so every layout file gets a generated binding class; this eliminates
- * all findViewById calls and the associated cast-at-runtime errors.
- *
- * Dependencies
- * ────────────
- * Core AndroidX / Lifecycle / Navigation / RecyclerView / Material are the
- * minimum set required by the current architecture.  Test dependencies cover
- * JUnit 4, Espresso, and the Navigation Testing artifact.
- */
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'jacoco'
 }
 
 android {
@@ -34,21 +13,19 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 1
-        versionName "1.0.0"
+        versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
-        release {
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
-                          'proguard-rules.pro'
-        }
         debug {
-            applicationIdSuffix ".debug"
-            debuggable true
+            // Enable test coverage data collection for JVM unit tests
+            testCoverageEnabled true
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
@@ -64,52 +41,195 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    // -----------------------------------------------------------------------
+    // Jacoco JVM unit-test coverage report
+    // -----------------------------------------------------------------------
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            // Emit .exec files so the custom jacocoTestReport task can pick them up
+            all {
+                jacoco {
+                    includeNoLocationClasses = true
+                    excludes = ['jdk.internal.*']
+                }
+            }
+        }
+    }
 }
 
-dependencies {
+// -----------------------------------------------------------------------
+// Jacoco coverage report + enforcement task
+// -----------------------------------------------------------------------
+jacoco {
+    toolVersion = "0.8.11"
+}
 
-    // ── Core AndroidX ────────────────────────────────────────────────────────
+/**
+ * jacocoTestReport
+ * Generates an HTML + XML coverage report for the debug JVM unit tests.
+ * Run with:  ./gradlew jacocoTestReport
+ * Output:    app/build/reports/jacoco/jacocoTestReport/html/index.html
+ */
+task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest']) {
+    group = "Verification"
+    description = "Generates code coverage report for the debug unit test variant."
+
+    reports {
+        xml.required  = true
+        html.required = true
+        csv.required  = false
+    }
+
+    // Kotlin class files produced by the Kotlin compiler (excludes generated code)
+    def fileFilter = [
+        '**/R.class',
+        '**/R$*.class',
+        '**/BuildConfig.*',
+        '**/Manifest*.*',
+        '**/*Test*.*',
+        'android/**/*.*',
+        // Generated navigation / data-binding artefacts
+        '**/databinding/**',
+        '**/android/databinding/**',
+        '**/*_MembersInjector.class',
+        '**/*_Factory.class',
+        '**/*Directions*.*',
+        '**/*Args*.*',
+    ]
+
+    def kotlinClasses = fileTree(
+        dir: "$buildDir/tmp/kotlin-classes/debug",
+        excludes: fileFilter
+    )
+
+    classDirectories.setFrom(files([kotlinClasses]))
+
+    sourceDirectories.setFrom(files([
+        'src/main/java',
+        'src/main/kotlin'
+    ]))
+
+    executionData.setFrom(fileTree(
+        dir: "$buildDir",
+        includes: [
+            'jacoco/testDebugUnitTest.exec',
+            'outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec'
+        ]
+    ))
+}
+
+/**
+ * jacocoCoverageVerification
+ * Fails the build if coverage drops below the defined minimum threshold.
+ * Run with:  ./gradlew jacocoCoverageVerification
+ * Minimum threshold: 70 % instruction coverage on the domain + ViewModel layer.
+ */
+task jacocoCoverageVerification(type: JacocoCoverageVerification, dependsOn: ['jacocoTestReport']) {
+    group = "Verification"
+    description = "Enforces minimum 70 % unit-test coverage on domain + ViewModel classes."
+
+    violationRules {
+        rule {
+            // Scope: individual class level (catches under-tested classes early)
+            element = 'CLASS'
+
+            // Limit applied to classes in our domain and ViewModel packages
+            includes = [
+                'com.clockstopper.app.domain.*',
+                'com.clockstopper.app.StopwatchViewModel',
+            ]
+
+            // Minimum 70 % instruction coverage per class
+            limit {
+                counter = 'INSTRUCTION'
+                value   = 'COVEREDRATIO'
+                minimum = 0.70
+            }
+        }
+
+        rule {
+            // Bundle-level (overall project) gate — must not drop below 70 %
+            element = 'BUNDLE'
+
+            limit {
+                counter = 'INSTRUCTION'
+                value   = 'COVEREDRATIO'
+                minimum = 0.70
+            }
+        }
+    }
+
+    // Re-use the same class/source/exec configuration from jacocoTestReport
+    def fileFilter = [
+        '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*',
+        '**/*Test*.*', 'android/**/*.*', '**/databinding/**',
+        '**/android/databinding/**', '**/*_MembersInjector.class',
+        '**/*_Factory.class', '**/*Directions*.*', '**/*Args*.*',
+    ]
+
+    def kotlinClasses = fileTree(
+        dir: "$buildDir/tmp/kotlin-classes/debug",
+        excludes: fileFilter
+    )
+
+    classDirectories.setFrom(files([kotlinClasses]))
+    sourceDirectories.setFrom(files(['src/main/java', 'src/main/kotlin']))
+    executionData.setFrom(fileTree(
+        dir: "$buildDir",
+        includes: [
+            'jacoco/testDebugUnitTest.exec',
+            'outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec'
+        ]
+    ))
+}
+
+// Wire coverage verification into the standard 'check' lifecycle so that
+// `./gradlew check` automatically enforces the threshold.
+check.dependsOn jacocoCoverageVerification
+
+dependencies {
+    // -----------------------------------------------------------------------
+    // Core AndroidX
+    // -----------------------------------------------------------------------
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
-
-    // ── Lifecycle (ViewModel + LiveData) ─────────────────────────────────────
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
-
-    // ── Jetpack Navigation (Fragment + UI helpers) ───────────────────────────
-    implementation 'androidx.navigation:navigation-fragment-ktx:2.7.7'
-    implementation 'androidx.navigation:navigation-ui-ktx:2.7.7'
-
-    // ── RecyclerView (lap list) ───────────────────────────────────────────────
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
 
-    // ── Material Components (Button styles, theme) ───────────────────────────
-    implementation 'com.google.android.material:material:1.11.0'
+    // -----------------------------------------------------------------------
+    // Navigation
+    // -----------------------------------------------------------------------
+    implementation 'androidx.navigation:navigation-fragment-ktx:2.7.6'
+    implementation 'androidx.navigation:navigation-ui-ktx:2.7.6'
 
-    // ── Fragment KTX ─────────────────────────────────────────────────────────
-    implementation 'androidx.fragment:fragment-ktx:1.6.2'
+    // -----------------------------------------------------------------------
+    // ViewModel / LiveData
+    // -----------------------------------------------------------------------
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
 
-    // ── Activity KTX ─────────────────────────────────────────────────────────
-    implementation 'androidx.activity:activity-ktx:1.8.2'
-
-    // ────────────────────────────────────────────────────────────────────────
-    // Test dependencies
-    // ────────────────────────────────────────────────────────────────────────
-
-    // Unit tests (run on JVM, no emulator required)
+    // -----------------------------------------------------------------------
+    // JVM Unit tests
+    // -----------------------------------------------------------------------
     testImplementation 'junit:junit:4.13.2'
+    // InstantTaskExecutorRule — runs LiveData synchronously in JVM tests
+    testImplementation 'androidx.arch.core:core-testing:2.2.0'
+    // Mockito for ViewModel observer mocking
+    testImplementation 'org.mockito:mockito-core:5.8.0'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.1'
 
-    // Instrumented tests (run on device / emulator)
+    // -----------------------------------------------------------------------
+    // Instrumented / Espresso tests
+    // -----------------------------------------------------------------------
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test:runner:1.5.2'
-    androidTestImplementation 'androidx.test:rules:1.5.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
     androidTestImplementation 'androidx.test.espresso:espresso-contrib:3.5.1'
-
-    // Navigation Testing (TestNavHostController used in NavigationSmokeTest)
-    androidTestImplementation 'androidx.navigation:navigation-testing:2.7.7'
-
-    // Activity scenario for instrumented tests
-    androidTestImplementation 'androidx.test.core:core:1.5.0'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test:rules:1.5.0'
+    androidTestImplementation 'androidx.test:core:1.5.0'
+    androidTestImplementation 'androidx.navigation:navigation-testing:2.7.6'
+    androidTestImplementation 'androidx.arch.core:core-testing:2.2.0'
 }
