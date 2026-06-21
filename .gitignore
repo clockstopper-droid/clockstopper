@@ -1,34 +1,32 @@
-# Gradle files
+# .gitignore — Clockstopper Android project
+# ─────────────────────────────────────────
+
+# ── Gradle build outputs ──────────────────────────────────────────────────────
 .gradle/
 build/
+app/build/
 
-# Local configuration file (sdk path, etc)
+# ── Local configuration (machine-specific; must not be committed) ─────────────
 local.properties
 
-# Log/OS Files
-*.log
-
-# Android Studio generated files and folders
-captures/
-.externalNativeBuild/
-.cxx/
-*.aab
-*.apk
-output-metadata.json
-
-# IntelliJ
+# ── Android Studio IDE files ──────────────────────────────────────────────────
 *.iml
 .idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
+*.iws
+*.ipr
 
-# Keystore files
+# ── macOS filesystem artefacts ────────────────────────────────────────────────
+.DS_Store
+
+# ── Kotlin / Java compilation outputs ────────────────────────────────────────
+*.class
+*.jar
+*.aar
+
+# ── Keystore files (never commit signing keys) ────────────────────────────────
 *.jks
 *.keystore
 
-# Google Services (e.g. APIs or Firebase)
-google-services.json
-
-# Android Profiling
-*.hprof
+# ── Captured test results / reports ──────────────────────────────────────────
+app/src/androidTest/results/
+app/build/reports/

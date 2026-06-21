@@ -4,47 +4,76 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.clockstopper.app.databinding.FragmentStopwatchBinding
-import com.clockstopper.app.domain.StopwatchState
 
 /**
- * Primary stopwatch screen.
+ * StopwatchFragment
+ * ─────────────────
+ * The primary (and sole) Fragment destination in the navigation graph.
+ * Renders the stopwatch display, start/stop/lap/reset controls, and the
+ * scrollable lap list.
  *
- * Observes [StopwatchViewModel] LiveData and drives the UI:
- *  - Elapsed-time text view
- *  - Current-lap label (visible only while running or paused)
- *  - Lap history RecyclerView (via [LapAdapter])
- *  - Start/Stop, Lap, and Reset buttons (enabled/disabled per state)
+ * Architecture contract
+ * ─────────────────────
+ * - **No business logic** lives here; all operations are delegated to
+ *   [StopwatchViewModel].
+ * - The Fragment is purely reactive: it observes [LiveData] from the ViewModel
+ *   and updates Views accordingly.
+ * - Button click listeners translate user intent into ViewModel commands and
+ *   nothing else.
  *
- * Business logic lives entirely in the ViewModel and domain layer;
- * this Fragment only handles view binding and user-event delegation.
+ * View binding
+ * ────────────
+ * Binding is inflated in [onCreateView] and released in [onDestroyView] to
+ * avoid retaining a reference to Views beyond their valid lifecycle window.
+ *
+ * UI state mapping
+ * ────────────────
+ * | ViewModel LiveData      | View(s) updated                              |
+ * |-------------------------|----------------------------------------------|
+ * | elapsedTime             | tv_elapsed_time text                         |
+ * | isRunning = true        | btn_start_stop text → "Stop"                 |
+ * |                         | btn_lap enabled                              |
+ * | isRunning = false       | btn_start_stop text → "Start"                |
+ * |                         | btn_lap disabled                             |
+ * | laps (non-empty list)   | rv_laps adapter updated via submitList()     |
+ * | laps (empty list)       | rv_laps adapter cleared                      |
  */
 class StopwatchFragment : Fragment() {
 
-    // ── View binding ─────────────────────────────────────────────────────────
-
-    private var _binding: FragmentStopwatchBinding? = null
-    /** Non-null between [onCreateView] and [onDestroyView]. */
-    private val binding get() = _binding!!
-
-    // ── ViewModel ────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // ViewModel
+    // -----------------------------------------------------------------------
 
     private val viewModel: StopwatchViewModel by viewModels()
 
-    // ── RecyclerView adapter ─────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // View binding
+    // -----------------------------------------------------------------------
+
+    private var _binding: FragmentStopwatchBinding? = null
+
+    /** Non-null only between [onCreateView] and [onDestroyView]. */
+    private val binding: FragmentStopwatchBinding
+        get() = _binding!!
+
+    // -----------------------------------------------------------------------
+    // RecyclerView adapter
+    // -----------------------------------------------------------------------
 
     private val lapAdapter = LapAdapter()
 
-    // ── Fragment lifecycle ────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // Fragment lifecycle
+    // -----------------------------------------------------------------------
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View {
         _binding = FragmentStopwatchBinding.inflate(inflater, container, false)
         return binding.root
@@ -60,83 +89,50 @@ class StopwatchFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // Avoid memory leaks by nulling the binding reference.
+        // Detach the adapter before clearing the binding to avoid a potential
+        // memory leak where the RecyclerView holds a reference to the adapter
+        // which in turn holds a reference to old View references.
+        binding.rvLaps.adapter = null
         _binding = null
     }
 
-    // ── Setup helpers ─────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // Setup helpers
+    // -----------------------------------------------------------------------
 
     private fun setupRecyclerView() {
         binding.rvLaps.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter        = lapAdapter
-            // Disable item animator to prevent flicker on frequent updates.
-            itemAnimator   = null
+            adapter = lapAdapter
+            // Laps are prepended (newest first); a fixed size optimisation is
+            // not appropriate here because the item count changes frequently.
             setHasFixedSize(false)
         }
     }
 
     private fun setupClickListeners() {
         binding.btnStartStop.setOnClickListener { viewModel.onStartStop() }
-        binding.btnLap.setOnClickListener       { viewModel.onLap() }
-        binding.btnReset.setOnClickListener     { viewModel.onReset() }
+        binding.btnLap.setOnClickListener { viewModel.onLap() }
+        binding.btnReset.setOnClickListener { viewModel.onReset() }
     }
 
     private fun observeViewModel() {
-        // Elapsed time display
-        viewModel.elapsedTime.observe(viewLifecycleOwner) { time ->
-            binding.tvElapsedTime.text = time
+        // ── Elapsed time display ────────────────────────────────────────────
+        viewModel.elapsedTime.observe(viewLifecycleOwner) { formattedTime ->
+            binding.tvElapsedTime.text = formattedTime
         }
 
-        // Current-lap label (null → hide; non-null → show)
-        viewModel.currentLapLabel.observe(viewLifecycleOwner) { label ->
-            binding.tvCurrentLap.isVisible = (label != null)
-            binding.tvCurrentLap.text      = label ?: ""
+        // ── Running state → button labels + lap button enable/disable ───────
+        viewModel.isRunning.observe(viewLifecycleOwner) { running ->
+            binding.btnStartStop.setText(
+                if (running) R.string.btn_stop else R.string.btn_start
+            )
+            binding.btnLap.isEnabled = running
         }
 
-        // Lap list
-        viewModel.laps.observe(viewLifecycleOwner) { rankedLaps ->
-            lapAdapter.submitList(rankedLaps)
-        }
-
-        // Button states driven by stopwatch lifecycle state
-        viewModel.state.observe(viewLifecycleOwner) { state ->
-            updateButtonStates(state)
-        }
-    }
-
-    // ── UI state helpers ──────────────────────────────────────────────────────
-
-    /**
-     * Adjusts button labels and enabled-states to match the current
-     * [StopwatchState], mirroring the behaviour of the web-app JavaScript UI.
-     *
-     * | State   | Start/Stop label | Lap enabled | Reset enabled |
-     * |---------|-----------------|-------------|---------------|
-     * | IDLE    | Start           | false       | false         |
-     * | RUNNING | Stop            | true        | false         |
-     * | PAUSED  | Start           | false       | true          |
-     */
-    private fun updateButtonStates(state: StopwatchState) {
-        when (state) {
-            StopwatchState.IDLE -> {
-                binding.btnStartStop.setText(R.string.btn_start)
-                binding.btnStartStop.contentDescription = getString(R.string.cd_btn_start)
-                binding.btnLap.isEnabled   = false
-                binding.btnReset.isEnabled = false
-            }
-            StopwatchState.RUNNING -> {
-                binding.btnStartStop.setText(R.string.btn_stop)
-                binding.btnStartStop.contentDescription = getString(R.string.cd_btn_stop)
-                binding.btnLap.isEnabled   = true
-                binding.btnReset.isEnabled = false
-            }
-            StopwatchState.PAUSED -> {
-                binding.btnStartStop.setText(R.string.btn_start)
-                binding.btnStartStop.contentDescription = getString(R.string.cd_btn_resume)
-                binding.btnLap.isEnabled   = false
-                binding.btnReset.isEnabled = true
-            }
+        // ── Lap list ────────────────────────────────────────────────────────
+        viewModel.laps.observe(viewLifecycleOwner) { lapSummaries ->
+            lapAdapter.submitList(lapSummaries)
         }
     }
 }

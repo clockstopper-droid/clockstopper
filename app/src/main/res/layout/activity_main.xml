@@ -1,16 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     activity_main.xml
-    Single-Activity shell.
-    Contains only the NavHostFragment; all screen content is managed by
-    Jetpack Navigation destinations (Fragments).
+    ─────────────────
+    Root layout for MainActivity.
+
+    Contains a single NavHostFragment that owns the entire navigation back-stack.
+    All screen content is rendered by Fragment destinations registered in
+    res/navigation/nav_graph.xml.
+
+    The FrameLayout wrapper is intentional: NavHostFragment requires a ViewGroup
+    container; FrameLayout is the lightest option and adds zero visual chrome.
 -->
-<androidx.fragment.app.FragmentContainerView
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/nav_host_fragment"
-    android:name="androidx.navigation.fragment.NavHostFragment"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    app:defaultNavHost="true"
-    app:navGraph="@navigation/nav_graph" />
+    android:layout_height="match_parent">
+
+    <!--
+        NavHostFragment
+        ───────────────
+        id            — referenced from MainActivity.kt via R.id.nav_host_fragment
+                        and from instrumented tests (NavigationSmokeTest, etc.)
+        navGraph      — points to the navigation graph in res/navigation/nav_graph.xml
+        defaultNavHost — intercepts the system Back button and delegates it to the
+                         NavController so the Fragment back-stack is popped correctly
+    -->
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/nav_host_fragment"
+        android:name="androidx.navigation.fragment.NavHostFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:navGraph="@navigation/nav_graph"
+        app:defaultNavHost="true" />
+
+</FrameLayout>

@@ -1,3 +1,25 @@
+/*
+ * app/build.gradle
+ * ────────────────
+ * Application-level Gradle build configuration for the Clockstopper Android app.
+ *
+ * SDK levels
+ * ──────────
+ *   compileSdk 34  — build against the latest stable APIs
+ *   minSdk     26  — Android 8.0 Oreo; covers ~95 %+ of active devices
+ *   targetSdk  34  — opt-in to all API 34 behaviour changes
+ *
+ * ViewBinding
+ * ───────────
+ * Enabled so every layout file gets a generated binding class; this eliminates
+ * all findViewById calls and the associated cast-at-runtime errors.
+ *
+ * Dependencies
+ * ────────────
+ * Core AndroidX / Lifecycle / Navigation / RecyclerView / Material are the
+ * minimum set required by the current architecture.  Test dependencies cover
+ * JUnit 4, Espresso, and the Navigation Testing artifact.
+ */
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
@@ -9,8 +31,8 @@ android {
 
     defaultConfig {
         applicationId "com.clockstopper.app"
-        minSdk      24
-        targetSdk   34
+        minSdk 26
+        targetSdk 34
         versionCode 1
         versionName "1.0.0"
 
@@ -18,16 +40,20 @@ android {
     }
 
     buildTypes {
-        debug {
-            applicationIdSuffix ".debug"
-            debuggable true
-        }
         release {
-            minifyEnabled   true
+            minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
                           'proguard-rules.pro'
         }
+        debug {
+            applicationIdSuffix ".debug"
+            debuggable true
+        }
+    }
+
+    buildFeatures {
+        viewBinding true
     }
 
     compileOptions {
@@ -38,55 +64,52 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
-
-    buildFeatures {
-        viewBinding true
-    }
-
-    // Assets bundled into the APK (the existing web app)
-    sourceSets {
-        main {
-            assets.srcDirs = ['src/main/assets']
-        }
-    }
 }
 
 dependencies {
-    // ── AndroidX core ────────────────────────────────────────────────────────
-    implementation 'androidx.core:core-ktx:1.13.1'
-    implementation 'androidx.appcompat:appcompat:1.7.0'
 
-    // ── Material Design 3 ────────────────────────────────────────────────────
-    implementation 'com.google.android.material:material:1.12.0'
+    // ── Core AndroidX ────────────────────────────────────────────────────────
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
 
-    // ── Layout ───────────────────────────────────────────────────────────────
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    // ── Lifecycle (ViewModel + LiveData) ─────────────────────────────────────
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
 
-    // ── Activity / Fragment KTX ──────────────────────────────────────────────
-    implementation 'androidx.activity:activity-ktx:1.9.0'
-    implementation 'androidx.fragment:fragment-ktx:1.8.1'
-
-    // ── Jetpack Navigation Component ──────────────────────────────────────────
+    // ── Jetpack Navigation (Fragment + UI helpers) ───────────────────────────
     implementation 'androidx.navigation:navigation-fragment-ktx:2.7.7'
     implementation 'androidx.navigation:navigation-ui-ktx:2.7.7'
 
-    // ── Lifecycle – ViewModel + LiveData ──────────────────────────────────────
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.2'
-    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.8.2'
-    // Saved-state support for ViewModel
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.2'
+    // ── RecyclerView (lap list) ───────────────────────────────────────────────
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
 
-    // ── Kotlin coroutines (drives the tick loop in StopwatchViewModel) ────────
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    // ── Material Components (Button styles, theme) ───────────────────────────
+    implementation 'com.google.android.material:material:1.11.0'
 
-    // ── WebView support (loads the HTML/CSS/JS clockstopper app) ─────────────
-    implementation 'androidx.webkit:webkit:1.11.0'
+    // ── Fragment KTX ─────────────────────────────────────────────────────────
+    implementation 'androidx.fragment:fragment-ktx:1.6.2'
 
-    // ── Testing ───────────────────────────────────────────────────────────────
+    // ── Activity KTX ─────────────────────────────────────────────────────────
+    implementation 'androidx.activity:activity-ktx:1.8.2'
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Test dependencies
+    // ────────────────────────────────────────────────────────────────────────
+
+    // Unit tests (run on JVM, no emulator required)
     testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1'
 
-    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    // Instrumented tests (run on device / emulator)
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test:rules:1.5.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-contrib:3.5.1'
+
+    // Navigation Testing (TestNavHostController used in NavigationSmokeTest)
+    androidTestImplementation 'androidx.navigation:navigation-testing:2.7.7'
+
+    // Activity scenario for instrumented tests
+    androidTestImplementation 'androidx.test.core:core:1.5.0'
 }

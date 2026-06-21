@@ -1,20 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     nav_graph.xml
-    Jetpack Navigation graph.
+    ─────────────
+    Jetpack Navigation graph for the Clockstopper application.
 
-    Destinations:
-      stopwatchFragment  –  The main stopwatch screen (start destination).
+    Destinations
+    ────────────
+    stopwatch_fragment  — the sole screen; it is also the startDestination so
+                          it is loaded immediately on app launch.
+
+    Actions
+    ───────
+    No inter-Fragment actions are needed for the current single-screen design.
+    Add <action> elements here when additional destinations (e.g. settings,
+    history) are introduced.
+
+    Fragment class
+    ──────────────
+    android:name points to the fully-qualified class name.  The Navigation
+    runtime uses this to instantiate the Fragment reflectively.
 -->
 <navigation
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/stopwatchFragment">
+    app:startDestination="@id/stopwatch_fragment">
 
     <fragment
-        android:id="@+id/stopwatchFragment"
+        android:id="@+id/stopwatch_fragment"
         android:name="com.clockstopper.app.StopwatchFragment"
         android:label="@string/app_name"
         tools:layout="@layout/fragment_stopwatch" />

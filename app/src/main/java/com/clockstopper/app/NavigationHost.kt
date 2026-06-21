@@ -3,21 +3,28 @@ package com.clockstopper.app
 import androidx.navigation.NavController
 
 /**
- * Contract implemented by Activities that host a [NavController].
+ * NavigationHost
+ * ──────────────
+ * Marker interface implemented by any Activity that acts as a host for a
+ * Jetpack Navigation graph.
  *
- * Fragments that need to trigger navigation actions (e.g. deep-links,
- * global actions) can obtain the [NavController] from their host Activity
- * by casting `requireActivity()` to [NavigationHost], keeping navigation
- * logic out of the Fragment's direct dependencies.
+ * Fragments that need to trigger navigation actions can retrieve the host
+ * Activity, cast it to [NavigationHost], and obtain the [NavController]
+ * without coupling themselves to a concrete Activity class.
  *
- * Usage from a Fragment:
+ * Usage from a Fragment
+ * ─────────────────────
  * ```kotlin
- * (requireActivity() as NavigationHost).navController
- *     .navigate(R.id.action_stopwatch_to_settings)
+ * val navController = (requireActivity() as NavigationHost).navController
+ * navController.navigate(R.id.action_stopwatch_to_settings)
  * ```
  *
- * [MainActivity] is the only current implementor.
+ * In practice Fragments should prefer
+ * `findNavController()` (the Navigation KTX extension) for navigation within
+ * their own back-stack; this interface is provided for edge cases where the
+ * Activity-level controller is explicitly required.
  */
 interface NavigationHost {
+    /** The [NavController] that drives the navigation graph hosted by this Activity. */
     val navController: NavController
 }

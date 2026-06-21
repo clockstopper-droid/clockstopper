@@ -1,119 +1,105 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     fragment_stopwatch.xml
-    Main stopwatch screen layout.
-    Displays the elapsed time, lap list, and control buttons (Start/Stop, Lap, Reset).
+    ──────────────────────
+    Layout for StopwatchFragment — the sole destination in the navigation graph.
+
+    Visual hierarchy (top → bottom)
+    ────────────────────────────────
+    1. tv_elapsed_time    Large centered elapsed-time display  ("MM:SS.cc")
+    2. Control row        [ Start/Stop ]  [ Lap ]  [ Reset ]
+    3. rv_laps            Scrollable lap list (newest lap first)
+
+    Measurement notes
+    ─────────────────
+    - The elapsed-time display uses a monospace typeface (monospace) so digits
+      don't shift width as the value changes, preventing layout jitter.
+    - The control buttons use equal weight inside a LinearLayout row so they
+      fill the available horizontal space proportionally.
+    - The RecyclerView fills the remaining vertical space via layout_weight=1
+      inside the outer vertical LinearLayout.
 -->
-<androidx.constraintlayout.widget.ConstraintLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
+    android:orientation="vertical"
+    android:background="@color/background"
+    android:padding="16dp"
     tools:context=".StopwatchFragment">
 
-    <!-- ── Primary elapsed-time display ── -->
+    <!-- ── Elapsed-time display ──────────────────────────────────────────── -->
+
     <TextView
-        android:id="@+id/tvElapsedTime"
-        android:layout_width="0dp"
+        android:id="@+id/tv_elapsed_time"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:layout_marginBottom="24dp"
         android:fontFamily="monospace"
         android:gravity="center"
         android:includeFontPadding="false"
-        android:paddingTop="48dp"
-        android:paddingBottom="8dp"
-        android:text="@string/default_time"
-        android:textAppearance="?attr/textAppearanceDisplayLarge"
-        android:textColor="?attr/colorOnSurface"
-        android:contentDescription="@string/cd_elapsed_time"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="00:00:00.000" />
+        android:text="@string/time_zero"
+        android:textColor="@color/elapsed_time_text"
+        android:textSize="64sp"
+        android:textStyle="bold"
+        tools:text="01:23.45" />
 
-    <!-- ── Current-lap delta (shown while running) ── -->
-    <TextView
-        android:id="@+id/tvCurrentLap"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:paddingBottom="24dp"
-        android:text="@string/default_lap_label"
-        android:textAppearance="?attr/textAppearanceTitleMedium"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:contentDescription="@string/cd_current_lap"
-        android:visibility="invisible"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvElapsedTime"
-        tools:text="Lap 1  –  00:00.000"
-        tools:visibility="visible" />
+    <!-- ── Control button row ─────────────────────────────────────────────── -->
 
-    <!-- ── Lap history list ── -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvLaps"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:clipToPadding="false"
-        android:paddingHorizontal="16dp"
-        android:paddingBottom="8dp"
-        android:scrollbars="vertical"
-        android:contentDescription="@string/cd_lap_list"
-        app:layout_constraintBottom_toTopOf="@id/buttonBar"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvCurrentLap"
-        tools:listitem="@layout/item_lap" />
-
-    <!-- ── Button bar ── -->
     <LinearLayout
-        android:id="@+id/buttonBar"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
         android:orientation="horizontal"
-        android:padding="16dp"
-        android:baselineAligned="false"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
 
-        <!-- Reset button (left) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnReset"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+        <!-- Start / Stop toggle -->
+        <Button
+            android:id="@+id/btn_start_stop"
             android:layout_width="0dp"
-            android:layout_height="56dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:enabled="false"
-            android:text="@string/btn_reset"
-            android:contentDescription="@string/cd_btn_reset" />
-
-        <!-- Start / Stop button (centre, prominent) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnStartStop"
-            style="@style/Widget.Material3.Button"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_weight="1.4"
-            android:layout_marginHorizontal="8dp"
+            android:layout_marginEnd="4dp"
             android:text="@string/btn_start"
-            android:contentDescription="@string/cd_btn_start" />
+            android:textAllCaps="false" />
 
-        <!-- Lap button (right) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnLap"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+        <!-- Lap — disabled until the stopwatch is running -->
+        <Button
+            android:id="@+id/btn_lap"
             android:layout_width="0dp"
-            android:layout_height="56dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
             android:enabled="false"
             android:text="@string/btn_lap"
-            android:contentDescription="@string/cd_btn_lap" />
+            android:textAllCaps="false" />
+
+        <!-- Reset -->
+        <Button
+            android:id="@+id/btn_reset"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:text="@string/btn_reset"
+            android:textAllCaps="false" />
 
     </LinearLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- ── Lap list ───────────────────────────────────────────────────────── -->
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_laps"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp"
+        android:scrollbars="vertical"
+        tools:listitem="@layout/item_lap" />
+
+</LinearLayout>

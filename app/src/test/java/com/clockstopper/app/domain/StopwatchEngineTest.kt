@@ -5,359 +5,162 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * StopwatchEngineTest
- * ───────────────────
- * Exhaustive unit tests for [StopwatchEngine].
+ * StopwatchEngineTest — unit tests for [StopwatchEngine].
  *
- * All tests use a simple monotonic counter (`t`) instead of a real clock so
- * timings are perfectly deterministic — no flakiness from wall-clock drift.
+ * A deterministic fake clock (`fakeNow`) is injected so tests do not rely on
+ * wall-clock time and are therefore stable across any execution environment.
  *
- * Test naming convention:  `<scenario>_<expected outcome>`
- *
- * Coverage areas
- * ──────────────
- *  S-1   Start transitions
- *  S-2   Stop (pause) transitions
- *  S-3   Lap recording
- *  S-4   Reset
- *  S-5   Snapshot / elapsed time accuracy
- *  S-6   Lap ranking (fastest / slowest)
- *  S-7   State-machine guards (no-op calls)
- *  S-8   Accumulated time across multiple pause/resume cycles
- *  S-9   Lap split accumulation
- *  S-10  Edge cases (zero duration, single lap ranking, overflow-safe arithmetic)
+ * Run with:  ./gradlew test
  */
 class StopwatchEngineTest {
 
+    private var fakeNow = 0L
     private lateinit var engine: StopwatchEngine
 
     @Before
     fun setUp() {
-        engine = StopwatchEngine()
+        fakeNow = 0L
+        engine = StopwatchEngine(nowMs = { fakeNow })
     }
 
-    // ── S-1  Start transitions ────────────────────────────────────────────
+    // -----------------------------------------------------------------------
+    // Initial state
+    // -----------------------------------------------------------------------
 
     @Test
-    fun `start from RESET returns RUNNING status`() {
-        val state = engine.start(nowMs = 0)
-        assertEquals(StopwatchStatus.RUNNING, state.status)
-    }
-
-    @Test
-    fun `start from RESET initialises elapsed to zero`() {
-        val state = engine.start(nowMs = 1_000)
+    fun initialState_isZeroedAndNotRunning() {
+        val state = engine.currentState()
         assertEquals(0L, state.elapsedMs)
-    }
-
-    @Test
-    fun `start from PAUSED returns RUNNING status`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 500)
-        val state = engine.start(nowMs = 1_000)
-        assertEquals(StopwatchStatus.RUNNING, state.status)
-    }
-
-    // ── S-2  Stop (pause) transitions ────────────────────────────────────
-
-    @Test
-    fun `stop from RUNNING returns PAUSED status`() {
-        engine.start(nowMs = 0)
-        val state = engine.stop(nowMs = 1_000)
-        assertEquals(StopwatchStatus.PAUSED, state.status)
-    }
-
-    @Test
-    fun `stop captures elapsed time correctly`() {
-        engine.start(nowMs = 0)
-        val state = engine.stop(nowMs = 2_500)
-        assertEquals(2_500L, state.elapsedMs)
-    }
-
-    @Test
-    fun `stop from RESET is a no-op and returns RESET status`() {
-        val state = engine.stop(nowMs = 1_000)
-        assertEquals(StopwatchStatus.RESET, state.status)
-        assertEquals(0L, state.elapsedMs)
-    }
-
-    @Test
-    fun `stop from PAUSED is a no-op`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 1_000)
-        val state = engine.stop(nowMs = 2_000) // second stop — no-op
-        assertEquals(StopwatchStatus.PAUSED, state.status)
-        assertEquals(1_000L, state.elapsedMs)
-    }
-
-    // ── S-3  Lap recording ────────────────────────────────────────────────
-
-    @Test
-    fun `first lap records correct split and total`() {
-        engine.start(nowMs = 0)
-        val state = engine.lap(nowMs = 3_000)
-        assertEquals(1, state.lapCount)
-        assertEquals(3_000L, state.laps[0].splitMs)
-        assertEquals(3_000L, state.laps[0].totalMs)
-    }
-
-    @Test
-    fun `second lap split is independent of first`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 3_000)               // lap 1: 3 000 ms
-        val state = engine.lap(nowMs = 5_000)   // lap 2: 2 000 ms
-        assertEquals(2_000L, state.laps[1].splitMs)
-        assertEquals(5_000L, state.laps[1].totalMs)
-    }
-
-    @Test
-    fun `lap indices are 1-based and sequential`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 1_000)
-        engine.lap(nowMs = 2_000)
-        val state = engine.lap(nowMs = 3_000)
-        assertEquals(listOf(1, 2, 3), state.laps.map { it.index })
-    }
-
-    @Test
-    fun `lap count matches number of lap calls`() {
-        engine.start(nowMs = 0)
-        repeat(5) { i -> engine.lap(nowMs = (i + 1) * 1_000L) }
-        val state = engine.snapshot(nowMs = 6_000)
-        assertEquals(5, state.lapCount)
-    }
-
-    @Test
-    fun `lap from RESET is a no-op`() {
-        val state = engine.lap(nowMs = 1_000)
-        assertEquals(0, state.lapCount)
-        assertEquals(StopwatchStatus.RESET, state.status)
-    }
-
-    @Test
-    fun `lap from PAUSED is a no-op`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 1_000)
-        val state = engine.lap(nowMs = 2_000)
-        assertEquals(0, state.lapCount)
-        assertEquals(StopwatchStatus.PAUSED, state.status)
-    }
-
-    @Test
-    fun `lap split resets after each lap`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 4_000)            // lap 1 split = 4 000
-        val state = engine.snapshot(nowMs = 4_500)  // 500 ms into lap 2
-        assertEquals(500L, state.lapSplitMs)
-    }
-
-    // ── S-4  Reset ────────────────────────────────────────────────────────
-
-    @Test
-    fun `reset returns RESET status`() {
-        engine.start(nowMs = 0)
-        val state = engine.reset()
-        assertEquals(StopwatchStatus.RESET, state.status)
-    }
-
-    @Test
-    fun `reset clears elapsed time`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 5_000)
-        val state = engine.reset()
-        assertEquals(0L, state.elapsedMs)
-    }
-
-    @Test
-    fun `reset clears all laps`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 1_000)
-        engine.lap(nowMs = 2_000)
-        val state = engine.reset()
-        assertEquals(0, state.lapCount)
+        assertFalse(state.isRunning)
         assertTrue(state.laps.isEmpty())
     }
 
+    // -----------------------------------------------------------------------
+    // Start / Stop
+    // -----------------------------------------------------------------------
+
     @Test
-    fun `reset while running clears state`() {
-        engine.start(nowMs = 0)
+    fun afterStart_isRunning() {
+        val state = engine.startStop()
+        assertTrue(state.isRunning)
+    }
+
+    @Test
+    fun afterStart_elapsedTimeIncreasesWithFakeClock() {
+        engine.startStop()         // start at t=0
+        fakeNow = 1_000L           // advance clock by 1 s
+        val state = engine.currentState()
+        assertEquals(1_000L, state.elapsedMs)
+    }
+
+    @Test
+    fun afterStop_isNotRunning() {
+        engine.startStop()         // start
+        engine.startStop()         // stop
+        assertFalse(engine.currentState().isRunning)
+    }
+
+    @Test
+    fun stopPreservesAccumulatedTime() {
+        engine.startStop()         // start at t=0
+        fakeNow = 2_000L
+        engine.startStop()         // stop at t=2000 → accumulated = 2000
+        assertEquals(2_000L, engine.currentState().elapsedMs)
+    }
+
+    @Test
+    fun resumeAfterPauseAccumulatesCorrectly() {
+        engine.startStop()         // start at 0
+        fakeNow = 1_000L
+        engine.startStop()         // pause → accumulated = 1000
+        fakeNow = 3_000L
+        engine.startStop()         // resume at 3000
+        fakeNow = 5_000L
+        // total = 1000 (first interval) + (5000-3000) = 3000
+        assertEquals(3_000L, engine.currentState().elapsedMs)
+    }
+
+    // -----------------------------------------------------------------------
+    // Lap
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun singleLap_splitEqualsCumulativeTime() {
+        engine.startStop()         // start at 0
+        fakeNow = 5_000L
+        val state = engine.lap()
+        assertEquals(1, state.laps.size)
+        assertEquals(5_000L, state.laps[0])
+    }
+
+    @Test
+    fun multipleLaps_splitsAreRelativeToLastLap() {
+        engine.startStop()         // start at 0
+
+        fakeNow = 3_000L
+        engine.lap()               // lap 1: split = 3000
+
+        fakeNow = 7_000L
+        val state = engine.lap()   // lap 2: split = 4000
+
+        assertEquals(2, state.laps.size)
+        assertEquals(3_000L, state.laps[0])
+        assertEquals(4_000L, state.laps[1])
+    }
+
+    @Test
+    fun lap_doesNotStopTheTimer() {
+        engine.startStop()
+        fakeNow = 1_000L
+        engine.lap()
+        assertTrue(engine.currentState().isRunning)
+    }
+
+    // -----------------------------------------------------------------------
+    // Reset
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun reset_returnsInitialState() {
+        engine.startStop()
+        fakeNow = 5_000L
+        engine.lap()
         val state = engine.reset()
-        assertEquals(StopwatchStatus.RESET, state.status)
-        assertEquals(0L, state.elapsedMs)
+        assertEquals(StopwatchState.INITIAL, state)
     }
 
     @Test
-    fun `reset is idempotent`() {
-        val s1 = engine.reset()
-        val s2 = engine.reset()
-        assertEquals(s1, s2)
-    }
-
-    @Test
-    fun `engine is usable after reset`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 2_000)
+    fun reset_engineBehavesLikeFreshInstance() {
+        engine.startStop()
+        fakeNow = 1_000L
+        engine.lap()
         engine.reset()
-        engine.start(nowMs = 5_000)
-        val state = engine.snapshot(nowMs = 7_000)
-        assertEquals(2_000L, state.elapsedMs)
+
+        // Start fresh
+        engine.startStop()         // start at t=1000 (fake clock unchanged)
+        fakeNow = 2_000L           // advance by 1000
+        val state = engine.currentState()
+        // Only the 1000 ms since the post-reset start should count
+        assertEquals(1_000L, state.elapsedMs)
+        assertTrue(state.laps.isEmpty())
     }
 
-    // ── S-5  Snapshot / elapsed time accuracy ─────────────────────────────
+    // -----------------------------------------------------------------------
+    // Edge cases
+    // -----------------------------------------------------------------------
 
     @Test
-    fun `snapshot while running returns correct elapsed`() {
-        engine.start(nowMs = 100)
-        val state = engine.snapshot(nowMs = 1_600)
-        assertEquals(1_500L, state.elapsedMs)
-    }
-
-    @Test
-    fun `snapshot after stop returns frozen elapsed`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 3_000)
-        // Snapshot at a later time — should NOT advance elapsed because paused
-        val state = engine.snapshot(nowMs = 10_000)
-        assertEquals(3_000L, state.elapsedMs)
-    }
-
-    @Test
-    fun `snapshot after reset returns zero elapsed`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 5_000)
+    fun stopAndResetImmediately_elapsedIsZero() {
+        engine.startStop()   // start
+        engine.startStop()   // stop immediately (fakeNow still 0)
         engine.reset()
-        val state = engine.snapshot(nowMs = 99_000)
-        assertEquals(0L, state.elapsedMs)
-    }
-
-    // ── S-6  Lap ranking ──────────────────────────────────────────────────
-
-    @Test
-    fun `single lap has no fastest or slowest flags set`() {
-        engine.start(nowMs = 0)
-        val state = engine.lap(nowMs = 1_000)
-        assertFalse(state.laps[0].isFastest)
-        assertFalse(state.laps[0].isSlowest)
+        assertEquals(0L, engine.currentState().elapsedMs)
     }
 
     @Test
-    fun `two laps — shorter is fastest, longer is slowest`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 1_000)   // lap 1 — 1 s
-        val state = engine.lap(nowMs = 3_000)   // lap 2 — 2 s
-        assertTrue(state.laps[0].isFastest)
-        assertFalse(state.laps[0].isSlowest)
-        assertFalse(state.laps[1].isFastest)
-        assertTrue(state.laps[1].isSlowest)
-    }
-
-    @Test
-    fun `fastest and slowest reassigned when new extremes appear`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 2_000)   // lap 1 — 2 s
-        engine.lap(nowMs = 4_000)   // lap 2 — 2 s (tie)
-        val state = engine.lap(nowMs = 4_500)   // lap 3 — 0.5 s  ← new fastest
-
-        // lap 3 is now fastest; one of lap 1/2 is slowest
-        assertTrue(state.laps[2].isFastest)
-        // Lap 1 should be slowest (tie-break: first wins)
-        assertTrue(state.laps[0].isSlowest)
-        assertFalse(state.laps[1].isSlowest)
-    }
-
-    @Test
-    fun `tied fastest laps — only first is marked`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 1_000)   // lap 1 — 1 s
-        val state = engine.lap(nowMs = 2_000)   // lap 2 — 1 s (tie with lap 1)
-        // Lap 1 wins tie for fastest
-        assertTrue(state.laps[0].isFastest)
-        assertFalse(state.laps[1].isFastest)
-    }
-
-    @Test
-    fun `state exposes hasFastestLap correctly`() {
-        engine.start(nowMs = 0)
-        val onelapState = engine.lap(nowMs = 1_000)
-        assertFalse(onelapState.hasFastestLap)
-
-        val twolapState = engine.lap(nowMs = 2_000)
-        assertTrue(twolapState.hasFastestLap)
-    }
-
-    // ── S-7  State-machine guard calls ────────────────────────────────────
-
-    @Test
-    fun `calling start twice is idempotent`() {
-        engine.start(nowMs = 0)
-        val s1 = engine.snapshot(nowMs = 1_000)
-        engine.start(nowMs = 1_000) // second start — no-op
-        val s2 = engine.snapshot(nowMs = 2_000)
-        // Elapsed after second call should have advanced by 1 000 ms
-        assertEquals(s1.elapsedMs + 1_000L, s2.elapsedMs)
-    }
-
-    // ── S-8  Accumulated time across pause/resume cycles ─────────────────
-
-    @Test
-    fun `accumulated time is preserved across pause and resume`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 2_000)   // 2 000 ms accumulated
-        engine.start(nowMs = 3_000)  // resume (gap of 1 000 ms not counted)
-        val state = engine.snapshot(nowMs = 4_000)
-        // Total: 2 000 (first interval) + 1 000 (second interval) = 3 000
-        assertEquals(3_000L, state.elapsedMs)
-    }
-
-    @Test
-    fun `multiple pause resume cycles accumulate correctly`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 1_000)  // +1 000
-        engine.start(nowMs = 2_000)
-        engine.stop(nowMs = 2_500)  // +500
-        engine.start(nowMs = 10_000)
-        engine.stop(nowMs = 10_300) // +300
-        val state = engine.snapshot(nowMs = 99_000)
-        assertEquals(1_800L, state.elapsedMs)
-    }
-
-    // ── S-9  Lap split accumulation across pause/resume ───────────────────
-
-    @Test
-    fun `lap split accumulates across pause resume within the same lap`() {
-        engine.start(nowMs = 0)
-        engine.stop(nowMs = 1_000)   // 1 000 ms in lap
-        engine.start(nowMs = 5_000)  // resume
-        val state = engine.lap(nowMs = 6_000)  // +1 000 ms in lap → split = 2 000
-        assertEquals(2_000L, state.laps[0].splitMs)
-    }
-
-    // ── S-10  Edge cases ──────────────────────────────────────────────────
-
-    @Test
-    fun `zero-duration start stop produces zero elapsed`() {
-        engine.start(nowMs = 1_000)
-        val state = engine.stop(nowMs = 1_000)
-        assertEquals(0L, state.elapsedMs)
-    }
-
-    @Test
-    fun `very large elapsed time does not overflow`() {
-        val tenHoursMs = 10L * 3_600_000L
-        engine.start(nowMs = 0)
-        val state = engine.snapshot(nowMs = tenHoursMs)
-        assertEquals(tenHoursMs, state.elapsedMs)
-    }
-
-    @Test
-    fun `laps list in snapshot is a defensive copy`() {
-        engine.start(nowMs = 0)
-        engine.lap(nowMs = 1_000)
-        val state = engine.snapshot(nowMs = 2_000)
-        val laps = state.laps
-
-        // Record another lap — the previously returned list must be unaffected
-        engine.lap(nowMs = 2_000)
-        assertEquals(1, laps.size)
+    fun multipleResets_stateRemainsInitial() {
+        engine.reset()
+        engine.reset()
+        assertEquals(StopwatchState.INITIAL, engine.currentState())
     }
 }

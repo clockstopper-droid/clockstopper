@@ -1,67 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     item_lap.xml
-    A single row in the lap history RecyclerView.
-    Shows: lap number | lap split time | cumulative time
-    Best lap is highlighted with the primary colour; worst lap with the error colour.
+    ────────────
+    Row layout for a single lap entry in the RecyclerView of StopwatchFragment.
+
+    Three columns (left → right):
+    ┌──────────────┬─────────────────┬─────────────────┐
+    │  Lap N       │   Split time    │  Cumulative     │
+    │  tv_lap_num  │   tv_lap_split  │  tv_lap_cumul.  │
+    └──────────────┴─────────────────┴─────────────────┘
+
+    - tv_lap_number       Left-aligned label, e.g. "Lap 3"
+    - tv_lap_split        Center-aligned split duration, e.g. "00:12.34"
+    - tv_lap_cumulative   Right-aligned cumulative time,  e.g. "01:05.67"
+
+    All time displays use a monospace typeface to prevent width jitter.
 -->
-<androidx.constraintlayout.widget.ConstraintLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:minHeight="48dp"
-    android:paddingVertical="10dp">
+    android:orientation="horizontal"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp"
+    android:gravity="center_vertical">
 
-    <!-- Lap number label, e.g. "Lap 3" -->
+    <!-- Lap number label -->
     <TextView
-        android:id="@+id/tvLapNumber"
-        android:layout_width="wrap_content"
+        android:id="@+id/tv_lap_number"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textAppearance="?attr/textAppearanceBodyMedium"
-        android:textColor="?attr/colorOnSurface"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
+        android:layout_weight="1"
+        android:gravity="start"
+        android:textColor="@color/lap_number_text"
+        android:textSize="14sp"
         tools:text="Lap 3" />
 
-    <!-- Cumulative elapsed time at this lap, right-aligned -->
+    <!-- Split time -->
     <TextView
-        android:id="@+id/tvLapCumulative"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:fontFamily="monospace"
-        android:textAppearance="?attr/textAppearanceBodyMedium"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="00:32.789" />
-
-    <!-- Lap split (delta) time, to the left of cumulative -->
-    <TextView
-        android:id="@+id/tvLapSplit"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:fontFamily="monospace"
-        android:textAppearance="?attr/textAppearanceBodyMedium"
-        android:textColor="?attr/colorOnSurface"
-        android:layout_marginEnd="24dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/tvLapCumulative"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="00:12.345" />
-
-    <!-- Thin divider at the bottom of each row -->
-    <View
-        android:id="@+id/divider"
+        android:id="@+id/tv_lap_split"
         android:layout_width="0dp"
-        android:layout_height="1dp"
-        android:background="?attr/colorOutlineVariant"
-        android:alpha="0.5"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:fontFamily="monospace"
+        android:gravity="center"
+        android:textColor="@color/lap_time_text"
+        android:textSize="14sp"
+        tools:text="00:12.34" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- Cumulative time -->
+    <TextView
+        android:id="@+id/tv_lap_cumulative"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:fontFamily="monospace"
+        android:gravity="end"
+        android:textColor="@color/lap_cumulative_text"
+        android:textSize="14sp"
+        tools:text="01:05.67" />
+
+</LinearLayout>
