@@ -4,7 +4,7 @@
 
 **Global Time Clock** is a lightweight, client-side web application that displays three fixed world clocks: **Eastern Time**, **Central Time**, and **Western (Pacific) Time**. It is a pure frontend application with no backend dependencies, build tools, or frameworks — designed to run directly in a browser by opening `Index.html`.
 
-The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends.
+The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends.
 
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
@@ -23,6 +23,7 @@ The application has been **constructed as a mobile dialing app targeting Android
 | Mobile Network Detection | `navigator.connection.type === 'cellular'` + `effectiveType` (`4g`, `3g`, `2g`) checks |
 | Audio Output | Native Web Audio API (`AudioContext`) + `HTMLAudioElement` (call audio only) |
 | Microphone Input | `navigator.mediaDevices.getUserMedia()` (MediaDevices API) |
+| Microphone Permission Pre-Check | `navigator.permissions.query({ name: 'microphone' })` (Permissions API) on page load; falls back to `getUserMedia` probe if Permissions API unavailable; result displayed in `#micPermissionStatus` before dialing |
 | Caller ID Name | User-defined free-text string stored in app state; submitted with outgoing call metadata; any words/characters the user enters will appear on the recipient's caller ID display |
 | Call Duration Timer | `setInterval`-based elapsed time counter; starts on call connect, stops on call end; displays in `#callStatus` formatted as `MM:SS` (or `HH:MM:SS` for calls ≥ 1 hour) |
 | Keyboard Input | `keydown` event listener on `document`; maps key values to `dialDigit()`, `clearDialed()`, `initiateCall()`, `endCall()` |
@@ -37,9 +38,9 @@ The application has been **constructed as a mobile dialing app targeting Android
 clockstopper/
 ├── Index.html          # Entry point — main HTML shell
 ├── Css/
-│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display
+│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer
+│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check
 ├── README.md           # Project documentation
 └── .gitignore          # Android/IntelliJ artifacts excluded
 ```
@@ -54,10 +55,11 @@ The application has been packaged as an **Android WebView-based mobile dialing a
 
 - The web app (`Index.html`, `Css/Style.css`, `js/app.js`) serves as the UI layer loaded inside an Android `WebView`.
 - The Android wrapper grants necessary permissions (microphone, network state) via the Android manifest, complementing the browser-level `getUserMedia()` permission requests.
-- The dialer UI, keypad, connectivity panel, call audio system, caller ID name input, and call duration timer are all functional within the Android WebView environment.
+- The dialer UI, keypad, connectivity panel, call audio system, caller ID name input, call duration timer, and microphone permission pre-check are all functional within the Android WebView environment.
 - Mobile-specific CSS breakpoints and touch-friendly keypad sizing ensure a native-feeling experience on Android screen sizes.
 - The `.gitignore` Android/Gradle/IntelliJ entries are intentional and directly applicable to the Android project artifacts generated during packaging.
 - Keyboard input support is compatible with Android WebView's software keyboard — physical keyboard events and soft keyboard input events both dispatch `keydown` events that the dialer listener handles.
+- The microphone permission pre-check is particularly important in the Android WebView context, where mic permissions must be granted both at the Android manifest level and at the browser/WebView level; the pre-check UI surfaces which layer is blocking access if mic is unavailable.
 
 ---
 
@@ -81,6 +83,26 @@ These are rendered on page load and cannot be changed by the user at runtime. Th
 - **Dark theme** uses a clean, flat dark background with **orange accent** colors on keypad buttons and interactive controls only.
 - Buttons and interactive elements use solid, flat styling — no glow, bloom, or luminescence effects.
 - Clock card and panel borders use subtle, non-glowing contrast to separate sections.
+- Microphone permission pre-check status indicators use color-coded flat styling (e.g., green for granted, yellow/amber for prompt, red for denied) consistent with the dark theme — no neon or glow effects on these indicators.
+
+---
+
+## Microphone Permission Pre-Check
+
+The application proactively checks microphone permission state on page load and surfaces the result in `#micPermissionStatus` **before** the user attempts to dial. This ensures users are aware of mic access issues before initiating a call.
+
+Key implementation details:
+- **Primary method:** `navigator.permissions.query({ name: 'microphone' })` is called on page load via `checkMicPermission()` in `app.js`. This is non-intrusive and does not trigger a permission prompt.
+- **Fallback method:** If the Permissions API is unavailable (e.g., older Android WebView versions), a passive `getUserMedia` probe is attempted to determine actual mic access state.
+- **Permission states handled:**
+  - `granted` — mic is available; `#micPermissionStatus` shows a positive/green indicator; dialing is unblocked.
+  - `prompt` — mic permission has not been decided yet; `#micPermissionStatus` shows an informational/amber indicator advising the user that they will be prompted when a call is initiated.
+  - `denied` — mic access is blocked; `#micPermissionStatus` shows a warning/red indicator with guidance on how to re-enable mic access in device settings.
+- **Permission change listener:** A `permissionchange` event listener is attached to the `PermissionStatus` object returned by `navigator.permissions.query()` so that `#micPermissionStatus` updates dynamically if the user changes mic permission in device settings while the app is open.
+- **`#micPermissionStatus` element** displays human-readable status text and a visual state indicator; the text and styling update reactively to reflect the current permission state.
+- **Dialer guard:** When `initiateCall()` is invoked and mic permission is `denied`, the call is blocked and `#micPermissionStatus` (or `#callStatus`) surfaces an actionable error rather than silently failing.
+- The pre-check and its UI state are initialized in `app.js` as part of the page load setup sequence, after DOM elements are available.
+- This feature is purely additive — it does not change the behavior of `getUserMedia()` calls made during actual call initiation; it only provides earlier, more informative feedback to the user.
 
 ---
 
@@ -158,41 +180,5 @@ Index.html
   └── #dialerDisplay           → Primary number display box showing the outgoing number being dialed
   └── #dialedNumberReadout     → Secondary label/readout beneath the dialer display showing live digit entry
   └── #callStatus              → Text/icon display of current call state; also shows live call duration timer (MM:SS or HH:MM:SS) during active call
-  └── #micPermissionStatus     → Displays microphone permission state
-  └── #networkTypeIndicator    → Displays current active network type (WiFi, 4G, 3G, etc.) during a call
-  └── toggleTheme()            → Called inline via theme toggle button onclick
-  └── toggleMute()             → Called inline via mute button onclick
-  └── toggleConnectivityPanel()→ Called inline to expand/collapse the connectivity panel
-  └── selectMobileNetwork()    → Called inline to set mobile/cellular as the preferred network for calls
-  └── setCallerIdName()        → Called inline by #setCallerIdNameBtn to save caller ID name from input to state;
-                                  the saved name (any words the user entered) becomes what the recipient sees
-  └── dialDigit(digit)         → Called inline by each keypad button OR by keyboard input handler to append a digit
-  └── clearDialed()            → Called inline by a clear/backspace button OR by Backspace key to remove the last digit or clear all
-  └── initiateCall()           → Called inline to start an outgoing call; also triggered by Enter key
-  └── endCall()                → Called inline to end an active call; also triggered by Escape key
-
-js/app.js
-  └── State management         → Tracks mute state, connectivity state, network info, preferred network type
-                                  (wifi vs. mobile/cellular), call state, dialed number string,
-                                  callerIdName string (free-text custom caller ID name; any words entered by
-                                  user; shown to recipient on their caller ID display),
-                                  callStartTime (timestamp recorded when call connects),
-                                  callDurationInterval (setInterval reference for the duration timer)
-  └── Clock rendering          → Generates DOM elements for the three fixed clock cards on page load
-  └── Tick loop                → setInterval (every 1000ms) updates all three clocks
-  └── toggleTheme()            → Toggles dark-theme class on <body>
-  └── toggleMute()             → Toggles muted state; updates mute button appearance
-  └── toggleConnectivityPanel()→ Expands/collapses the connectivity panel
-  └── selectMobileNetwork()    → Sets preferredNetwork state to 'cellular'; updates UI to reflect mobile network
-                                  selection; call audio will be routed using the mobile connection
-  └── setCallerIdName()        → Reads value from #callerIdNameInput; saves to callerIdName state variable;
-                                  updates #callerIdNameDisplay to confirm the active name to the user;
-                                  the name (any words/text the user typed) is passed as caller identity
-                                  when initiateCall() is invoked — this is what the recipient sees on caller ID
-  └── dialDigit(digit)         → Appends a digit character to the dialedNumber state string; updates #dialerDisplay and #dialedNumberReadout
-  └── clearDialed()            → Removes last character (backspace) or clears full dialedNumber string; updates display elements
-  └── startCallDurationTimer() → Records callStartTime; starts a 1000ms setInterval that computes elapsed
-                                  seconds, formats as MM:SS or HH:MM:SS, and writes the duration string
-                                  into #callStatus each tick
-  └── stopCallDurationTimer()  → Clears the callDurationInterval; resets callStartTime to null; called by endCall()
-  └── initKeyboardInput()      → Attaches document-level keydown listener; maps digit/
+  └── #micPermissionStatus     → Displays microphone permission state (granted/prompt/denied) with color-coded indicator;
+                                  updated on page load by checkMicPermission() and
