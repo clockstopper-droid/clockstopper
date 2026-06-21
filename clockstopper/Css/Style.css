@@ -1,330 +1,448 @@
-/* ==========================================================
-   Global Time Clock — Style.css
-   ========================================================== */
-
-/* ----------------------------------------------------------
-   Reset / Base
-   ---------------------------------------------------------- */
+/* ─── Reset & Base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: #f0f2f5;
-  color: #222;
-  min-height: 100vh;
-  transition: background 0.3s, color 0.3s;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #f0f2f5;
+    color: #1a1a2e;
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ----------------------------------------------------------
-   Layout
-   ---------------------------------------------------------- */
+/* ─── Layout ────────────────────────────────────────────────────────────────── */
 .container {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 2rem 1rem 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
 }
 
 h1 {
-  text-align: center;
-  font-size: 2rem;
-  margin-bottom: 2rem;
-  letter-spacing: 0.03em;
+    text-align: center;
+    font-size: 2rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    color: #1a1a2e;
+    transition: color 0.3s ease;
 }
 
-/* ----------------------------------------------------------
-   Clocks Grid
-   ---------------------------------------------------------- */
-.clocks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 2rem;
+/* ─── WiFi Status Indicator ─────────────────────────────────────────────────── */
+/*
+ * Sits just below the page heading, above the clock grid.
+ * Displays a coloured dot + connection-type label so users can see at a
+ * glance whether the browser has a live network connection.
+ *
+ * States
+ * ──────
+ *   .wifi-online   – green dot, shows connection type (WiFi / Ethernet / 4G …)
+ *   .wifi-offline  – red dot,   shows "Offline"
+ *
+ * The element is built into Index.html; JS keeps it up-to-date via
+ * updateWifiStatus() which runs on load and on every network-state change.
+ */
+
+#wifiStatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1.5px solid transparent;
+    cursor: default;
+    user-select: none;
+    transition:
+        background-color 0.35s ease,
+        border-color     0.35s ease,
+        color            0.35s ease;
+
+    /* Default (pre-JS paint): neutral until JS sets a state class */
+    background-color: #e2e8f0;
+    border-color:     #cbd5e1;
+    color:            #475569;
 }
 
-/* ----------------------------------------------------------
-   Clock Card
-   ---------------------------------------------------------- */
+/* Wrapper that centres the indicator beneath the heading */
+.wifi-status-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+/* Animated pulse dot shared by both states */
+.wifi-icon {
+    display: inline-block;
+    font-size: 0.65rem;
+    line-height: 1;
+    transition: color 0.35s ease;
+}
+
+.wifi-label {
+    line-height: 1;
+}
+
+/* ── Online state ──────────────────────────────────────────────────────────── */
+#wifiStatus.wifi-online {
+    background-color: #dcfce7;
+    border-color:     #86efac;
+    color:            #166534;
+}
+
+#wifiStatus.wifi-online .wifi-icon {
+    color: #16a34a;
+    /* Subtle pulse to confirm live connection */
+    animation: wifiPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes wifiPulse {
+    0%,  100% { opacity: 1;    transform: scale(1);    }
+    50%        { opacity: 0.55; transform: scale(0.85); }
+}
+
+/* ── Offline state ─────────────────────────────────────────────────────────── */
+#wifiStatus.wifi-offline {
+    background-color: #fee2e2;
+    border-color:     #fca5a5;
+    color:            #991b1b;
+}
+
+#wifiStatus.wifi-offline .wifi-icon {
+    color: #dc2626;
+    animation: none; /* stop pulse when offline */
+}
+
+/* ─── Dark theme overrides for WiFi indicator ───────────────────────────────── */
+body.dark-theme #wifiStatus {
+    /* Default neutral */
+    background-color: #1e293b;
+    border-color:     #334155;
+    color:            #94a3b8;
+}
+
+body.dark-theme #wifiStatus.wifi-online {
+    background-color: #14532d;
+    border-color:     #166534;
+    color:            #86efac;
+}
+
+body.dark-theme #wifiStatus.wifi-online .wifi-icon {
+    color: #4ade80;
+}
+
+body.dark-theme #wifiStatus.wifi-offline {
+    background-color: #450a0a;
+    border-color:     #7f1d1d;
+    color:            #fca5a5;
+}
+
+body.dark-theme #wifiStatus.wifi-offline .wifi-icon {
+    color: #f87171;
+}
+
+/* ─── Clock Grid ────────────────────────────────────────────────────────────── */
+#clocksGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 28px;
+}
+
+/* ─── Clock Card ────────────────────────────────────────────────────────────── */
 .clock-card {
-  background: #ffffff;
-  border: 1px solid #dde1e7;
-  border-radius: 10px;
-  padding: 1.1rem 1rem 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
-  transition: background 0.3s, border-color 0.3s, opacity 0.3s;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.2s ease;
 }
 
-.clock-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #555;
-  word-break: break-all;
+.clock-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
 }
 
-.clock-time {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #111;
-  min-height: 1.4em;
-  transition: color 0.3s;
+.tz-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+    text-align: center;
+    transition: color 0.3s ease;
 }
 
-/* ----------------------------------------------------------
-   Muted (Paused) State
-   ---------------------------------------------------------- */
-
-/* Badge shown only when card is muted */
-.muted-badge {
-  display: none;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: #888;
-  text-transform: uppercase;
+.time-display {
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+    color: #1a1a2e;
+    transition: color 0.3s ease;
 }
 
-.clock-card.muted .muted-badge {
-  display: block;
+.date-display {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    transition: color 0.3s ease;
 }
 
-/* Dim the card visually when paused */
-.clock-card.muted {
-  opacity: 0.65;
-  border-style: dashed;
+.remove-btn {
+    margin-top: 10px;
+    font-size: 0.78rem;
+    padding: 5px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Dim the time text when frozen */
-.clock-card.muted .clock-time {
-  color: #999;
+.remove-btn:hover {
+    background-color: #fee2e2;
+    border-color: #fca5a5;
+    color: #dc2626;
 }
 
-/* ----------------------------------------------------------
-   Clock Card — Button Row
-   ---------------------------------------------------------- */
-.clock-btn-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.clock-btn-row button {
-  flex: 1;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, transform 0.1s;
-  white-space: nowrap;
-}
-
-.clock-btn-row button:active {
-  transform: scale(0.96);
-}
-
-/* Mute button — default (light theme) */
-.btn-mute {
-  background: #e8eaf0;
-  color: #444;
-}
-
-.btn-mute:hover {
-  background: #d5d8e2;
-}
-
-/* Mute button — active/pressed state (clock is paused) */
-.btn-mute.active {
-  background: #fff3e0;
-  color: #bf6000;
-  border: 1px solid #f5a623;
-}
-
-.btn-mute.active:hover {
-  background: #ffe0b2;
-}
-
-/* Remove button */
-.btn-remove {
-  background: #fdecea;
-  color: #c0392b;
-}
-
-.btn-remove:hover {
-  background: #f5c6c2;
-}
-
-/* ----------------------------------------------------------
-   Controls (Add Clock / Toggle Theme)
-   ---------------------------------------------------------- */
+/* ─── Controls ──────────────────────────────────────────────────────────────── */
 .controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  justify-content: center;
-  align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
-.controls input {
-  padding: 0.55rem 0.9rem;
-  font-size: 0.95rem;
-  border: 2px solid #c0c5cf;
-  border-radius: 7px;
-  outline: none;
-  min-width: 220px;
-  background: #fff;
-  color: #222;
-  transition: border-color 0.2s, background 0.3s, color 0.3s;
+#tzInput {
+    flex: 1 1 220px;
+    min-width: 0;
+    padding: 9px 14px;
+    font-size: 0.92rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #1a1a2e;
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.3s ease;
 }
 
-.controls input:focus {
-  border-color: #5b8dee;
+#tzInput:focus {
+    border-color: #3b82f6;
+    background: #ffffff;
 }
 
+#tzInput::placeholder {
+    color: #94a3b8;
+}
+
+/* Shared button base */
 .controls button {
-  padding: 0.55rem 1.2rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 7px;
-  cursor: pointer;
-  background: #5b8dee;
-  color: #fff;
-  transition: background 0.2s, transform 0.1s;
-}
-
-.controls button:hover {
-  background: #3a6fdb;
+    padding: 9px 18px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    white-space: nowrap;
 }
 
 .controls button:active {
-  transform: scale(0.97);
+    transform: scale(0.97);
 }
 
-/* ----------------------------------------------------------
-   Dark Theme
-   ---------------------------------------------------------- */
+/* Add Clock button */
+#addBtn {
+    background-color: #3b82f6;
+    color: #ffffff;
+}
+
+#addBtn:hover {
+    background-color: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+/* Theme toggle button */
+#themeBtn {
+    background-color: #e2e8f0;
+    color: #475569;
+}
+
+#themeBtn:hover {
+    background-color: #cbd5e1;
+}
+
+/* Mute button ─────────────────────────────────────────────────────────────── */
+.mute-btn {
+    background-color: #e2e8f0;
+    color: #475569;
+}
+
+.mute-btn:hover {
+    background-color: #cbd5e1;
+}
+
+/* Visual state when muted */
+.mute-btn.muted {
+    background-color: #fef3c7;
+    color:            #92400e;
+    box-shadow: inset 0 0 0 1.5px #fcd34d;
+}
+
+.mute-btn.muted:hover {
+    background-color: #fde68a;
+}
+
+/* ─── Dark Theme ────────────────────────────────────────────────────────────── */
 body.dark-theme {
-  background: #1a1a1a;
-  color: #e8e8e8;
+    background-color: #0f172a;
+    color: #e2e8f0;
 }
 
 body.dark-theme h1 {
-  color: #f0f0f0;
+    color: #f1f5f9;
 }
 
-/* Clock cards */
+/* Dark clock cards */
 body.dark-theme .clock-card {
-  background: #2a2a2a;
-  border-color: #3a3a3a;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    background-color: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
-body.dark-theme .clock-label {
-  color: #aaa;
+body.dark-theme .tz-label {
+    color: #94a3b8;
 }
 
-body.dark-theme .clock-time {
-  color: #f0f0f0;
+body.dark-theme .time-display {
+    color: #f1f5f9;
 }
 
-/* Muted card in dark theme */
-body.dark-theme .clock-card.muted {
-  opacity: 0.55;
-  border-color: #555;
+body.dark-theme .date-display {
+    color: #64748b;
 }
 
-body.dark-theme .clock-card.muted .clock-time {
-  color: #666;
+body.dark-theme .remove-btn {
+    border-color: #334155;
+    color: #64748b;
 }
 
-body.dark-theme .muted-badge {
-  color: #666;
+body.dark-theme .remove-btn:hover {
+    background-color: #450a0a;
+    border-color: #7f1d1d;
+    color: #f87171;
 }
 
-/* Mute button — dark theme default */
-body.dark-theme .btn-mute {
-  background: #3a3a3a;
-  color: #ccc;
+/* Dark controls panel — orange accent */
+body.dark-theme .controls {
+    background-color: #1e293b;
+    border-color: #334155;
 }
 
-body.dark-theme .btn-mute:hover {
-  background: #484848;
+body.dark-theme #tzInput {
+    background-color: #0f172a;
+    border-color: #f97316;    /* orange accent on input border */
+    color: #f1f5f9;
 }
 
-/* Mute button — active/pressed in dark theme — orange accent */
-body.dark-theme .btn-mute.active {
-  background: #3d2800;
-  color: #ff9800;
-  border: 1px solid #ff9800;
+body.dark-theme #tzInput:focus {
+    border-color: #fb923c;
+    background-color: #1e293b;
 }
 
-body.dark-theme .btn-mute.active:hover {
-  background: #4e3300;
+body.dark-theme #tzInput::placeholder {
+    color: #475569;
 }
 
-/* Remove button — dark theme */
-body.dark-theme .btn-remove {
-  background: #3d1c1c;
-  color: #ff6b6b;
+/* Dark Add button — orange */
+body.dark-theme #addBtn {
+    background-color: #f97316;
+    color: #ffffff;
 }
 
-body.dark-theme .btn-remove:hover {
-  background: #522626;
+body.dark-theme #addBtn:hover {
+    background-color: #ea6c0a;
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
 }
 
-/* Controls area — dark theme with orange accent */
-body.dark-theme .controls input {
-  background: #2a2a2a;
-  color: #e8e8e8;
-  border-color: #555;
+/* Dark Theme toggle — orange */
+body.dark-theme #themeBtn {
+    background-color: #f97316;
+    color: #ffffff;
 }
 
-body.dark-theme .controls input:focus {
-  border-color: #ff9800;
+body.dark-theme #themeBtn:hover {
+    background-color: #ea6c0a;
 }
 
-body.dark-theme .controls button {
-  background: #ff9800;
-  color: #1a1a1a;
+/* Dark Mute button — orange */
+body.dark-theme .mute-btn {
+    background-color: #f97316;
+    color: #ffffff;
 }
 
-body.dark-theme .controls button:hover {
-  background: #e68900;
+body.dark-theme .mute-btn:hover {
+    background-color: #ea6c0a;
 }
 
-/* ----------------------------------------------------------
-   Responsive
-   ---------------------------------------------------------- */
-@media (max-width: 480px) {
-  h1 {
-    font-size: 1.4rem;
-  }
+body.dark-theme .mute-btn.muted {
+    background-color: #92400e;
+    color: #fef3c7;
+    box-shadow: inset 0 0 0 1.5px #f59e0b;
+}
 
-  .clocks-grid {
-    grid-template-columns: 1fr;
-  }
+body.dark-theme .mute-btn.muted:hover {
+    background-color: #78350f;
+}
 
-  .controls input {
-    width: 100%;
-    min-width: unset;
-  }
+/* ─── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    h1 {
+        font-size: 1.4rem;
+    }
 
-  .controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
+    #clocksGrid {
+        grid-template-columns: 1fr;
+    }
 
-  .controls button {
-    width: 100%;
-  }
+    .controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #tzInput {
+        width: 100%;
+    }
+
+    .controls button {
+        width: 100%;
+        text-align: center;
+    }
+
+    #wifiStatus {
+        font-size: 0.76rem;
+        padding: 4px 10px;
+    }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+    #clocksGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
