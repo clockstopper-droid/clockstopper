@@ -48,7 +48,6 @@ clockstopper/
 - Standard Android single-module project structure (`app/` module)
 - Standard Android source set layout: `app/src/main/` containing manifest, source, and resources
 - Activity-based UI with XML layouts (View system, not Jetpack Compose)
-- Android-only project — no web or desktop entry points; legacy non-Android artifacts have been removed
 
 ## Android Manifest
 - `AndroidManifest.xml` located at `app/src/main/AndroidManifest.xml`
@@ -68,5 +67,4 @@ clockstopper/
 - [x] Gradle build configuration and project structure set up
 - [x] Android manifest and directory structure created (`app/src/main/` layout)
 - [x] `MainActivity.kt` and `activity_main.xml` layout implemented
-- [x] Legacy web and desktop entry points removed; project is Android-only
 - [ ] Application logic / additional features (pending)

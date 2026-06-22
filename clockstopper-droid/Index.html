@@ -1,12 +1,259 @@
-<!--
-    REMOVED — legacy web entry point.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Global Time Clock" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <title>Global Time Clock — Dialer</title>
+  <link rel="stylesheet" href="Css/Style.css" />
+</head>
 
-    This file is no longer part of the Clockstopper project.
-    The application is now Android-only.
+<body class="dark-theme">
 
-    The bundled web front-end used inside the Android WebView lives at:
-        app/src/main/assets/index.html
+  <!-- ═══════════════════════════════════════════
+       TOP APP BAR
+  ════════════════════════════════════════════ -->
+  <header class="app-bar">
+    <span class="app-bar-title">&#128337; Global Time Clock</span>
+    <div class="app-bar-actions">
+      <button id="muteBtn"  class="icon-btn" onclick="toggleMute()"  title="Mute / Unmute">
+        &#128266;
+      </button>
+      <button id="themeBtn" class="icon-btn" onclick="toggleTheme()" title="Toggle Theme">
+        &#9728;
+      </button>
+    </div>
+  </header>
 
-    Do not add content here; this stub exists only to satisfy any tooling
-    that expects the file to be present at the repository root.
--->
+  <!-- ═══════════════════════════════════════════
+       BOTTOM NAVIGATION TAB BAR
+  ════════════════════════════════════════════ -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-tab active" data-tab="clocks"       onclick="switchTab('clocks')">
+      <span class="nav-icon">&#128337;</span>
+      <span class="nav-label">Clocks</span>
+    </button>
+    <button class="nav-tab" data-tab="dialer"              onclick="switchTab('dialer')">
+      <span class="nav-icon">&#128222;</span>
+      <span class="nav-label">Dialer</span>
+    </button>
+    <button class="nav-tab" data-tab="network"             onclick="switchTab('network')">
+      <span class="nav-icon">&#128246;</span>
+      <span class="nav-label">Network</span>
+    </button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════
+       MAIN CONTENT AREA
+  ════════════════════════════════════════════ -->
+  <main class="app-main" id="appMain">
+
+    <!-- ───────────────────────────────────────
+         TAB: CLOCKS
+    ─────────────────────────────────────────── -->
+    <section class="tab-panel active" id="tab-clocks">
+      <div class="section-header">
+        <h2 class="section-title">World Clocks</h2>
+      </div>
+      <div class="clocks-grid" id="clocksGrid">
+        <!-- Clock cards injected by app.js -->
+      </div>
+    </section>
+
+    <!-- ───────────────────────────────────────
+         TAB: DIALER
+    ─────────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-dialer">
+
+      <!-- Dialer display box -->
+      <div class="dialer-display" id="dialerDisplay">
+        <div class="dialer-number" id="dialerNumber">&#x2015;</div>
+      </div>
+
+      <!-- Live readout beneath display -->
+      <div class="dialed-number-readout" id="dialedNumberReadout">
+        <span id="readoutText"></span>
+      </div>
+
+      <!-- Call status row -->
+      <div class="call-status" id="callStatus">
+        <span id="callStatusText">Ready to dial</span>
+      </div>
+
+      <!-- Mic permission indicator -->
+      <div class="mic-permission-status" id="micPermissionStatus">
+        <span id="micStatusText">Mic: not requested</span>
+      </div>
+
+      <!-- ── Dial Pad ── -->
+      <div class="dial-pad" id="dialPad">
+        <!-- Row 1 -->
+        <button class="pad-key" onclick="dialPadPress('1')">
+          <span class="pad-digit">1</span>
+          <span class="pad-sub">&nbsp;</span>
+        </button>
+        <button class="pad-key" onclick="dialPadPress('2')">
+          <span class="pad-digit">2</span>
+          <span class="pad-sub">ABC</span>
+        </button>
+        <button class="pad-key" onclick="dialPadPress('3')">
+          <span class="pad-digit">3</span>
+          <span class="pad-sub">DEF</span>
+        </button>
+        <!-- Row 2 -->
+        <button class="pad-key" onclick="dialPadPress('4')">
+          <span class="pad-digit">4</span>
+          <span class="pad-sub">GHI</span>
+        </button>
+        <button class="pad-key" onclick="dialPadPress('5')">
+          <span class="pad-digit">5</span>
+          <span class="pad-sub">JKL</span>
+        </button>
+        <button class="pad-key" onclick="dialPadPress('6')">
+          <span class="pad-digit">6</span>
+          <span class="pad-sub">MNO</span>
+        </button>
+        <!-- Row 3 -->
+        <button class="pad-key" onclick="dialPadPress('7')">
+          <span class="pad-digit">7</span>
+          <span class="pad-sub">PQRS</span>
+        </button>
+        <button class="pad-key" onclick="dialPadPress('8')">
+          <span class="pad-digit">8</span>
+          <span class="pad-sub">TUV</span>
+        </button>
+        <button class="pad-key" onclick="dialPadPress('9')">
+          <span class="pad-digit">9</span>
+          <span class="pad-sub">WXYZ</span>
+        </button>
+        <!-- Row 4 -->
+        <button class="pad-key pad-key--symbol" onclick="dialPadPress('*')">
+          <span class="pad-digit">*</span>
+          <span class="pad-sub">&nbsp;</span>
+        </button>
+        <button class="pad-key" onclick="dialPadPress('0')">
+          <span class="pad-digit">0</span>
+          <span class="pad-sub">+</span>
+        </button>
+        <button class="pad-key pad-key--symbol" onclick="dialPadPress('#')">
+          <span class="pad-digit">#</span>
+          <span class="pad-sub">&nbsp;</span>
+        </button>
+      </div><!-- /.dial-pad -->
+
+      <!-- Call action buttons -->
+      <div class="call-actions">
+        <button class="call-btn call-btn--end"   id="callEndBtn"   onclick="endCall()"      disabled>
+          &#128308; End
+        </button>
+        <button class="call-btn call-btn--call"  id="callStartBtn" onclick="initiateCall()">
+          &#128308; Call
+        </button>
+        <button class="call-btn call-btn--clear" id="backspaceBtn" onclick="dialPadBackspace()" title="Backspace">
+          &#9003;
+        </button>
+      </div>
+
+    </section><!-- /#tab-dialer -->
+
+    <!-- ───────────────────────────────────────
+         TAB: NETWORK
+    ─────────────────────────────────────────── -->
+    <section class="tab-panel" id="tab-network">
+
+      <!-- Online / Offline status -->
+      <div class="net-status-card" id="wifiStatus">
+        <span class="net-status-icon">&#128246;</span>
+        <span class="net-status-text" id="wifiStatusText">Checking…</span>
+        <span class="net-probe-chip" id="connectivityProbeStatus">
+          <span id="probeStatusText">Probe: —</span>
+        </span>
+      </div>
+
+      <!-- Live network info (NetworkInformation API) -->
+      <div class="net-info-card">
+        <div class="net-info-title">Connection Details</div>
+        <div class="net-info-body" id="networkInfo">Loading…</div>
+      </div>
+
+      <!-- Network mode selector -->
+      <div class="net-mode-card" id="mobileNetworkPanel">
+        <div class="net-mode-title">
+          &#128246; Call Network Mode
+          <span class="net-mode-badge" id="mobileNetBadge">Auto</span>
+        </div>
+
+        <label class="net-mode-radio">
+          <input type="radio" name="netMode" value="auto"   checked onchange="setNetworkMode('auto')" />
+          <span class="net-mode-radio-label">
+            <span class="net-mode-icon">&#127758;</span>
+            <span>
+              <strong>Auto</strong>
+              <small>Use whatever is available</small>
+            </span>
+          </span>
+        </label>
+
+        <label class="net-mode-radio">
+          <input type="radio" name="netMode" value="wifi"          onchange="setNetworkMode('wifi')" />
+          <span class="net-mode-radio-label">
+            <span class="net-mode-icon">&#128225;</span>
+            <span>
+              <strong>Wi-Fi</strong>
+              <small>Prefer wireless network</small>
+            </span>
+          </span>
+        </label>
+
+        <label class="net-mode-radio">
+          <input type="radio" name="netMode" value="mobile"        onchange="setNetworkMode('mobile')" />
+          <span class="net-mode-radio-label">
+            <span class="net-mode-icon">&#128246;</span>
+            <span>
+              <strong>Mobile Data</strong>
+              <small>Prefer cellular / 4G / 3G</small>
+            </span>
+          </span>
+        </label>
+
+        <!-- Detail rows -->
+        <div class="net-detail-rows">
+          <div class="net-detail-row" id="mobileNetTypeText">Type: —</div>
+          <div class="net-detail-row" id="mobileNetEffText">Effective: —</div>
+          <div class="net-detail-row" id="mobileNetDlText">Downlink: —</div>
+          <div class="net-detail-row" id="mobileNetRttText">RTT: —</div>
+        </div>
+      </div><!-- /#mobileNetworkPanel -->
+
+      <!-- Detected network list -->
+      <div class="net-list-card">
+        <div class="net-list-title">Detected Networks</div>
+        <ul class="network-list" id="networkList">
+          <li class="network-list-item placeholder">Loading…</li>
+        </ul>
+        <button class="scan-btn" onclick="scanNetworks()">&#8635; Refresh</button>
+      </div>
+
+    </section><!-- /#tab-network -->
+
+  </main><!-- /#appMain -->
+
+  <!-- ═══════════════════════════════════════════
+       CALL OVERLAY  (shown on top when call active)
+  ════════════════════════════════════════════ -->
+  <div class="call-overlay" id="callOverlay">
+    <div class="call-overlay-number" id="overlayNumber"></div>
+    <div class="call-overlay-status" id="overlayStatus">Calling…</div>
+    <div class="call-network-badge" id="callNetworkBadge">&#127758; Auto</div>
+    <button class="call-overlay-end" onclick="endCall()">
+      &#128308; End Call
+    </button>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

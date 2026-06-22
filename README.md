@@ -1,20 +1,26 @@
-# Clockstopper
+# Global Time Clock
 
-> **Note:** The legacy web/desktop entry points (`Index.html`, `Css/Style.css`,
-> `js/app.js`) have been removed from this directory. The project is
-> **Android-only**; all active source lives under
-> [`clockstopper-droid/`](../clockstopper-droid/).
+A responsive world clock application that displays multiple time zones simultaneously.
 
-## Android project
+## Features
 
-See [`clockstopper-droid/README.md`](../clockstopper-droid/README.md) for full
-build and development instructions.
+- Live clock updates every second
+- Add custom IANA time zones
+- Remove time zones
+- Responsive mobile-friendly layout
+- Pure HTML, CSS, and JavaScript
 
-### Quick start
+## Run Locally
 
-```bash
-cd clockstopper-droid
-./gradlew assembleDebug          # build debug APK
-./gradlew test                   # run unit tests
-./gradlew connectedAndroidTest   # run instrumented tests (device/emulator required)
-```
+1. Clone the repository
+2. Open index.html in your browser
+
+## Example Time Zones
+
+- UTC
+- America/New_York
+- America/Los_Angeles
+- Europe/London
+- Europe/Paris
+- Asia/Tokyo
+- Australia/Sydney
