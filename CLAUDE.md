@@ -10,6 +10,8 @@ The **dialpad has a 80% clear glass visual style** — the keypad/dialpad area u
 
 An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe with **exponential backoff retry logic** and **status timestamps**. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends. A **network type badge** is displayed in `#networkTypeIndicator` during an active call, showing the current network type (e.g., WiFi, 4G, 3G, 2G, Cellular, or Unknown) so the user can see at a glance which network is carrying the active call. The **Backspace button supports long-press to clear** — tapping Backspace removes the last dialed digit, while pressing and holding Backspace for a defined duration (long-press threshold) clears the entire dialed number at once, providing a fast erase shortcut for mobile users. The **dark theme preference is persisted via `localStorage`** — the user's last chosen theme (dark or light) is saved to `localStorage` on each toggle and restored on page load, so the preferred theme is retained across sessions and page reloads. A **call volume indicator** is displayed during an active call, showing the current call/media volume level as a visual indicator that updates in real time when the user presses the device's hardware volume up/down buttons. A **microphone mute button** is displayed during an active call, allowing the user to mute and unmute their microphone mid-call without ending the call — muting stops the local audio track from being transmitted while keeping the call connected; the mute state is reflected visually on the button (e.g., toggled appearance or label change) and the mic track's `enabled` property is toggled on the active `MediaStream` track.
 
+**Bluetooth and wired headset audio routing** is supported — the app routes call audio output (and microphone input) through Bluetooth earbuds, Bluetooth headphones, and wired headphone jack devices when they are connected. Audio device selection uses the `HTMLAudioElement.setSinkId()` API (where supported) and the `MediaDevices.enumerateDevices()` API to detect and enumerate available audio output devices. On Android WebView, audio focus and routing is additionally managed via Android audio focus APIs exposed through the WebView bridge where available. A **audio output device selector UI** allows the user to choose between available audio output devices (earpiece, speaker, Bluetooth headset, wired headphone) during or before a call; the selected output device preference is persisted in `localStorage` and restored on page load. The app listens for `devicechange` events on `navigator.mediaDevices` to detect when Bluetooth or wired audio devices are connected or disconnected, automatically updating the device list and re-routing audio if the active output device is removed.
+
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
 A **feature test suite** has been defined and implemented, providing structured automated and manual test coverage for all major application features.
@@ -28,6 +30,9 @@ A **feature test suite** has been defined and implemented, providing structured 
 | Network Information | `navigator.connection` / `NetworkInformation` API (where available) |
 | Mobile Network Detection | `navigator.connection.type === 'cellular'` + `effectiveType` (`4g`, `3g`, `2g`) checks |
 | Audio Output | Native Web Audio API (`AudioContext`) + `HTMLAudioElement` (call audio only) |
+| Audio Output Device Routing | `HTMLAudioElement.setSinkId()` API for explicit audio sink selection; `MediaDevices.enumerateDevices()` to list available audio output devices; `navigator.mediaDevices.addEventListener('devicechange', ...)` to detect Bluetooth/wired device connect and disconnect events; selected device persisted in `localStorage` |
+| Bluetooth & Wired Headset | `enumerateDevices()` surfaces Bluetooth and wired headphone jack audio output devices by `kind === 'audiooutput'`; `setSinkId(deviceId)` routes call audio to the selected device; Android WebView audio focus bridge used where available for native Bluetooth routing |
+| Audio Device Selector UI | In-call (and pre-call) UI element listing available audio output devices; user can select earpiece, speaker, Bluetooth headset, or wired headphone; selection persisted in `localStorage`; list refreshed on `devicechange` event |
 | Microphone Input | `navigator.mediaDevices.getUserMedia()` (MediaDevices API) |
 | Microphone Mute (Mid-Call) | `MediaStreamTrack.enabled = false/true` on the active audio track of the live `MediaStream`; toggled by in-call mute button; mute state reflected visually on button; does not end the call |
 | Microphone Permission Pre-Check | `navigator.permissions.query({ name: 'microphone' })` (Permissions API) on page load; falls back to `getUserMedia` probe if Permissions API unavailable; result displayed in `#micPermissionStatus` before dialing |
@@ -40,7 +45,8 @@ A **feature test suite** has been defined and implemented, providing structured 
 | Connectivity Probe Retry | Exponential backoff scheduler in `app.js`; probe retries on failure with increasing delay intervals; backoff resets on successful probe or when `online` event fires |
 | Connectivity Status Timestamps | Each connectivity status change (online, offline, probe success, probe failure) is timestamped using `Date` and displayed in the connectivity panel UI |
 | Theme Persistence | `localStorage` key (e.g., `darkTheme` or `theme`) stores the user's theme preference; read on page load to restore state; written on every theme toggle |
-| Dialpad Glass Effect | CSS `backdrop-filter: blur()`, semi-transparent `background` (`rgba` with ~80% transparency), and subtle `border` on the keypad container produce a frosted/clear glass visual for the dialpad keys |
+| Audio Device Persistence | `localStorage` key stores the user's last selected audio output device ID; read on page load and applied if the device is still available; cleared or reset if the saved device is no longer present |
+| Dialpad Glass Effect | CSS `backdrop-filter: blur()`, semi-transparent `background` (`rgba` with ~80% transparency), and subtle `border: 1px solid rgba(255,255,255,0.15)` or similar to achieve a frosted glass appearance |
 | Dialpad Neon Under-Glow | CSS `box-shadow` and/or `filter` on the dialpad container using dark-red neon color values (`#8b0000`–`#c00020` range); glow is active by default; a CSS class toggled by mute button logic in `app.js` removes/suppresses the glow when mute is active, restores it when mute is off |
 | Typography | System/sans-serif fonts only — no decorative, Old English, blackletter, or display fonts used anywhere in the app |
 | Android Packaging | Android WebView wrapper (WebView-based native Android app) |
@@ -55,9 +61,9 @@ A **feature test suite** has been defined and implemented, providing structured 
 clockstopper/
 ├── Index.html          # Entry point — main HTML shell
 ├── Css/
-│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles, call volume indicator styles, mic mute button styles (active/muted state visual toggle), dialpad glass effect (backdrop-filter/rgba), dialpad dark-red neon under-glow (box-shadow/filter), mute-active neon-off CSS class
+│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles, call volume indicator styles, mic mute button styles (active/muted state visual toggle), dialpad glass effect (backdrop-filter/rgba), dialpad dark-red neon under-glow (box-shadow/filter), mute-active neon-off CSS class, audio device selector UI styles, Bluetooth/wired headset device list styles
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle (including neon glow class toggle on dialpad container), connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic, dark theme localStorage persistence, call volume indicator logic, mic mute (mid-call) toggle logic
+│   └── app.js          # All application logic, theme toggle, mute toggle (including neon glow class toggle on dialpad container), connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic, dark theme localStorage persistence, call volume indicator logic, mic mute (mid-call) toggle logic, audio output device enumeration (enumerateDevices), Bluetooth and wired headset detection and routing (setSinkId), devicechange event listener, audio device selector UI logic, audio device localStorage persistence
 ├── tests/
 │   ├── runner.js        # Vanilla JS test runner — discovers and executes all feature test files, reports pass/fail counts, requires no external framework
 │   ├── runner.html      # Browser-based test harness page — loads runner.js and all test files, displays results in-browser
@@ -75,38 +81,12 @@ clockstopper/
 │       ├── mobileNetwork.test.js       # Mobile network detection and selection tests
 │       ├── callVolume.test.js          # Call volume indicator display and hardware key tests
 │       ├── callAudio.test.js           # Outgoing call audio routing and MediaDevices API tests
-│       └── micMute.test.js             # Mic mute button toggle, track enabled state, and in-call mute UI tests
+│       ├── micMute.test.js             # Mic mute button toggle, track enabled state, and in-call mute UI tests
+│       └── audioDeviceRouting.test.js  # Bluetooth/wired headset detection, setSinkId routing, devicechange event, and audio device selector UI tests
 ├── README.md           # Project documentation
 └── .gitignore          # Web-project-appropriate ignore rules (see .gitignore conventions below)
 ```
 
 > **Note:** The `.gitignore` file has been updated to contain **web-project-appropriate rules** rather than Android/Gradle/IntelliJ patterns. Since the web app source is the primary repository content and Android packaging is a separate concern, the `.gitignore` now targets artifacts relevant to the web layer (e.g., OS metadata files, editor/IDE config, browser test artifacts) rather than Android build outputs. Any Android/Gradle/IntelliJ exclusion patterns belong in the Android wrapper project's own `.gitignore`, not in this web source repository.
 
-> **Test suite note:** The `tests/` directory and all contents are part of the web app source layer and are committed to the repository. Tests are run in-browser via `tests/runner.html` or by executing `runner.js` in a compatible JS environment. No Node.js, npm, or build toolchain is required to run the test suite.
-
----
-
-## Dialpad Glass & Neon Glow Design Conventions
-
-The dialpad visual treatment follows two layered effects:
-
-### Glass Dialpad
-- The keypad container and individual key buttons use an **~80% clear/transparent glass style**: `background: rgba(255,255,255,0.08)` (or equivalent dark-glass tone), `backdrop-filter: blur(Npx)`, and a thin `border: 1px solid rgba(255,255,255,0.15)` or similar to achieve a frosted glass appearance.
-- Keys remain legible against the dark background while the glass effect gives depth and a premium mobile UI feel.
-
-### Dark-Red Neon Under-Glow
-- A **bright dark-red neon glow** effect is rendered beneath/around the dialpad container using CSS `box-shadow` with spread and blur values, and/or `filter: drop-shadow()`, using colors in the `#8b0000`–`#c00020` range (dark red neon).
-- The glow is **active by default** whenever the dialer is displayed.
-- When the **mute button is toggled on**, `app.js` adds a CSS class (e.g., `.muted` or `.neon-off`) to the dialpad container. This class sets `box-shadow: none` (or overrides the neon shadow to transparent/zero), turning off the red neon glow as a visual mute indicator.
-- When mute is toggled off, the class is removed and the glow restores.
-- This pattern means **mute state has two visual signals**: the mute button's own appearance change, and the dialpad neon glow extinguishing.
-
----
-
-## .gitignore Conventions
-
-The `.gitignore` is maintained as a **web-project-appropriate** ignore file. Key conventions:
-
-- **Included (ignored):** OS metadata files (`.DS_Store`, `Thumbs.db`), editor/IDE configs (`.vscode/`, `.idea/`), temporary files, local environment overrides, and any browser test output artifacts.
-- **Excluded from ignore rules:** Android build outputs, Gradle caches, IntelliJ Android Studio artifacts — these belong in the Android wrapper project's own `.gitignore`, not here.
-- The `.gitignore` should not reference Android, Gradle,
+> **Test suite note:** The `tests
