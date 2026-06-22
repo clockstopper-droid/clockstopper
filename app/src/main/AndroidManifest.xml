@@ -5,35 +5,19 @@
     Declares the application package, required permissions, and the single
     launcher Activity that hosts the Jetpack Navigation graph.
 
-    SDK levels are declared here as <uses-sdk> for documentation clarity, but
-    the authoritative values live in app/build.gradle (compileSdk / minSdk /
-    targetSdk).  The Gradle-supplied values take precedence at build time.
-
     Permissions
     ───────────
-    INTERNET  — required if the stopwatch ever loads remote assets or reports
-                analytics; declared here as a forward-compatibility measure and
-                to satisfy dependency libraries that inspect the manifest.
-    WAKE_LOCK — prevents the CPU from sleeping while the stopwatch is actively
-                counting; used via WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                inside MainActivity.
-
-    Activity configuration
-    ──────────────────────
-    android:screenOrientation="portrait"
-        Locks the UI to portrait.  A stopwatch's controls are designed for a
-        tall layout; landscape is not a supported use-case.
-
-    android:configChanges="keyboard|keyboardHidden|orientation|screenSize|…"
-        MainActivity handles these changes itself so the system does NOT
-        destroy/recreate the Activity — and therefore does NOT reload the
-        Fragment back-stack — when the soft keyboard appears or the device is
-        rotated while the stopwatch is running.
-
-    android:windowSoftInputMode="adjustResize"
-        The window viewport shrinks to make room for the soft keyboard rather
-        than being obscured by it (relevant if a lap-note input field is ever
-        added).
+    INTERNET             — required if the stopwatch ever loads remote assets.
+    WAKE_LOCK            — prevents CPU sleep while stopwatch is active.
+    RECORD_AUDIO         — microphone access for call audio via MediaDevices API.
+    MODIFY_AUDIO_SETTINGS— required to route audio to Bluetooth / wired headset
+                           and to request audio focus via AudioManager.
+    BLUETOOTH            — legacy Bluetooth permission (API < 31).
+    BLUETOOTH_CONNECT    — runtime Bluetooth permission (API 31+); needed to
+                           enumerate connected Bluetooth audio devices and
+                           communicate with AudioDeviceCallback results.
+    MANAGE_MEDIA         — allows the app to manage the media session and
+                           respond to Bluetooth headset media-button events.
 -->
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -43,11 +27,40 @@
     <!--  Permissions                                                         -->
     <!-- ─────────────────────────────────────────────────────────────────── -->
 
-    <!-- Network access (remote assets, analytics, future cloud sync) -->
+    <!-- Network access -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Screen / CPU wake-lock while the stopwatch is running -->
+    <!-- Screen / CPU wake-lock while running -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Microphone — for WebView MediaDevices.getUserMedia() call audio -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Audio routing — required to switch output to BT / wired headset -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- Bluetooth (API < 31) -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+
+    <!-- Bluetooth runtime permissions (API 31+) -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_CONNECT"
+        android:minSdkVersion="31" />
+
+    <!-- Media session / headset button handling -->
+    <uses-permission android:name="android.permission.MANAGE_MEDIA" />
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!--  Hardware feature declarations (not required; soft declarations)     -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <uses-feature
+        android:name="android.hardware.bluetooth"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
 
     <!-- ─────────────────────────────────────────────────────────────────── -->
     <!--  Application                                                          -->
@@ -65,8 +78,7 @@
         <!--
             MainActivity
             ────────────
-            The sole Activity in this single-Activity application.  It hosts
-            the NavHostFragment which owns the entire navigation back-stack.
+            The sole Activity in this single-Activity application.
 
             exported="true" is required on API 31+ for Activities that carry
             a MAIN / LAUNCHER intent-filter.
@@ -78,13 +90,34 @@
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Designate this Activity as the application entry-point -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!--
+                Receive Bluetooth headset media-button broadcasts so that
+                play/pause/next/previous hardware keys on BT headsets are
+                delivered to this Activity when the app holds an active
+                MediaSession.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+
         </activity>
+
+        <!--
+            MediaButtonReceiver — forwards headset/Bluetooth media button
+            intents to the active MediaSessionCompat so the JS layer can
+            receive play/pause/end-call commands from BT headset buttons.
+        -->
+        <receiver android:name="androidx.media.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
 
     </application>
 
