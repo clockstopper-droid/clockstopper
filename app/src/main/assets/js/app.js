@@ -74,9 +74,10 @@ function applyTheme(dark) {
   if (btn) btn.textContent = dark ? '☀ Light' : '☾ Dark';
 }
 
+// Restore saved preference on load
 (function initTheme() {
   const saved = localStorage.getItem(THEME_KEY);
-  applyTheme(saved === null ? true : saved === 'true');
+  applyTheme(saved === null ? true : saved === 'true'); // default dark
 })();
 
 function toggleTheme() {
@@ -138,10 +139,12 @@ function clearDialed() {
   updateDialerDisplay();
 }
 
+// Wire keypad buttons
 document.querySelectorAll('[data-digit]').forEach(btn => {
   btn.addEventListener('click', () => dialDigit(btn.dataset.digit));
 });
 
+// Physical / virtual keyboard input
 document.addEventListener('keydown', e => {
   if (/^[0-9*#+]$/.test(e.key)) {
     dialDigit(e.key);
@@ -157,6 +160,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// Backspace long-press clear
 const backspaceBtn = document.getElementById('backspaceBtn');
 if (backspaceBtn) {
   const LONG_PRESS_MS = 600;
@@ -173,7 +177,7 @@ if (backspaceBtn) {
     if (longPressTimer !== null) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
-      if (!didClear) clearLastDigit();
+      if (!didClear) clearLastDigit(); // short tap
     }
   }
 
@@ -188,9 +192,9 @@ if (backspaceBtn) {
 
 let callerIdName = '';
 
-const callerIdInput   = document.getElementById('callerIdInput');
+const callerIdInput  = document.getElementById('callerIdInput');
 const callerIdSaveBtn = document.getElementById('callerIdSave');
-const callerIdStatus  = document.getElementById('callerIdStatus');
+const callerIdStatus = document.getElementById('callerIdStatus');
 
 if (callerIdSaveBtn) {
   callerIdSaveBtn.addEventListener('click', () => {
@@ -211,14 +215,20 @@ const micPermissionStatus = document.getElementById('micPermissionStatus');
 
 async function checkMicPermission() {
   if (!micPermissionStatus) return;
+
+  // Prefer the Permissions API
   if (navigator.permissions) {
     try {
       const result = await navigator.permissions.query({ name: 'microphone' });
       updateMicPermissionUI(result.state);
       result.onchange = () => updateMicPermissionUI(result.state);
       return;
-    } catch (_) {}
+    } catch (_) {
+      // Fall through to getUserMedia probe
+    }
   }
+
+  // Fallback: brief getUserMedia probe
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(t => t.stop());
@@ -231,15 +241,16 @@ async function checkMicPermission() {
 function updateMicPermissionUI(state) {
   if (!micPermissionStatus) return;
   const map = {
-    granted: { text: '🎤 Microphone access granted.',                           cls: 'perm-granted' },
+    granted: { text: '🎤 Microphone access granted.',           cls: 'perm-granted' },
     denied:  { text: '🚫 Microphone access denied. Check your browser / app settings.', cls: 'perm-denied'  },
-    prompt:  { text: '❓ Microphone permission not yet granted.',                cls: 'perm-prompt'  },
+    prompt:  { text: '❓ Microphone permission not yet granted.', cls: 'perm-prompt'  },
   };
   const info = map[state] || map['prompt'];
   micPermissionStatus.textContent = info.text;
   micPermissionStatus.className   = `mic-permission-status ${info.cls}`;
 }
 
+// Listen for permission results dispatched by Android native layer
 window.addEventListener('micPermissionGranted', () => updateMicPermissionUI('granted'));
 window.addEventListener('micPermissionDenied',  () => updateMicPermissionUI('denied'));
 
@@ -249,18 +260,18 @@ checkMicPermission();
 // 7. OUTGOING CALL AUDIO + ANDROID AUDIO BRIDGE
 // ═══════════════════════════════════════════════════════════════════════════
 
-let callActive   = false;
-let localStream  = null;
-let audioContext = null;
-let callGainNode = null;
-let micMuted     = false;
+let callActive       = false;
+let localStream      = null;
+let audioContext     = null;
+let callGainNode     = null;
+let micMuted         = false;
 
 // ── Android Audio Bridge ─────────────────────────────────────────────────
 
 /**
  * Notify the Android native layer that a call has started.
  * The native layer will:
- *   • Request audio focus (AudioManager)
+ *   • Request audio focus
  *   • Route audio to Bluetooth SCO / A2DP earbuds or wired headset
  *   • Activate the MediaSession for headset button events
  */
@@ -283,6 +294,7 @@ function notifyAndroidCallEnded() {
 /**
  * Query the Android native layer for the current audio output device label
  * (e.g. "Bluetooth (HFP)", "Wired Headset", "Speaker").
+ * Returns null if not running inside the Android WebView wrapper.
  */
 function getAndroidOutputDevice() {
   if (window.AndroidAudio && typeof window.AndroidAudio.getCurrentOutputDevice === 'function') {
@@ -291,7 +303,10 @@ function getAndroidOutputDevice() {
   return null;
 }
 
-/** Returns true when a Bluetooth or wired headset is connected (Android bridge). */
+/**
+ * Query whether a Bluetooth or wired headset is currently connected
+ * according to the Android native layer.
+ */
 function isAndroidHeadsetConnected() {
   if (window.AndroidAudio && typeof window.AndroidAudio.isHeadsetConnected === 'function') {
     return window.AndroidAudio.isHeadsetConnected();
@@ -299,7 +314,7 @@ function isAndroidHeadsetConnected() {
   return false;
 }
 
-// ── Audio-device events from Android ─────────────────────────────────────
+// ── Audio output device change events from Android ───────────────────────
 
 window.addEventListener('audioDeviceConnected', e => {
   const name = e.detail && e.detail.name ? e.detail.name : 'Headset';
@@ -323,10 +338,11 @@ window.addEventListener('audioOutputRouted', e => {
   }
 });
 
-window.addEventListener('bluetoothScoConnected',    () => {
+window.addEventListener('bluetoothScoConnected', () => {
   showCallStatus('🦷 Bluetooth HFP connected — audio routed to headset.');
   updateNetworkTypeBadge();
 });
+
 window.addEventListener('bluetoothScoDisconnected', () => {
   showCallStatus('🦷 Bluetooth HFP disconnected — audio routed to speaker.');
   updateNetworkTypeBadge();
@@ -334,20 +350,52 @@ window.addEventListener('bluetoothScoDisconnected', () => {
 
 // ── Headset MediaSession hardware-button events ───────────────────────────
 
-window.addEventListener('mediaButtonPlay',  () => { if (!callActive && dialedNumber.trim()) initiateCall(); });
-window.addEventListener('mediaButtonPause', () => { if (callActive) toggleMicMute(); });
-window.addEventListener('mediaButtonStop',  () => { if (callActive) endCall(); });
+window.addEventListener('mediaButtonPlay', () => {
+  if (!callActive && dialedNumber.trim()) initiateCall();
+});
 
-window.addEventListener('audioFocusLost',   () => { if (callActive && !micMuted) toggleMicMute(); });
-window.addEventListener('audioFocusGained', () => { if (callActive && micMuted)  toggleMicMute(); });
+window.addEventListener('mediaButtonPause', () => {
+  if (callActive) toggleMicMute();
+});
+
+window.addEventListener('mediaButtonStop', () => {
+  if (callActive) endCall();
+});
+
+window.addEventListener('audioFocusLost', () => {
+  if (callActive) {
+    // Optionally pause/mute — keep call connected but mute mic
+    if (!micMuted) toggleMicMute();
+  }
+});
+
+window.addEventListener('audioFocusGained', () => {
+  if (callActive && micMuted) toggleMicMute();
+});
 
 // ── AudioContext helpers ──────────────────────────────────────────────────
 
+function getAudioContext() {
+  if (!audioContext) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) audioContext = new Ctx();
+  }
+  return audioContext;
+}
+
+/**
+ * Configure the AudioContext latency hint for voice communication.
+ * On browsers that support it, this hints to the platform to use the
+ * telephony/voice audio path rather than the media/music path.
+ */
 function createCallAudioContext() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return null;
-  try { return new Ctx({ latencyHint: 'interactive', sampleRate: 16000 }); }
-  catch (_) { return new Ctx(); }
+  try {
+    return new Ctx({ latencyHint: 'interactive', sampleRate: 16000 });
+  } catch (_) {
+    return new Ctx();
+  }
 }
 
 // ── Call initiation / teardown ────────────────────────────────────────────
@@ -355,7 +403,10 @@ function createCallAudioContext() {
 async function initiateCall() {
   if (callActive) return;
   const number = dialedNumber.trim();
-  if (!number) { showCallStatus('Enter a number to dial.'); return; }
+  if (!number) {
+    showCallStatus('Enter a number to dial.');
+    return;
+  }
 
   showCallStatus('Requesting microphone…');
 
@@ -366,6 +417,9 @@ async function initiateCall() {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl:  true,
+        // Request the voice-communication audio source on Android
+        // (falls back silently on platforms that don't support it)
+        ...(isAndroid() ? { googAudioMirroring: false } : {}),
       },
       video: false,
     });
@@ -378,29 +432,33 @@ async function initiateCall() {
     return;
   }
 
-  localStream  = stream;
-  callActive   = true;
-  micMuted     = false;
+  localStream = stream;
+  callActive  = true;
+  micMuted    = false;
 
-  audioContext = createCallAudioContext();
+  // Build AudioContext for call audio output
+  audioContext  = createCallAudioContext();
   if (audioContext) {
-    callGainNode = audioContext.createGain();
+    callGainNode  = audioContext.createGain();
     callGainNode.gain.value = 1.0;
     const src = audioContext.createMediaStreamSource(stream);
     src.connect(callGainNode);
     callGainNode.connect(audioContext.destination);
-    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {});
+    }
   }
 
-  // Notify Android to route audio to BT / headset
+  // ── Notify Android to route audio to BT/headset ──────────────────
   notifyAndroidCallStarted();
 
+  // Update UI
   updateCallUI(true);
   startCallTimer();
   updateNetworkTypeBadge();
   showCallStatus(`Calling ${number}…`);
 
-  // Update badge with native device label if available
+  // Populate in-call device badge from Android bridge (if available)
   const nativeDevice = getAndroidOutputDevice();
   if (nativeDevice) updateNetworkTypeBadgeWithLabel(nativeDevice);
 }
@@ -409,10 +467,20 @@ function endCall() {
   if (!callActive) return;
   callActive = false;
 
-  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-  if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; callGainNode = null; }
+  // Stop local mic stream
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
 
-  // Notify Android — restore normal audio routing
+  // Tear down AudioContext
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext  = null;
+    callGainNode  = null;
+  }
+
+  // ── Notify Android call is over — restore normal audio routing ──
   notifyAndroidCallEnded();
 
   stopCallTimer();
@@ -427,12 +495,13 @@ function showCallStatus(msg) {
 }
 
 function updateCallUI(active) {
-  const callBtn     = document.getElementById('callBtn');
-  const endCallBtn  = document.getElementById('endCallBtn');
+  const callBtn    = document.getElementById('callBtn');
+  const endCallBtn = document.getElementById('endCallBtn');
   const inCallCtrls = document.getElementById('inCallControls');
-  if (callBtn)     callBtn.style.display     = active ? 'none' : '';
-  if (endCallBtn)  endCallBtn.style.display  = active ? ''     : 'none';
-  if (inCallCtrls) inCallCtrls.style.display = active ? ''     : 'none';
+
+  if (callBtn)    callBtn.style.display    = active ? 'none'  : '';
+  if (endCallBtn) endCallBtn.style.display = active ? ''      : 'none';
+  if (inCallCtrls) inCallCtrls.style.display = active ? ''   : 'none';
 }
 
 const callBtn    = document.getElementById('callBtn');
@@ -448,12 +517,15 @@ let callStartTime   = 0;
 let callTimerHandle = null;
 
 function startCallTimer() {
-  callStartTime   = Date.now();
+  callStartTime = Date.now();
   callTimerHandle = setInterval(tickCallTimer, 500);
 }
 
 function stopCallTimer() {
-  if (callTimerHandle) { clearInterval(callTimerHandle); callTimerHandle = null; }
+  if (callTimerHandle) {
+    clearInterval(callTimerHandle);
+    callTimerHandle = null;
+  }
 }
 
 function tickCallTimer() {
@@ -461,7 +533,10 @@ function tickCallTimer() {
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s = elapsed % 60;
-  showCallStatus(h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`);
+  const fmt = h > 0
+    ? `${pad2(h)}:${pad2(m)}:${pad2(s)}`
+    : `${pad2(m)}:${pad2(s)}`;
+  showCallStatus(fmt);
 }
 
 function pad2(n) { return String(n).padStart(2, '0'); }
@@ -473,18 +548,26 @@ function pad2(n) { return String(n).padStart(2, '0'); }
 function updateNetworkTypeBadge() {
   const el = document.getElementById('networkTypeIndicator');
   if (!el) return;
-  if (!callActive) { el.style.display = 'none'; return; }
 
-  // Prefer Android bridge device label
+  if (!callActive) {
+    el.style.display = 'none';
+    return;
+  }
+
+  // Check if Android native layer has a headset label to show
   const nativeDevice = getAndroidOutputDevice();
-  if (nativeDevice) { updateNetworkTypeBadgeWithLabel(nativeDevice); return; }
+  if (nativeDevice) {
+    updateNetworkTypeBadgeWithLabel(nativeDevice);
+    return;
+  }
 
+  // Fall back to network connection info
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   let label = 'Unknown';
-  if (!navigator.onLine) {
+  if (navigator.onLine === false) {
     label = 'Offline';
   } else if (conn) {
-    if (conn.type === 'wifi') label = 'WiFi';
+    if (conn.type === 'wifi')     label = 'WiFi';
     else if (conn.type === 'cellular' || ['4g','3g','2g','slow-2g'].includes(conn.effectiveType)) {
       label = (conn.effectiveType || conn.type || 'Cellular').toUpperCase();
     } else if (conn.type) {
@@ -507,16 +590,18 @@ function updateNetworkTypeBadgeWithLabel(label) {
   el.style.display = callActive ? '' : 'none';
 }
 
-if (navigator.connection) navigator.connection.addEventListener('change', updateNetworkTypeBadge);
+if (navigator.connection) {
+  navigator.connection.addEventListener('change', updateNetworkTypeBadge);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 10. CONNECTIVITY PANEL
+// 10. CONNECTIVITY PANEL — probe, exponential back-off, timestamps
 // ═══════════════════════════════════════════════════════════════════════════
 
-const PROBE_URL        = 'https://www.google.com/generate_204';
-const PROBE_TIMEOUT_MS = 5000;
-const BACKOFF_BASE_MS  = 2000;
-const BACKOFF_MAX_MS   = 60000;
+const PROBE_URL         = 'https://www.google.com/generate_204';
+const PROBE_TIMEOUT_MS  = 5000;
+const BACKOFF_BASE_MS   = 2000;
+const BACKOFF_MAX_MS    = 60000;
 
 let probeBackoffDelay = BACKOFF_BASE_MS;
 let probeTimer        = null;
@@ -527,7 +612,7 @@ function connectivityTimestamp() {
   }).format(new Date());
 }
 
-function updateConnectivityUI(online, message) {
+function updateConnectivityUI(online, message, isProbeResult) {
   const statusEl    = document.getElementById('connectivityStatus');
   const timestampEl = document.getElementById('connectivityTimestamp');
   if (statusEl) {
@@ -541,13 +626,13 @@ function updateConnectivityUI(online, message) {
 
 async function probeConnectivity() {
   try {
-    const ctrl     = new AbortController();
+    const ctrl = new AbortController();
     const timeoutId = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
-    await fetch(PROBE_URL, { method: 'HEAD', mode: 'no-cors', signal: ctrl.signal });
+    const resp = await fetch(PROBE_URL, { method: 'HEAD', mode: 'no-cors', signal: ctrl.signal });
     clearTimeout(timeoutId);
-    probeBackoffDelay = BACKOFF_BASE_MS;
+    probeBackoffDelay = BACKOFF_BASE_MS; // reset on success
     updateConnectivityUI(true, 'Probe OK');
-  } catch (_) {
+  } catch (err) {
     updateConnectivityUI(false, 'Probe failed');
     probeBackoffDelay = Math.min(probeBackoffDelay * 2, BACKOFF_MAX_MS);
   } finally {
@@ -560,10 +645,20 @@ function scheduleNextProbe() {
   probeTimer = setTimeout(probeConnectivity, probeBackoffDelay);
 }
 
-window.addEventListener('online',  () => { updateConnectivityUI(true,  'Browser online event'); probeBackoffDelay = BACKOFF_BASE_MS; probeConnectivity(); });
-window.addEventListener('offline', () => { updateConnectivityUI(false, 'Browser offline event'); scheduleNextProbe(); });
+window.addEventListener('online',  () => {
+  updateConnectivityUI(true, 'Browser online event');
+  probeBackoffDelay = BACKOFF_BASE_MS;
+  probeConnectivity();
+});
+window.addEventListener('offline', () => {
+  updateConnectivityUI(false, 'Browser offline event');
+  scheduleNextProbe();
+});
 
+// Initial probe
 probeConnectivity();
+
+// ── Available networks list (Network Information API) ────────────────────
 
 function updateAvailableNetworks() {
   const listEl = document.getElementById('networkList');
@@ -572,11 +667,12 @@ function updateAvailableNetworks() {
   if (!conn) { listEl.innerHTML = '<li>Network information not available in this browser.</li>'; return; }
 
   const entries = [];
-  if (conn.type)             entries.push(`Type: ${conn.type}`);
-  if (conn.effectiveType)    entries.push(`Effective: ${conn.effectiveType.toUpperCase()}`);
-  if (conn.downlink)         entries.push(`Downlink: ${conn.downlink} Mbps`);
+  if (conn.type)          entries.push(`Type: ${conn.type}`);
+  if (conn.effectiveType) entries.push(`Effective: ${conn.effectiveType.toUpperCase()}`);
+  if (conn.downlink)      entries.push(`Downlink: ${conn.downlink} Mbps`);
   if (conn.rtt !== undefined) entries.push(`RTT: ${conn.rtt} ms`);
 
+  // Add connected headset info from Android bridge
   const nativeDevice = getAndroidOutputDevice();
   if (nativeDevice) entries.push(`Audio output: ${nativeDevice}`);
 
@@ -592,14 +688,16 @@ updateAvailableNetworks();
 // 11. MOBILE NETWORK DETECTION & SELECTION
 // ═══════════════════════════════════════════════════════════════════════════
 
-let preferMobileNetwork   = false;
+let preferMobileNetwork = false;
+
 const mobileNetworkToggle = document.getElementById('mobileNetworkToggle');
 const mobileNetworkStatus = document.getElementById('mobileNetworkStatus');
 
 function detectMobileNetwork() {
   const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
   if (!conn) return false;
-  return conn.type === 'cellular' || ['4g','3g','2g','slow-2g'].includes(conn.effectiveType);
+  return conn.type === 'cellular' ||
+    ['4g', '3g', '2g', 'slow-2g'].includes(conn.effectiveType);
 }
 
 function updateMobileNetworkUI() {
@@ -628,18 +726,26 @@ const volumeIndicator = document.getElementById('callVolumeIndicator');
 
 function updateVolumeIndicator(volume) {
   if (!volumeIndicator || !callActive) return;
-  volumeIndicator.textContent   = `🔊 ${Math.round(volume * 100)}%`;
+  const pct = Math.round(volume * 100);
+  volumeIndicator.textContent   = `🔊 ${pct}%`;
   volumeIndicator.style.display = '';
 }
 
+// Hardware volume keys (Android WebView fires these as key events)
 document.addEventListener('keydown', e => {
   if (!callActive) return;
   if (e.key === 'VolumeUp' || e.key === 'AudioVolumeUp') {
     e.preventDefault();
-    if (callGainNode) { callGainNode.gain.value = Math.min(1.0, callGainNode.gain.value + 0.1); updateVolumeIndicator(callGainNode.gain.value); }
+    if (callGainNode) {
+      callGainNode.gain.value = Math.min(1.0, callGainNode.gain.value + 0.1);
+      updateVolumeIndicator(callGainNode.gain.value);
+    }
   } else if (e.key === 'VolumeDown' || e.key === 'AudioVolumeDown') {
     e.preventDefault();
-    if (callGainNode) { callGainNode.gain.value = Math.max(0, callGainNode.gain.value - 0.1); updateVolumeIndicator(callGainNode.gain.value); }
+    if (callGainNode) {
+      callGainNode.gain.value = Math.max(0, callGainNode.gain.value - 0.1);
+      updateVolumeIndicator(callGainNode.gain.value);
+    }
   }
 });
 
@@ -654,7 +760,7 @@ function toggleMicMute() {
   micMuted = !micMuted;
   localStream.getAudioTracks().forEach(track => { track.enabled = !micMuted; });
   if (micMuteBtn) {
-    micMuteBtn.textContent = micMuted ? '🎤 Unmute Mic' : '🎤 Mute Mic';
+    micMuteBtn.textContent     = micMuted ? '🎤 Unmute Mic' : '🎤 Mute Mic';
     micMuteBtn.classList.toggle('muted', micMuted);
     micMuteBtn.setAttribute('aria-pressed', String(micMuted));
   }
@@ -664,7 +770,10 @@ function toggleMicMute() {
 if (micMuteBtn) micMuteBtn.addEventListener('click', toggleMicMute);
 
 // ═══════════════════════════════════════════════════════════════════════════
-// UTILITY
+// UTILITY HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function isAndroid() { return /Android/i.test(navigator.userAgent); }
+/** Returns true when running inside an Android WebView */
+function isAndroid() {
+  return /Android/i.test(navigator.userAgent);
+}

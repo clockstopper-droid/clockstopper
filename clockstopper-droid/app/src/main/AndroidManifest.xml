@@ -4,8 +4,31 @@
     <!-- Internet permission required for any remote resources loaded by the WebView -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Keep screen on while the stopwatch is running -->
+    <!-- Keep screen on while the dialer / stopwatch is running -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Microphone — for WebView MediaDevices.getUserMedia() call audio -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Audio routing — required to switch output to BT / wired headset -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- Bluetooth (API < 31) -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+
+    <!-- Bluetooth runtime permissions (API 31+) -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_CONNECT"
+        android:minSdkVersion="31" />
+
+    <!-- Media session / headset button handling -->
+    <uses-permission android:name="android.permission.MANAGE_MEDIA" />
+
+    <!-- Hardware feature declarations (soft — not required for install) -->
+    <uses-feature android:name="android.hardware.bluetooth"   android:required="false" />
+    <uses-feature android:name="android.hardware.microphone"  android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -20,13 +43,10 @@
             Root launcher Activity.
 
             android:configChanges — we handle orientation and keyboard-availability
-            ourselves so the WebView is NOT recreated on those events (avoids a
-            full page reload every time the soft keyboard appears / the device
-            is rotated while the stopwatch is running).
+            ourselves so the WebView is NOT recreated on those events.
 
             android:windowSoftInputMode="adjustResize" — the WebView viewport
-            shrinks to make room for the soft keyboard rather than being
-            obscured by it.
+            shrinks to make room for the soft keyboard.
         -->
         <activity
             android:name=".MainActivity"
@@ -35,13 +55,29 @@
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Designate this Activity as the application entry-point -->
+            <!-- Application entry-point -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Receive Bluetooth headset media-button broadcasts -->
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+
         </activity>
+
+        <!--
+            MediaButtonReceiver — forwards headset/Bluetooth media button
+            intents to the active MediaSessionCompat.
+        -->
+        <receiver android:name="androidx.media.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
 
     </application>
 
