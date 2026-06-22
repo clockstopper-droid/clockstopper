@@ -8,14 +8,15 @@
 </head>
 <body class="dark">
 
-  <!-- ── Controls ─────────────────────────────────────────── -->
-  <div id="controls">
-    <button id="themeToggle">☀ Light Mode</button>
-    <button id="muteBtn" data-muted="false">🔔 Mute</button>
+<div class="app-container">
+
+  <!-- ── Top bar ────────────────────────────────────────── -->
+  <div class="top-bar">
+    <button id="themeToggle" class="btn-secondary">☀ Light Mode</button>
   </div>
 
-  <!-- ── World Clocks ──────────────────────────────────────── -->
-  <section id="clocksPanel">
+  <!-- ── World clocks ───────────────────────────────────── -->
+  <section class="clocks-section" aria-label="World clocks">
     <div class="clock-card">
       <span class="clock-label">Eastern</span>
       <span class="clock-time" id="clockEastern">--:--:-- --</span>
@@ -30,79 +31,112 @@
     </div>
   </section>
 
-  <!-- ── Connectivity Panel ────────────────────────────────── -->
-  <section id="connectivityPanel">
-    <div id="networkInfo">Network: detecting…</div>
-    <div id="connectivityStatus">Checking…</div>
-    <div id="connectivityTimestamp"></div>
+  <!-- ── Connectivity panel ─────────────────────────────── -->
+  <section class="connectivity-panel" aria-label="Connectivity status">
+    <div>
+      <span id="connectivityStatus">Checking…</span>
+      <span id="connectivityTimestamp"></span>
+    </div>
+    <div id="networkInfo"></div>
 
-    <!-- Mobile network option (shown only when cellular detected) -->
-    <div id="mobileNetworkOption" style="display:none">
-      <button id="mobileNetworkBtn">📶 Mobile Network: OFF</button>
+    <!-- Mobile network option (shown only when cellular is detected) -->
+    <div id="mobileNetworkOption">
+      <button id="mobileNetworkBtn" class="btn-secondary">📶 Mobile Network: OFF</button>
     </div>
   </section>
 
-  <!-- ── Mic Permission Status ─────────────────────────────── -->
-  <div id="micPermissionStatus" class="mic-status mic-prompt">
-    🎤 Microphone: checking…
+  <!-- ── Microphone permission status ───────────────────── -->
+  <div id="micPermissionStatus" class="mic-status">
+    🎤 Microphone: Checking…
   </div>
 
-  <!-- ── Caller ID Name ────────────────────────────────────── -->
-  <section id="callerIdSection">
-    <label for="callerIdInput">Caller ID Name:</label>
-    <input id="callerIdInput" type="text" placeholder="Your display name" />
-    <button id="saveCallerIdBtn">Save</button>
+  <!-- ── Caller ID name ─────────────────────────────────── -->
+  <section class="caller-id-section" aria-label="Caller ID name">
+    <label for="callerIdInput" style="font-size:0.85rem;opacity:0.7;">
+      Caller ID Name
+    </label>
+    <input id="callerIdInput" type="text"
+           placeholder="Enter your display name…"
+           autocomplete="off" />
+    <button id="saveCallerIdBtn" class="btn-primary">Save Name</button>
     <div id="callerIdDisplay">Caller ID: (not set)</div>
   </section>
 
-  <!-- ── Dialer ─────────────────────────────────────────────── -->
-  <section id="dialerSection">
-    <!-- Number display box -->
-    <div id="dialDisplay" class="dial-display"></div>
-    <!-- Live readout -->
-    <div id="dialReadout" class="dial-readout">Enter a number</div>
+  <!-- ── Dial display ───────────────────────────────────── -->
+  <div id="dialDisplay" aria-label="Number being dialed" aria-live="polite"> </div>
+  <div id="dialReadout" aria-live="polite">Enter a number</div>
 
-    <!-- Keypad -->
-    <div id="keypad">
-      <button class="dial-key" data-digit="1">1</button>
-      <button class="dial-key" data-digit="2">2</button>
-      <button class="dial-key" data-digit="3">3</button>
-      <button class="dial-key" data-digit="4">4</button>
-      <button class="dial-key" data-digit="5">5</button>
-      <button class="dial-key" data-digit="6">6</button>
-      <button class="dial-key" data-digit="7">7</button>
-      <button class="dial-key" data-digit="8">8</button>
-      <button class="dial-key" data-digit="9">9</button>
-      <button class="dial-key" data-digit="*">*</button>
-      <button class="dial-key" data-digit="0">0</button>
-      <button class="dial-key" data-digit="#">#</button>
-      <button class="dial-key" data-digit="+">+</button>
-      <button id="backspaceBtn" class="dial-key">⌫</button>
-    </div>
+  <!-- ── Call status / timer ────────────────────────────── -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+    <span id="callStatus" aria-live="assertive"></span>
+    <span id="networkTypeIndicator" aria-label="Active network type"></span>
+    <span id="callVolumeIndicator" aria-label="Call volume"></span>
+  </div>
 
-    <!-- Call controls -->
-    <div id="callControls">
-      <button id="callBtn">📞 Call</button>
-      <button id="endCallBtn">🔴 End</button>
-    </div>
+  <!-- ── Mic mute controls (in-call only) ───────────────── -->
+  <div id="micMuteControls" role="group" aria-label="Microphone mute control">
+    <button id="micMuteBtn"
+            aria-pressed="false"
+            title="Mute / unmute microphone (keyboard shortcut: M)">
+      🎙️ Mute Mic
+    </button>
+    <span id="micMuteStatus" class="mic-mute-status live">Mic live 🔴</span>
+  </div>
 
-    <!-- Call status / duration timer -->
-    <div id="callStatus"></div>
+  <!-- ══════════════════════════════════════════════════════
+       GLASS DIAL PAD
+       Each .dial-key has data-digit for JS digit routing.
+       The mute button (#muteBtn) doubles as a dial-pad key
+       and receives the .muted-active class when muted.
+       ══════════════════════════════════════════════════════ -->
+  <div class="dial-pad" role="group" aria-label="Phone dial pad">
 
-    <!-- Active-call info row -->
-    <div id="callInfoRow">
-      <span id="networkTypeIndicator" style="display:none"></span>
-      <span id="callVolumeIndicator"  style="display:none"></span>
-    </div>
+    <!-- Row 1 -->
+    <button class="dial-key" data-digit="1" aria-label="1">1</button>
+    <button class="dial-key" data-digit="2" aria-label="2">2</button>
+    <button class="dial-key" data-digit="3" aria-label="3">3</button>
 
-    <!-- ── Mic Mute Controls (visible only during active call) ── -->
-    <div id="micMuteControls" style="display:none">
-      <button id="micMuteBtn" aria-pressed="false">🎙️ Mute Mic</button>
-      <span   id="micMuteStatus" class="mic-mute-status live">Mic live 🔴</span>
-    </div>
+    <!-- Row 2 -->
+    <button class="dial-key" data-digit="4" aria-label="4">4</button>
+    <button class="dial-key" data-digit="5" aria-label="5">5</button>
+    <button class="dial-key" data-digit="6" aria-label="6">6</button>
 
-  </section>
+    <!-- Row 3 -->
+    <button class="dial-key" data-digit="7" aria-label="7">7</button>
+    <button class="dial-key" data-digit="8" aria-label="8">8</button>
+    <button class="dial-key" data-digit="9" aria-label="9">9</button>
 
-  <script src="js/app.js"></script>
+    <!-- Row 4 -->
+    <button class="dial-key" data-digit="*" aria-label="star">*</button>
+    <button class="dial-key" data-digit="0" aria-label="0">0</button>
+    <button class="dial-key" data-digit="#" aria-label="hash">#</button>
+
+    <!-- Row 5: plus + backspace -->
+    <button class="dial-key" data-digit="+" aria-label="plus">+</button>
+    <button class="dial-key" id="backspaceBtn"
+            aria-label="Backspace — hold to clear all">⌫</button>
+    <!-- Mute button — same glass+glow style as all dial keys -->
+    <button class="dial-key" id="muteBtn"
+            aria-pressed="false"
+            title="Mute / unmute audio alerts">
+      🔔 Mute
+    </button>
+
+    <!-- Row 6: call + end call -->
+    <button class="dial-key" id="callBtn"
+            aria-label="Call">
+      📞 Call
+    </button>
+    <button class="dial-key" id="endCallBtn"
+            aria-label="End call">
+      🔴 End
+    </button>
+
+  </div>
+  <!-- /dial-pad -->
+
+</div><!-- /app-container -->
+
+<script src="js/app.js"></script>
 </body>
 </html>

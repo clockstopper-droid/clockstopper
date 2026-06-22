@@ -4,7 +4,11 @@
 
 **Global Time Clock** is a lightweight, client-side web application that displays three fixed world clocks: **Eastern Time**, **Central Time**, and **Western (Pacific) Time**. It is a pure frontend application with no backend dependencies, build tools, or frameworks — designed to run directly in a browser by opening `Index.html`.
 
-The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects** — all neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS; the visual style uses clean, flat dark theme styling with orange accents only. There is **no decorative header or Old English / blackletter font** — the application header and any Old English, blackletter, or decorative serif display fonts have been removed from the UI; headings and labels use the standard flat dark-theme typeface consistent with the rest of the app. An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe with **exponential backoff retry logic** and **status timestamps**. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends. A **network type badge** is displayed in `#networkTypeIndicator` during an active call, showing the current network type (e.g., WiFi, 4G, 3G, 2G, Cellular, or Unknown) so the user can see at a glance which network is carrying the active call. The **Backspace button supports long-press to clear** — tapping Backspace removes the last dialed digit, while pressing and holding Backspace for a defined duration (long-press threshold) clears the entire dialed number at once, providing a fast erase shortcut for mobile users. The **dark theme preference is persisted via `localStorage`** — the user's last chosen theme (dark or light) is saved to `localStorage` on each toggle and restored on page load, so the preferred theme is retained across sessions and page reloads. A **call volume indicator** is displayed during an active call, showing the current call/media volume level as a visual indicator that updates in real time when the user presses the device's hardware volume up/down buttons. A **microphone mute button** is displayed during an active call, allowing the user to mute and unmute their microphone mid-call without ending the call — muting stops the local audio track from being transmitted while keeping the call connected; the mute state is reflected visually on the button (e.g., toggled appearance or label change) and the mic track's `enabled` property is toggled on the active `MediaStream` track.
+The app updates all displayed clocks every second. The three time zone clocks are **fixed and hardcoded** — users cannot add or remove clocks. A **dark theme with orange accent keypad/controls** is supported via a CSS class toggle. A **mute button** allows users to silence any audio alerts without removing clocks. There are **no alarm, ticking, or audio clock sounds** — the clocks are purely digital display only. There are **no neon lighting effects on general UI elements** — all general neon glow, neon text-shadow, neon border-glow, and neon color effects have been removed from the CSS and JS for most UI elements; the visual style uses clean, flat dark theme styling with orange accents only. There is **no decorative header or Old English / blackletter font** — the application header and any Old English, blackletter, or decorative serif display fonts have been removed from the UI; headings and labels use the standard flat dark-theme typeface consistent with the rest of the app.
+
+The **dialpad has a 80% clear glass visual style** — the keypad/dialpad area uses a translucent glass effect (semi-transparent background, subtle border, backdrop blur) giving keys a frosted glass appearance. A **bright dark-red neon glow lighting effect** is displayed beneath the phone keypad as an ambient under-glow — this neon effect is active by default and provides a bright dark-red neon color glow underneath and around the dialpad area. When the **mute button is activated**, the dark-red neon under-glow effect beneath the keypad **turns off**, providing a clear visual indicator that mute is engaged; when mute is deactivated, the neon glow restores. This mute-state neon feedback is implemented via a CSS class toggled on the dialpad/keypad container by the mute button logic in `app.js`, and the neon glow is defined in `Style.css` using `box-shadow` and/or `filter` with dark-red (`#8b0000` / `#c00020` range) neon color values.
+
+An **enhanced connectivity panel** displays WiFi/network status, detects available networks, and allows network selection — all using native browser APIs where possible, supplemented by a fetch-based connectivity probe with **exponential backoff retry logic** and **status timestamps**. A **mobile network option** is supported within the connectivity panel, allowing the user to select and use a mobile/cellular network connection when available; the app detects and surfaces mobile network types (e.g., `cellular`, `4g`, `3g`, `2g`) via the `NetworkInformation` API and allows the user to prefer mobile network for call audio routing. An **outgoing call audio system** provides call audio output and requests microphone permissions using the native browser MediaDevices API, with call audio routed through the **currently selected network** (WiFi or mobile). A **microphone permission pre-check UI** proactively checks and displays the microphone permission state before the user attempts to dial, surfacing any permission issues (denied, prompt, granted) in `#micPermissionStatus` with appropriate visual indicators and guidance — this pre-check runs on page load and updates the UI state so users are informed of mic access status before attempting a call. A **dialer UI** displays the number being dialed with a dedicated number display box above the keypad and a live "number being dialed" readout beneath it, updating as digits are entered. A **caller ID name feature** allows the user to set a custom display name — any words or text the user chooses — that appears on the recipient's caller ID instead of the caller's phone number. The user enters and saves a custom caller ID name string which is used when placing outgoing calls; the saved name is what the recipient will see on their caller ID display. **Physical and virtual keyboard input** is supported for the dialer — users can type digits, `*`, `#`, `+`, and control keys (`Backspace`, `Enter`, `Escape`) directly from a hardware keyboard or software keyboard, with the dialer responding identically to keypad button taps. A **call duration timer** is displayed in `#callStatus` during an active call, showing a live elapsed time counter (formatted as `MM:SS` or `HH:MM:SS`) that starts when the call connects and stops when the call ends. A **network type badge** is displayed in `#networkTypeIndicator` during an active call, showing the current network type (e.g., WiFi, 4G, 3G, 2G, Cellular, or Unknown) so the user can see at a glance which network is carrying the active call. The **Backspace button supports long-press to clear** — tapping Backspace removes the last dialed digit, while pressing and holding Backspace for a defined duration (long-press threshold) clears the entire dialed number at once, providing a fast erase shortcut for mobile users. The **dark theme preference is persisted via `localStorage`** — the user's last chosen theme (dark or light) is saved to `localStorage` on each toggle and restored on page load, so the preferred theme is retained across sessions and page reloads. A **call volume indicator** is displayed during an active call, showing the current call/media volume level as a visual indicator that updates in real time when the user presses the device's hardware volume up/down buttons. A **microphone mute button** is displayed during an active call, allowing the user to mute and unmute their microphone mid-call without ending the call — muting stops the local audio track from being transmitted while keeping the call connected; the mute state is reflected visually on the button (e.g., toggled appearance or label change) and the mic track's `enabled` property is toggled on the active `MediaStream` track.
 
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
@@ -36,6 +40,8 @@ A **feature test suite** has been defined and implemented, providing structured 
 | Connectivity Probe Retry | Exponential backoff scheduler in `app.js`; probe retries on failure with increasing delay intervals; backoff resets on successful probe or when `online` event fires |
 | Connectivity Status Timestamps | Each connectivity status change (online, offline, probe success, probe failure) is timestamped using `Date` and displayed in the connectivity panel UI |
 | Theme Persistence | `localStorage` key (e.g., `darkTheme` or `theme`) stores the user's theme preference; read on page load to restore state; written on every theme toggle |
+| Dialpad Glass Effect | CSS `backdrop-filter: blur()`, semi-transparent `background` (`rgba` with ~80% transparency), and subtle `border` on the keypad container produce a frosted/clear glass visual for the dialpad keys |
+| Dialpad Neon Under-Glow | CSS `box-shadow` and/or `filter` on the dialpad container using dark-red neon color values (`#8b0000`–`#c00020` range); glow is active by default; a CSS class toggled by mute button logic in `app.js` removes/suppresses the glow when mute is active, restores it when mute is off |
 | Typography | System/sans-serif fonts only — no decorative, Old English, blackletter, or display fonts used anywhere in the app |
 | Android Packaging | Android WebView wrapper (WebView-based native Android app) |
 | Runtime | Browser (standalone) + Android WebView (mobile deployment) |
@@ -49,16 +55,16 @@ A **feature test suite** has been defined and implemented, providing structured 
 clockstopper/
 ├── Index.html          # Entry point — main HTML shell
 ├── Css/
-│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles, call volume indicator styles, mic mute button styles (active/muted state visual toggle)
+│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles, call volume indicator styles, mic mute button styles (active/muted state visual toggle), dialpad glass effect (backdrop-filter/rgba), dialpad dark-red neon under-glow (box-shadow/filter), mute-active neon-off CSS class
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle, connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic, dark theme localStorage persistence, call volume indicator logic, mic mute (mid-call) toggle logic
+│   └── app.js          # All application logic, theme toggle, mute toggle (including neon glow class toggle on dialpad container), connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic, dark theme localStorage persistence, call volume indicator logic, mic mute (mid-call) toggle logic
 ├── tests/
 │   ├── runner.js        # Vanilla JS test runner — discovers and executes all feature test files, reports pass/fail counts, requires no external framework
 │   ├── runner.html      # Browser-based test harness page — loads runner.js and all test files, displays results in-browser
 │   └── features/        # Per-feature test files, one file per major app feature
 │       ├── clocks.test.js              # Time zone clock display and update tests
 │       ├── theme.test.js               # Dark/light theme toggle and localStorage persistence tests
-│       ├── mute.test.js                # Mute button behavior tests
+│       ├── mute.test.js                # Mute button behavior tests (including neon glow on/off state)
 │       ├── dialer.test.js              # Dialer digit entry, display, and keyboard input tests
 │       ├── backspace.test.js           # Backspace short-tap and long-press clear tests
 │       ├── callerIdName.test.js        # Caller ID name input and save tests
@@ -80,48 +86,27 @@ clockstopper/
 
 ---
 
+## Dialpad Glass & Neon Glow Design Conventions
+
+The dialpad visual treatment follows two layered effects:
+
+### Glass Dialpad
+- The keypad container and individual key buttons use an **~80% clear/transparent glass style**: `background: rgba(255,255,255,0.08)` (or equivalent dark-glass tone), `backdrop-filter: blur(Npx)`, and a thin `border: 1px solid rgba(255,255,255,0.15)` or similar to achieve a frosted glass appearance.
+- Keys remain legible against the dark background while the glass effect gives depth and a premium mobile UI feel.
+
+### Dark-Red Neon Under-Glow
+- A **bright dark-red neon glow** effect is rendered beneath/around the dialpad container using CSS `box-shadow` with spread and blur values, and/or `filter: drop-shadow()`, using colors in the `#8b0000`–`#c00020` range (dark red neon).
+- The glow is **active by default** whenever the dialer is displayed.
+- When the **mute button is toggled on**, `app.js` adds a CSS class (e.g., `.muted` or `.neon-off`) to the dialpad container. This class sets `box-shadow: none` (or overrides the neon shadow to transparent/zero), turning off the red neon glow as a visual mute indicator.
+- When mute is toggled off, the class is removed and the glow restores.
+- This pattern means **mute state has two visual signals**: the mute button's own appearance change, and the dialpad neon glow extinguishing.
+
+---
+
 ## .gitignore Conventions
 
 The `.gitignore` is maintained as a **web-project-appropriate** ignore file. Key conventions:
 
 - **Included (ignored):** OS metadata files (`.DS_Store`, `Thumbs.db`), editor/IDE configs (`.vscode/`, `.idea/`), temporary files, local environment overrides, and any browser test output artifacts.
 - **Excluded from ignore rules:** Android build outputs, Gradle caches, IntelliJ Android Studio artifacts — these belong in the Android wrapper project's own `.gitignore`, not here.
-- The `.gitignore` should not reference Android, Gradle, or mobile build toolchain patterns unless the Android wrapper source is colocated in this repository.
-- All web source files (`Index.html`, `Css/`, `js/`, `tests/`, `README.md`) are always tracked and never ignored.
-
----
-
-## Feature Test Suite
-
-A structured test suite covering all major application features is located in `tests/`. The suite uses a **custom vanilla JS test runner** with no external framework dependencies, consistent with the project's no-build-tools philosophy.
-
-### Test Runner (`tests/runner.js`)
-
-- Discovers and runs all registered test files/suites.
-- Reports per-suite and aggregate pass/fail/skip counts.
-- Outputs results to the browser console and to the `tests/runner.html` page DOM.
-- Supports synchronous and `async`/`Promise`-based test cases.
-- Provides `describe()`, `it()`, `beforeEach()`, `afterEach()`, and `assert` helpers matching conventional test API shape.
-- No dependency on Jasmine, Mocha, Jest, or any other external test framework.
-
-### Test Harness (`tests/runner.html`)
-
-- Standalone HTML page that loads `Index.html` content (or a minimal DOM stub) alongside the test runner and all feature test files.
-- Can be opened directly in a browser — no server required.
-- Displays pass/fail results inline in the page as well as in the browser console.
-- Compatible with Android WebView for on-device test execution if needed.
-
-### Feature Test Files (`tests/features/`)
-
-Each file targets one application feature domain. Tests use DOM stubs/mocks for browser APIs that are unavailable in pure JS environments (e.g., `navigator.connection`, `navigator.mediaDevices`, `localStorage`). Key test patterns:
-
-- **Clock tests** (`clocks.test.js`): Verify that three clock elements are rendered, that displayed time updates each second, and that correct IANA time zones are used.
-- **Theme tests** (`theme.test.js`): Verify dark/light class toggle, `localStorage` read on load, `localStorage` write on toggle, and default theme fallback.
-- **Mute tests** (`mute.test.js`): Verify mute button toggles muted state and that audio is suppressed when muted.
-- **Dialer tests** (`dialer.test.js`): Verify digit entry updates display, keyboard input dispatches correctly, `*`/`#`/`+` are accepted, and `Escape` clears the dialed number.
-- **Backspace tests** (`backspace.test.js`): Verify short tap removes last digit, long-press clears entire number, and `pointercancel` aborts long-press.
-- **Caller ID name tests** (`callerIdName.test.js`): Verify name input is saved to state, displayed correctly, and submitted with call metadata.
-- **Call duration timer tests** (`callDurationTimer.test.js`): Verify timer starts on call connect, increments each second, formats as `MM:SS` / `HH:MM:SS`, and stops on call end.
-- **Network type badge tests** (`networkTypeBadge.test.js`): Verify badge shows correct label for each network type, is visible only during active call, and updates on network change events.
-- **Mic permission tests** (`micPermission.test.js`): Verify pre-check runs on page load, correct status (`granted`/`prompt`/`denied`) is reflected in `#micPermissionStatus`, and fallback probe is triggered when Permissions API is unavailable.
-- **Connectivity tests** (`connectivity.test.js`): Verify online/offline event handling, probe execution, exponential backoff delay progression, backoff reset on success
+- The `.gitignore` should not reference Android, Gradle,
