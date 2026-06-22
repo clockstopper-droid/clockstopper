@@ -1,117 +1,60 @@
 <!DOCTYPE html>
-<!--
-  runner.html — Browser-based test harness
-  ─────────────────────────────────────────
-  Opens this file directly in a browser to run all feature tests.
-  Results are displayed in-page and also written to the console.
-
-  No Node.js, npm, or build toolchain required.
--->
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clockstopper — Test Runner</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Global Time Clock — Test Suite</title>
   <style>
-    body        { font-family: monospace; background: #111; color: #eee; padding: 1rem 2rem; }
-    h1          { color: #f90; margin-bottom: 0.25rem; }
-    h2          { color: #aaa; font-size: 0.9rem; font-weight: normal; margin-top: 0; }
-    #summary    { margin: 1.5rem 0 1rem; font-size: 1.1rem; }
-    .pass       { color: #4f4; }
-    .fail       { color: #f44; }
-    .suite      { margin-top: 1.5rem; }
-    .suite-name { color: #f90; font-size: 1rem; margin-bottom: 0.3rem; }
-    .test-row   { padding: 0.1rem 0.5rem; }
-    .test-row.pass::before { content: '✓  '; color: #4f4; }
-    .test-row.fail::before { content: '✗  '; color: #f44; }
-    .error-msg  { color: #f88; font-size: 0.85rem; padding-left: 2rem; }
+    body { font-family: system-ui, sans-serif; background: #111; color: #e0e0e0; padding: 1.5rem; }
+    h1   { color: #ff8c00; margin-bottom: 1rem; }
+    h2   { color: #aaa; font-size: 0.9rem; margin: 1.25rem 0 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    #summary { margin-bottom: 1.5rem; font-size: 1.1rem; }
+    #summary .pass { color: #4caf50; }
+    #summary .fail { color: #f44336; }
+
+    .test-result          { padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.85rem; margin-bottom: 0.2rem; }
+    .test-result.passed   { background: rgba(76,175,80,0.12);  color: #4caf50; }
+    .test-result.failed   { background: rgba(244,67,54,0.12);  color: #f44336; }
+    .test-result .name    { font-weight: 600; }
+    .test-result .message { margin-left: 1rem; font-size: 0.8rem; opacity: 0.85; }
+
+    #results-container { max-width: 860px; }
   </style>
 </head>
 <body>
+  <h1>Global Time Clock — Feature Test Suite</h1>
+  <div id="summary">Running tests…</div>
+  <div id="results-container"></div>
 
-<h1>⏱ Clockstopper Test Runner</h1>
-<h2>All tests run in-browser — no build tool required</h2>
+  <!-- Test runner must load first -->
+  <script src="runner.js"></script>
 
-<div id="summary">Loading tests…</div>
-<div id="results"></div>
+  <!-- Feature test files — one per major app feature -->
+  <script src="features/clocks.test.js"></script>
+  <script src="features/theme.test.js"></script>
+  <script src="features/mute.test.js"></script>
+  <script src="features/dialer.test.js"></script>
+  <script src="features/backspace.test.js"></script>
+  <script src="features/callerIdName.test.js"></script>
+  <script src="features/callDurationTimer.test.js"></script>
+  <script src="features/networkTypeBadge.test.js"></script>
+  <script src="features/micPermission.test.js"></script>
+  <script src="features/connectivity.test.js"></script>
+  <script src="features/mobileNetwork.test.js"></script>
+  <script src="features/callVolume.test.js"></script>
+  <script src="features/callAudio.test.js"></script>
+  <script src="features/micMute.test.js"></script>
+  <script src="features/audioRouting.test.js"></script>
 
-<!--
-  Load the app under test first so test files can reference its globals.
-  The path assumes runner.html lives at tests/runner.html relative to
-  the project root, so ../js/app.js reaches the source file.
--->
-<script src="../js/app.js"></script>
+  <!--
+    Overlay permission tests — covers the SYSTEM_ALERT_WINDOW permission
+    state management, graceful degradation, enable button, and
+    overlayPermissionChanged CustomEvent handling.
+  -->
+  <script src="features/overlayPermission.test.js"></script>
 
-<!--
-  Runner infrastructure — must be loaded before feature test files.
--->
-<script src="runner.js"></script>
-
-<!--
-  Feature test files — one per major app feature.
-  Add new test files here as features are added.
--->
-<script src="features/clocks.test.js"></script>
-<script src="features/theme.test.js"></script>
-<script src="features/mute.test.js"></script>
-<script src="features/dialer.test.js"></script>
-<script src="features/backspace.test.js"></script>
-<script src="features/callerIdName.test.js"></script>
-<script src="features/callDurationTimer.test.js"></script>
-<script src="features/networkTypeBadge.test.js"></script>
-<script src="features/micPermission.test.js"></script>
-<script src="features/connectivity.test.js"></script>
-<script src="features/mobileNetwork.test.js"></script>
-<script src="features/callVolume.test.js"></script>
-<script src="features/callAudio.test.js"></script>
-<script src="features/micMute.test.js"></script>
-<script src="features/audioRouting.test.js"></script>
-
-<!--
-  Render results after all test files have executed synchronously.
--->
-<script>
-  (function renderResults() {
-    const allResults = window.__testResults || {};
-    const resultsEl  = document.getElementById('results');
-    const summaryEl  = document.getElementById('summary');
-
-    let totalPass = 0;
-    let totalFail = 0;
-
-    for (const [suite, tests] of Object.entries(allResults)) {
-      const suiteDiv  = document.createElement('div');
-      suiteDiv.className = 'suite';
-
-      const title = document.createElement('div');
-      title.className   = 'suite-name';
-      title.textContent = suite;
-      suiteDiv.appendChild(title);
-
-      (tests || []).forEach(t => {
-        const row = document.createElement('div');
-        row.className   = `test-row ${t.pass ? 'pass' : 'fail'}`;
-        row.textContent = t.name;
-        suiteDiv.appendChild(row);
-
-        if (!t.pass && t.error) {
-          const err = document.createElement('div');
-          err.className   = 'error-msg';
-          err.textContent = t.error;
-          suiteDiv.appendChild(err);
-        }
-
-        t.pass ? totalPass++ : totalFail++;
-      });
-
-      resultsEl.appendChild(suiteDiv);
-    }
-
-    summaryEl.innerHTML =
-      `<span class="pass">✓ ${totalPass} passed</span>` +
-      (totalFail > 0 ? `  <span class="fail">✗ ${totalFail} failed</span>` : '  🎉 All tests passed!');
-  })();
-</script>
-
+  <!-- Trigger final summary render after all test files have run -->
+  <script>RUNNER.finish();</script>
 </body>
 </html>

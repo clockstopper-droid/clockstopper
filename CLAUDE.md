@@ -12,6 +12,8 @@ An **enhanced connectivity panel** displays WiFi/network status, detects availab
 
 **Bluetooth and wired headset audio routing** is supported — the app routes call audio output (and microphone input) through Bluetooth earbuds, Bluetooth headphones, and wired headphone jack devices when they are connected. Audio device selection uses the `HTMLAudioElement.setSinkId()` API (where supported) and the `MediaDevices.enumerateDevices()` API to detect and enumerate available audio output devices. On Android WebView, audio focus and routing is additionally managed via Android audio focus APIs exposed through the WebView bridge where available. A **audio output device selector UI** allows the user to choose between available audio output devices (earpiece, speaker, Bluetooth headset, wired headphone) during or before a call; the selected output device preference is persisted in `localStorage` and restored on page load. The app listens for `devicechange` events on `navigator.mediaDevices` to detect when Bluetooth or wired audio devices are connected or disconnected, automatically updating the device list and re-routing audio if the active output device is removed.
 
+**System overlay permission** (`SYSTEM_ALERT_WINDOW`) is requested and managed for Android deployment — the app checks whether the overlay permission is granted, prompts the user to grant it via the Android settings intent (`Settings.ACTION_MANAGE_OVERLAY_PERMISSION`) when not already granted, and exposes this flow through the WebView JavaScript bridge. The overlay permission enables the dialer to display over other apps (e.g., for incoming call UI or heads-up dialer display). The permission state is checked on app launch and re-checked when the app resumes from background (e.g., after the user returns from the Android settings screen). A dedicated **overlay permission UI element** in the HTML surfaces the current permission state and provides a button to trigger the settings flow; the state is reflected with appropriate visual indicators (granted/denied/pending). The permission request and state-check logic is implemented in the Android WebView wrapper layer and exposed to the web layer via the JavaScript bridge interface.
+
 The application has been **constructed as a mobile dialing app targeting Android devices**, with all features implemented and packaged for Android deployment. The web app source serves as the UI layer within an Android WebView-based wrapper, making the dialer fully functional as a native-feeling Android application.
 
 A **feature test suite** has been defined and implemented, providing structured automated and manual test coverage for all major application features.
@@ -48,6 +50,7 @@ A **feature test suite** has been defined and implemented, providing structured 
 | Audio Device Persistence | `localStorage` key stores the user's last selected audio output device ID; read on page load and applied if the device is still available; cleared or reset if the saved device is no longer present |
 | Dialpad Glass Effect | CSS `backdrop-filter: blur()`, semi-transparent `background` (`rgba` with ~80% transparency), and subtle `border: 1px solid rgba(255,255,255,0.15)` or similar to achieve a frosted glass appearance |
 | Dialpad Neon Under-Glow | CSS `box-shadow` and/or `filter` on the dialpad container using dark-red neon color values (`#8b0000`–`#c00020` range); glow is active by default; a CSS class toggled by mute button logic in `app.js` removes/suppresses the glow when mute is active, restores it when mute is off |
+| System Overlay Permission | Android `SYSTEM_ALERT_WINDOW` permission; checked on app launch and on resume from background; requested via `Settings.ACTION_MANAGE_OVERLAY_PERMISSION` intent surfaced through Android WebView JavaScript bridge; permission state displayed in a dedicated overlay permission UI element in `Index.html` with granted/denied/pending visual indicators; grant button triggers the settings flow via bridge call; web layer receives state updates from native layer via bridge callback |
 | Typography | System/sans-serif fonts only — no decorative, Old English, blackletter, or display fonts used anywhere in the app |
 | Android Packaging | Android WebView wrapper (WebView-based native Android app) |
 | Runtime | Browser (standalone) + Android WebView (mobile deployment) |
@@ -59,11 +62,11 @@ A **feature test suite** has been defined and implemented, providing structured 
 
 ```
 clockstopper/
-├── Index.html          # Entry point — main HTML shell
+├── Index.html          # Entry point — main HTML shell; includes overlay permission UI element
 ├── Css/
-│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles, call volume indicator styles, mic mute button styles (active/muted state visual toggle), dialpad glass effect (backdrop-filter/rgba), dialpad dark-red neon under-glow (box-shadow/filter), mute-active neon-off CSS class, audio device selector UI styles, Bluetooth/wired headset device list styles
+│   └── Style.css       # Global styles, responsive layout, dark theme, connectivity panel, call UI, dialer UI, mobile network UI, caller ID name UI, call duration timer display, mic permission pre-check UI states, network type badge styles, connectivity status timestamp display styles, call volume indicator styles, mic mute button styles (active/muted state visual toggle), dialpad glass effect (backdrop-filter/rgba), dialpad dark-red neon under-glow (box-shadow/filter), mute-active neon-off CSS class, audio device selector UI styles, Bluetooth/wired headset device list styles, overlay permission UI styles (granted/denied/pending state indicators)
 ├── js/
-│   └── app.js          # All application logic, theme toggle, mute toggle (including neon glow class toggle on dialpad container), connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic, dark theme localStorage persistence, call volume indicator logic, mic mute (mid-call) toggle logic, audio output device enumeration (enumerateDevices), Bluetooth and wired headset detection and routing (setSinkId), devicechange event listener, audio device selector UI logic, audio device localStorage persistence
+│   └── app.js          # All application logic, theme toggle, mute toggle (including neon glow class toggle on dialpad container), connectivity detection, connectivity probe with exponential backoff retry and status timestamps, mobile network selection, call audio, dialer, caller ID name, keyboard input handling, call duration timer, mic permission pre-check, network type badge logic, backspace long-press clear logic, dark theme localStorage persistence, call volume indicator logic, mic mute (mid-call) toggle logic, audio output device enumeration (enumerateDevices), Bluetooth and wired headset detection and routing (setSinkId), devicechange event listener, audio device selector UI logic, audio device localStorage persistence, overlay permission state display and bridge call logic (check on load and on resume, trigger settings intent via Android JS bridge, update overlay permission UI element)
 ├── tests/
 │   ├── runner.js        # Vanilla JS test runner — discovers and executes all feature test files, reports pass/fail counts, requires no external framework
 │   ├── runner.html      # Browser-based test harness page — loads runner.js and all test files, displays results in-browser
@@ -76,17 +79,4 @@ clockstopper/
 │       ├── callerIdName.test.js        # Caller ID name input and save tests
 │       ├── callDurationTimer.test.js   # Call duration timer start/stop/format tests
 │       ├── networkTypeBadge.test.js    # Network type badge display and update tests
-│       ├── micPermission.test.js       # Microphone permission pre-check UI state tests
-│       ├── connectivity.test.js        # Connectivity panel, probe, backoff, and timestamp tests
-│       ├── mobileNetwork.test.js       # Mobile network detection and selection tests
-│       ├── callVolume.test.js          # Call volume indicator display and hardware key tests
-│       ├── callAudio.test.js           # Outgoing call audio routing and MediaDevices API tests
-│       ├── micMute.test.js             # Mic mute button toggle, track enabled state, and in-call mute UI tests
-│       └── audioDeviceRouting.test.js  # Bluetooth/wired headset detection, setSinkId routing, devicechange event, and audio device selector UI tests
-├── README.md           # Project documentation
-└── .gitignore          # Web-project-appropriate ignore rules (see .gitignore conventions below)
-```
-
-> **Note:** The `.gitignore` file has been updated to contain **web-project-appropriate rules** rather than Android/Gradle/IntelliJ patterns. Since the web app source is the primary repository content and Android packaging is a separate concern, the `.gitignore` now targets artifacts relevant to the web layer (e.g., OS metadata files, editor/IDE config, browser test artifacts) rather than Android build outputs. Any Android/Gradle/IntelliJ exclusion patterns belong in the Android wrapper project's own `.gitignore`, not in this web source repository.
-
-> **Test suite note:** The `tests
+│       ├
