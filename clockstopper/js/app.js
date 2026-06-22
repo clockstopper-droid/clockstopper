@@ -3,7 +3,8 @@
    All application logic:
    - Three fixed world clocks (Eastern, Central, Pacific)
    - Dark theme toggle with localStorage persistence
-   - Mute toggle (audio alerts)
+   - Mute toggle (audio alerts) — glass dial-pad key with
+       neon underglow; glow REMOVED when mute is active
    - Connectivity panel with exponential backoff probe + timestamps
    - Mobile network detection & selection
    - Microphone permission pre-check
@@ -13,7 +14,7 @@
    - Call duration timer
    - Network type badge
    - Call volume indicator
-   - MIC MUTE during active call (new)
+   - Mic mute during active call (mid-call mic track toggle)
    ============================================================ */
 
 'use strict';
@@ -65,16 +66,43 @@ function updateClocks() {
   });
 }
 
-/* ── Mute (audio alerts) ─────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════
+   MUTE (audio alerts) — dial-pad key variant
+   The #muteBtn lives inside .dial-pad and inherits the
+   dark-red neon underglow from .dial-key.
+
+   When mute is ON  → add   class "muted-active" (glow OFF)
+                       set  aria-pressed="true"
+   When mute is OFF → remove class "muted-active" (glow ON)
+                       set  aria-pressed="false"
+
+   The CSS transition: box-shadow 0.22s ease on .dial-key
+   handles the smooth glow-off / glow-on animation.
+   ══════════════════════════════════════════════════════════ */
 let alertsMuted = false;
+
+function applyMuteUI() {
+  const btn = document.getElementById('muteBtn');
+  if (!btn) return;
+
+  if (alertsMuted) {
+    btn.classList.add('muted-active');          // neon glow OFF
+    btn.setAttribute('aria-pressed', 'true');
+    btn.textContent = '🔇 Unmute';
+    btn.title = 'Audio alerts muted — click to restore';
+    btn.dataset.muted = 'true';
+  } else {
+    btn.classList.remove('muted-active');       // neon glow ON
+    btn.setAttribute('aria-pressed', 'false');
+    btn.textContent = '🔔 Mute';
+    btn.title = 'Mute / unmute audio alerts';
+    btn.dataset.muted = 'false';
+  }
+}
 
 function toggleMute() {
   alertsMuted = !alertsMuted;
-  const btn = document.getElementById('muteBtn');
-  if (btn) {
-    btn.textContent    = alertsMuted ? '🔇 Unmute' : '🔔 Mute';
-    btn.dataset.muted  = String(alertsMuted);
-  }
+  applyMuteUI();
 }
 
 /* ── Connectivity probe with exponential backoff ─────────── */
@@ -83,9 +111,9 @@ const PROBE_TIMEOUT_MS = 5000;
 const BACKOFF_BASE_MS  = 2000;
 const BACKOFF_MAX_MS   = 60000;
 
-let probeBackoffMs   = BACKOFF_BASE_MS;
-let probeTimer       = null;
-let probeController  = null;
+let probeBackoffMs  = BACKOFF_BASE_MS;
+let probeTimer      = null;
+let probeController = null;
 
 function setConnectivityStatus(msg, ts) {
   const statusEl = document.getElementById('connectivityStatus');
@@ -148,8 +176,8 @@ function getNetworkType() {
 }
 
 function updateNetworkInfo() {
-  const type   = getNetworkType();
-  const el     = document.getElementById('networkInfo');
+  const type = getNetworkType();
+  const el   = document.getElementById('networkInfo');
   if (el) el.textContent = `Network: ${type}`;
 
   const mobileOpt = document.getElementById('mobileNetworkOption');
@@ -193,9 +221,9 @@ async function checkMicPermission() {
 
 function applyMicStatus(el, state) {
   const map = {
-    granted: { text: '🎤 Microphone: Granted',  cls: 'mic-granted' },
-    denied:  { text: '🎤 Microphone: Denied ✖', cls: 'mic-denied'  },
-    prompt:  { text: '🎤 Microphone: Not yet requested', cls: 'mic-prompt' },
+    granted: { text: '🎤 Microphone: Granted',           cls: 'mic-granted' },
+    denied:  { text: '🎤 Microphone: Denied ✖',          cls: 'mic-denied'  },
+    prompt:  { text: '🎤 Microphone: Not yet requested', cls: 'mic-prompt'  },
   };
   const info = map[state] || { text: `🎤 Microphone: ${state}`, cls: '' };
   el.textContent = info.text;
@@ -276,26 +304,23 @@ function handleKeydown(e) {
 
   if (callActive) {
     // During a call: allow mic mute toggle via 'm' key
-    if (key === 'm' || key === 'M') {
-      toggleMicMute();
-      return;
-    }
-    if (key === 'Escape') { endCall(); return; }
+    if (key === 'm' || key === 'M') { toggleMicMute(); return; }
+    if (key === 'Escape')           { endCall(); return; }
     return; // swallow other keys during call
   }
 
-  if (/^[0-9*#+]$/.test(key)) { dialDigit(key);    return; }
-  if (key === 'Backspace')     { clearLastDigit();  return; }
-  if (key === 'Enter')         { initiateCall();    return; }
-  if (key === 'Escape')        { clearDialed();     return; }
+  if (/^[0-9*#+]$/.test(key)) { dialDigit(key);   return; }
+  if (key === 'Backspace')     { clearLastDigit(); return; }
+  if (key === 'Enter')         { initiateCall();   return; }
+  if (key === 'Escape')        { clearDialed();    return; }
 }
 
 /* ── Call duration timer ─────────────────────────────────── */
-let callStartTime  = null;
+let callStartTime     = null;
 let callTimerInterval = null;
 
 function startCallTimer() {
-  callStartTime = Date.now();
+  callStartTime     = Date.now();
   callTimerInterval = setInterval(updateCallTimer, 1000);
   updateCallTimer();
 }
@@ -332,7 +357,7 @@ function updateNetworkTypeBadge() {
     '2g':     '2G',
     ethernet: 'Ethernet',
   };
-  el.textContent = labels[type] || 'Unknown';
+  el.textContent   = labels[type] || 'Unknown';
   el.style.display = callActive ? 'inline-block' : 'none';
 }
 
@@ -361,40 +386,29 @@ function handleVolumeKey(e) {
   }
 }
 
-/* ── Mic mute during call (NEW) ──────────────────────────── */
-let callStream    = null;   // MediaStream from getUserMedia
-let micMuted      = false;  // current mic-mute state
+/* ══════════════════════════════════════════════════════════
+   MIC MUTE DURING CALL
+   Toggling the mic mute only affects the mid-call mic track.
+   This is SEPARATE from the alert-mute button in the dial pad.
+   ══════════════════════════════════════════════════════════ */
+let callStream = null;  // MediaStream from getUserMedia
+let micMuted   = false; // current mic-mute state (mid-call)
 
-/**
- * Toggle the microphone mute state during an active call.
- * Muting disables every audio track on the live MediaStream so
- * the remote party cannot hear the local caller.  The UI button
- * and status element are updated to reflect the new state.
- */
 function toggleMicMute() {
   if (!callStream) return;
 
   micMuted = !micMuted;
-
-  // Enable/disable each audio track on the live stream
-  callStream.getAudioTracks().forEach(track => {
-    track.enabled = !micMuted;
-  });
-
+  callStream.getAudioTracks().forEach(track => { track.enabled = !micMuted; });
   _applyMicMuteUI();
 }
 
-/**
- * Update all mic-mute UI elements to match the current `micMuted` state.
- * Called after any state change (mute, unmute, call start, call end).
- */
 function _applyMicMuteUI() {
-  const btn       = document.getElementById('micMuteBtn');
-  const statusEl  = document.getElementById('micMuteStatus');
+  const btn      = document.getElementById('micMuteBtn');
+  const statusEl = document.getElementById('micMuteStatus');
 
   if (btn) {
-    btn.textContent       = micMuted ? '🎙️ Unmute Mic' : '🎙️ Mute Mic';
-    btn.dataset.micMuted  = String(micMuted);
+    btn.textContent      = micMuted ? '🎙️ Unmute Mic' : '🎙️ Mute Mic';
+    btn.dataset.micMuted = String(micMuted);
     btn.setAttribute('aria-pressed', String(micMuted));
     btn.classList.toggle('active', micMuted);
   }
@@ -405,25 +419,17 @@ function _applyMicMuteUI() {
   }
 }
 
-/**
- * Show mic-mute controls (visible only during an active call).
- */
 function showMicMuteControls() {
   const wrap = document.getElementById('micMuteControls');
   if (wrap) wrap.style.display = 'flex';
 }
 
-/**
- * Hide mic-mute controls and reset mute state when call ends.
- */
 function hideMicMuteControls() {
-  // Unmute tracks before releasing stream so no audio stays suppressed
   if (callStream) {
     callStream.getAudioTracks().forEach(track => { track.enabled = true; });
   }
   micMuted = false;
   _applyMicMuteUI();
-
   const wrap = document.getElementById('micMuteControls');
   if (wrap) wrap.style.display = 'none';
 }
@@ -432,8 +438,8 @@ function hideMicMuteControls() {
 let callActive = false;
 
 async function initiateCall() {
-  if (callActive)        return;
-  if (!dialedNumber)     return;
+  if (callActive)    return;
+  if (!dialedNumber) return;
 
   const statusEl = document.getElementById('callStatus');
   if (statusEl) statusEl.textContent = 'Requesting microphone…';
@@ -447,28 +453,25 @@ async function initiateCall() {
   }
 
   callStream = stream;
-  micMuted   = false;           // always start unmuted
+  micMuted   = false;
 
-  // Wire stream to an audio element for call audio output
-  callAudioEl         = new Audio();
+  callAudioEl           = new Audio();
   callAudioEl.srcObject = stream;
-  callAudioEl.muted   = true;   // prevent local echo; remote audio handled separately
+  callAudioEl.muted     = true;   // prevent local echo
   callAudioEl.play().catch(() => {});
 
   callActive = true;
 
   if (statusEl) statusEl.textContent = 'Connecting…';
 
-  // Simulate connection after short delay (replace with real signalling)
   setTimeout(() => {
     if (!callActive) return;
     if (statusEl) statusEl.textContent = 'In call: 00:00';
     startCallTimer();
     updateNetworkTypeBadge();
     updateVolumeIndicator();
-    showMicMuteControls();     // ← reveal mic mute controls
+    showMicMuteControls();
 
-    // Listen for network changes during call
     const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (conn) conn.addEventListener('change', onNetworkChangeDuringCall);
   }, 1000);
@@ -478,7 +481,6 @@ function endCall() {
   if (!callActive) return;
   callActive = false;
 
-  // Stop mic stream
   if (callStream) {
     callStream.getTracks().forEach(t => t.stop());
     callStream = null;
@@ -491,7 +493,7 @@ function endCall() {
   }
 
   stopCallTimer();
-  hideMicMuteControls();        // ← hide and reset mic mute controls
+  hideMicMuteControls();
 
   const statusEl = document.getElementById('callStatus');
   if (statusEl) statusEl.textContent = 'Call ended';
@@ -510,14 +512,19 @@ function onNetworkChangeDuringCall() {
 
 /* ── Init ────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+
   // Theme
   loadTheme();
   const themeBtn = document.getElementById('themeToggle');
   if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
 
-  // Mute (audio alerts)
+  // ── Alert-mute button (dial-pad key) ─────────────────────
+  // Wire click → toggleMute(); initialise UI state (glow ON by default)
   const muteBtn = document.getElementById('muteBtn');
-  if (muteBtn) muteBtn.addEventListener('click', toggleMute);
+  if (muteBtn) {
+    muteBtn.addEventListener('click', toggleMute);
+    applyMuteUI(); // set initial aria-pressed + class state
+  }
 
   // Clocks
   updateClocks();
@@ -550,8 +557,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveIdBtn = document.getElementById('saveCallerIdBtn');
   if (saveIdBtn) saveIdBtn.addEventListener('click', saveCallerIdName);
 
-  // Dialer keypad
-  document.querySelectorAll('.dial-key').forEach(btn => {
+  // Dialer keypad — attach all .dial-key buttons that have data-digit
+  document.querySelectorAll('.dial-key[data-digit]').forEach(btn => {
     btn.addEventListener('click', () => dialDigit(btn.dataset.digit));
   });
   updateDialDisplay();
@@ -559,13 +566,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Backspace long-press
   attachBackspaceLongPress();
 
-  // Call buttons
+  // Call / End-call buttons
   const callBtn = document.getElementById('callBtn');
   const endBtn  = document.getElementById('endCallBtn');
   if (callBtn) callBtn.addEventListener('click', initiateCall);
   if (endBtn)  endBtn.addEventListener('click',  endCall);
 
-  // Mic mute button
+  // Mic mute button (mid-call)
   const micMuteBtn = document.getElementById('micMuteBtn');
   if (micMuteBtn) micMuteBtn.addEventListener('click', toggleMicMute);
 
@@ -576,7 +583,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', handleKeydown);
   document.addEventListener('keydown', handleVolumeKey);
 
-  // Initial badge/volume state
+  // Initial badge / volume state
   updateNetworkTypeBadge();
   updateVolumeIndicator();
 });
