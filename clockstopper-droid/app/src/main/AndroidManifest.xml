@@ -1,10 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
+    AndroidManifest.xml
+    ───────────────────
+    Declares the application package, required permissions, and the single
+    launcher Activity that hosts the Jetpack Navigation graph.
 
-    <!-- Internet permission required for any remote resources loaded by the WebView -->
+    Permissions
+    ───────────
+    INTERNET             — required if the stopwatch ever loads remote assets.
+    WAKE_LOCK            — prevents CPU sleep while stopwatch is active.
+    RECORD_AUDIO         — microphone access for call audio via MediaDevices API.
+    MODIFY_AUDIO_SETTINGS— required to route audio to Bluetooth / wired headset
+                           and to request audio focus via AudioManager.
+    BLUETOOTH            — legacy Bluetooth permission (API < 31).
+    BLUETOOTH_CONNECT    — runtime Bluetooth permission (API 31+); needed to
+                           enumerate connected Bluetooth audio devices and
+                           communicate with AudioDeviceCallback results.
+    MANAGE_MEDIA         — allows the app to manage the media session and
+                           respond to Bluetooth headset media-button events.
+    SYSTEM_ALERT_WINDOW  — "special" permission for drawing overlays over other
+                           apps (e.g. always-on call HUD, incoming-call screen).
+                           Cannot be granted via requestPermissions(); requires
+                           the user to approve via the system "Display over other
+                           apps" settings page.  App degrades gracefully if denied.
+-->
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.clockstopper.app">
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!--  Permissions                                                         -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+
+    <!-- Network access -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Keep screen on while the dialer / stopwatch is running -->
+    <!-- Screen / CPU wake-lock while running -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Microphone — for WebView MediaDevices.getUserMedia() call audio -->
@@ -26,27 +57,46 @@
     <!-- Media session / headset button handling -->
     <uses-permission android:name="android.permission.MANAGE_MEDIA" />
 
-    <!-- Hardware feature declarations (soft — not required for install) -->
-    <uses-feature android:name="android.hardware.bluetooth"   android:required="false" />
-    <uses-feature android:name="android.hardware.microphone"  android:required="false" />
+    <!--
+        System overlay permission — allows the app to draw over other apps
+        (e.g. for an always-on call HUD or incoming-call overlay).
+        This is a "special" permission: it cannot be granted via the standard
+        requestPermissions() flow.  The user must approve it via
+        Settings.ACTION_MANAGE_OVERLAY_PERMISSION.
+        The app degrades gracefully if this permission is denied.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!--  Hardware feature declarations (not required; soft declarations)     -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <uses-feature
+        android:name="android.hardware.bluetooth"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <!-- ─────────────────────────────────────────────────────────────────── -->
+    <!--  Application                                                          -->
+    <!-- ─────────────────────────────────────────────────────────────────── -->
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.ClockStopper"
         android:usesCleartextTraffic="false">
 
         <!--
-            Root launcher Activity.
+            MainActivity
+            ────────────
+            The sole Activity in this single-Activity application.
 
-            android:configChanges — we handle orientation and keyboard-availability
-            ourselves so the WebView is NOT recreated on those events.
-
-            android:windowSoftInputMode="adjustResize" — the WebView viewport
-            shrinks to make room for the soft keyboard.
+            exported="true" is required on API 31+ for Activities that carry
+            a MAIN / LAUNCHER intent-filter.
         -->
         <activity
             android:name=".MainActivity"
@@ -55,13 +105,17 @@
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Application entry-point -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Receive Bluetooth headset media-button broadcasts -->
+            <!--
+                Receive Bluetooth headset media-button broadcasts so that
+                play/pause/next/previous hardware keys on BT headsets are
+                delivered to this Activity when the app holds an active
+                MediaSession.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
@@ -70,7 +124,8 @@
 
         <!--
             MediaButtonReceiver — forwards headset/Bluetooth media button
-            intents to the active MediaSessionCompat.
+            intents to the active MediaSessionCompat so the JS layer can
+            receive play/pause/end-call commands from BT headset buttons.
         -->
         <receiver android:name="androidx.media.session.MediaButtonReceiver"
             android:exported="true">

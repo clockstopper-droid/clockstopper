@@ -2,128 +2,154 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a1a" />
   <title>Global Time Clock</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="dark">
+<body class="dark-theme">
 
-<div class="app-container">
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     World Clocks
+════════════════════════════════════════════════════════════════════════════ -->
+<section id="clocks" aria-label="World Clocks">
+  <div class="clock-row">
+    <span class="clock-label">Eastern</span>
+    <span class="clock-time" id="clock-eastern">--:--:-- --</span>
+  </div>
+  <div class="clock-row">
+    <span class="clock-label">Central</span>
+    <span class="clock-time" id="clock-central">--:--:-- --</span>
+  </div>
+  <div class="clock-row">
+    <span class="clock-label">Pacific</span>
+    <span class="clock-time" id="clock-pacific">--:--:-- --</span>
+  </div>
+</section>
 
-  <!-- ── Top bar ────────────────────────────────────────── -->
-  <div class="top-bar">
-    <button id="themeToggle" class="btn-secondary">☀ Light Mode</button>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Theme toggle
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="controls">
+  <button id="themeToggle" aria-label="Toggle dark/light theme">Theme</button>
+  <button id="muteBtn" aria-pressed="false">Mute</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Overlay permission status & enable button
+     ─────────────────────────────────────────
+     These elements are always present in the DOM but styled differently
+     depending on whether overlay permission is granted, denied, or
+     permanently declined.  app.js manages the content and visibility.
+════════════════════════════════════════════════════════════════════════════ -->
+<section id="overlay-permission-panel" aria-label="Overlay permission">
+  <p id="overlayPermissionStatus" class="overlay-status overlay-denied">
+    Call overlay: not enabled — you can allow it when prompted.
+  </p>
+  <!--
+    The "Enable overlay" button is shown only when the user has permanently
+    declined the permission and needs a manual path back to system settings.
+    Initially hidden; app.js reveals it when permanent=true.
+  -->
+  <button id="enableOverlayBtn" class="overlay-enable-btn" hidden
+          aria-label="Open system settings to enable call overlay">
+    Enable overlay
+  </button>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Mic permission status
+════════════════════════════════════════════════════════════════════════════ -->
+<p id="micPermissionStatus" class="mic-permission mic-prompt"
+   aria-live="polite">
+  Mic: permission will be requested when you dial
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Dialer
+════════════════════════════════════════════════════════════════════════════ -->
+<section id="dialer" aria-label="Phone dialer">
+
+  <!-- Number being dialed -->
+  <div id="dialDisplay" class="dial-display" aria-live="polite" aria-label="Number being dialed"></div>
+  <p id="dialReadout" class="dial-readout" aria-live="polite"></p>
+
+  <!-- Caller ID name -->
+  <div id="callerIdSection">
+    <label for="callerIdInput">Caller ID name:</label>
+    <input id="callerIdInput" type="text" placeholder="Your name (optional)" autocomplete="off" />
+    <button id="callerIdSave">Save</button>
+    <span id="callerIdFeedback" aria-live="polite"></span>
   </div>
 
-  <!-- ── World clocks ───────────────────────────────────── -->
-  <section class="clocks-section" aria-label="World clocks">
-    <div class="clock-card">
-      <span class="clock-label">Eastern</span>
-      <span class="clock-time" id="clockEastern">--:--:-- --</span>
-    </div>
-    <div class="clock-card">
-      <span class="clock-label">Central</span>
-      <span class="clock-time" id="clockCentral">--:--:-- --</span>
-    </div>
-    <div class="clock-card">
-      <span class="clock-label">Pacific</span>
-      <span class="clock-time" id="clockWestern">--:--:-- --</span>
-    </div>
-  </section>
+  <!-- Dialpad -->
+  <div id="dialpad" aria-label="Dialpad">
+    <button data-digit="1">1</button>
+    <button data-digit="2">2 <sub>ABC</sub></button>
+    <button data-digit="3">3 <sub>DEF</sub></button>
 
-  <!-- ── Connectivity panel ─────────────────────────────── -->
-  <section class="connectivity-panel" aria-label="Connectivity status">
-    <div>
-      <span id="connectivityStatus">Checking…</span>
-      <span id="connectivityTimestamp"></span>
-    </div>
-    <div id="networkInfo"></div>
-    <div id="mobileNetworkOption">
-      <button id="mobileNetworkBtn" class="btn-secondary">📶 Mobile Network: OFF</button>
-    </div>
-  </section>
+    <button data-digit="4">4 <sub>GHI</sub></button>
+    <button data-digit="5">5 <sub>JKL</sub></button>
+    <button data-digit="6">6 <sub>MNO</sub></button>
 
-  <!-- ── Microphone permission status ───────────────────── -->
-  <div id="micPermissionStatus" class="mic-status">
-    🎤 Microphone: Checking…
+    <button data-digit="7">7 <sub>PQRS</sub></button>
+    <button data-digit="8">8 <sub>TUV</sub></button>
+    <button data-digit="9">9 <sub>WXYZ</sub></button>
+
+    <button data-digit="*">*</button>
+    <button data-digit="0">0 <sub>+</sub></button>
+    <button data-digit="#">#</button>
+
+    <button id="backspaceBtn" aria-label="Backspace (hold to clear all)">⌫</button>
   </div>
 
-  <!-- ── Caller ID name ─────────────────────────────────── -->
-  <section class="caller-id-section" aria-label="Caller ID name">
-    <label for="callerIdInput" style="font-size:0.85rem;opacity:0.7;">
-      Caller ID Name
-    </label>
-    <input id="callerIdInput" type="text"
-           placeholder="Enter your display name…"
-           autocomplete="off" />
-    <button id="saveCallerIdBtn" class="btn-primary">Save Name</button>
-    <div id="callerIdDisplay">Caller ID: (not set)</div>
-  </section>
-
-  <!-- ── Dial display ───────────────────────────────────── -->
-  <div id="dialDisplay" aria-label="Number being dialed" aria-live="polite"> </div>
-  <div id="dialReadout" aria-live="polite">Enter a number</div>
-
-  <!-- ── Call status / timer ────────────────────────────── -->
-  <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
-    <span id="callStatus" aria-live="assertive"></span>
-    <span id="networkTypeIndicator" aria-label="Active network type"></span>
-    <span id="callVolumeIndicator" aria-label="Call volume"></span>
+  <!-- Call controls -->
+  <div id="callControls">
+    <button id="callBtn"    class="call-btn"     aria-label="Call">&#9742;</button>
+    <button id="endCallBtn" class="end-call-btn" aria-label="End call">&#128721;</button>
   </div>
 
-  <!-- ── Mic mute controls (in-call only) ───────────────── -->
-  <div id="micMuteControls" role="group" aria-label="Microphone mute control">
-    <button id="micMuteBtn"
-            aria-pressed="false"
-            title="Mute / unmute microphone (keyboard shortcut: M)">
-      🎙️ Mute Mic
-    </button>
-    <span id="micMuteStatus" class="mic-mute-status live">Mic live 🔴</span>
+  <!-- In-call status and indicators -->
+  <p id="callStatus"            aria-live="assertive"></p>
+  <p id="networkTypeIndicator"  aria-live="polite"></p>
+  <p id="callVolumeIndicator"   aria-live="polite"></p>
+  <p id="audioOutputRouteStatus" aria-live="polite"></p>
+
+  <!-- Mic mute (shown during active call) -->
+  <button id="micMuteBtn" aria-pressed="false" class="mic-mute-btn">Mute Mic</button>
+
+  <!--
+    Overlay-dependent: the call HUD section is only meaningful when
+    SYSTEM_ALERT_WINDOW is granted.  Marked with data-overlay-feature so
+    app.js can show/hide it based on permission state.
+  -->
+  <div data-overlay-feature hidden
+       id="overlayCallHud"
+       class="overlay-call-hud"
+       aria-label="Call overlay HUD (requires Display over other apps permission)">
+    <p class="overlay-hud-label">📞 Overlay HUD active — visible over other apps</p>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       GLASS DIAL PAD
-       ══════════════════════════════════════════════════════ -->
-  <div class="dial-pad" role="group" aria-label="Phone dial pad">
+</section>
 
-    <!-- Row 1 -->
-    <button class="dial-key" data-digit="1" aria-label="1">1</button>
-    <button class="dial-key" data-digit="2" aria-label="2">2</button>
-    <button class="dial-key" data-digit="3" aria-label="3">3</button>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Audio device selector
+════════════════════════════════════════════════════════════════════════════ -->
+<section id="audioDeviceSection" aria-label="Audio output device">
+  <h2>Audio output</h2>
+  <ul id="audioDeviceList" aria-label="Available audio output devices">
+    <li>Loading devices…</li>
+  </ul>
+</section>
 
-    <!-- Row 2 -->
-    <button class="dial-key" data-digit="4" aria-label="4">4</button>
-    <button class="dial-key" data-digit="5" aria-label="5">5</button>
-    <button class="dial-key" data-digit="6" aria-label="6">6</button>
-
-    <!-- Row 3 -->
-    <button class="dial-key" data-digit="7" aria-label="7">7</button>
-    <button class="dial-key" data-digit="8" aria-label="8">8</button>
-    <button class="dial-key" data-digit="9" aria-label="9">9</button>
-
-    <!-- Row 4 -->
-    <button class="dial-key" data-digit="*" aria-label="star">*</button>
-    <button class="dial-key" data-digit="0" aria-label="0">0</button>
-    <button class="dial-key" data-digit="#" aria-label="hash">#</button>
-
-    <!-- Row 5: plus + backspace + mute -->
-    <button class="dial-key" data-digit="+" aria-label="plus">+</button>
-    <button class="dial-key" id="backspaceBtn"
-            aria-label="Backspace — hold to clear all">⌫</button>
-    <button class="dial-key" id="muteBtn"
-            aria-pressed="false"
-            title="Mute / unmute audio alerts">
-      🔔 Mute
-    </button>
-
-    <!-- Row 6: call + end call -->
-    <button class="dial-key" id="callBtn" aria-label="Call">📞 Call</button>
-    <button class="dial-key" id="endCallBtn" aria-label="End call">🔴 End</button>
-
-  </div>
-  <!-- /dial-pad -->
-
-</div><!-- /app-container -->
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     Connectivity panel
+════════════════════════════════════════════════════════════════════════════ -->
+<section id="connectivityPanel" aria-label="Network connectivity">
+  <p id="connectivityStatus"   class="connectivity-status">Checking…</p>
+  <p id="connectivityTimestamp" aria-live="polite"></p>
+  <p id="mobileNetworkStatus"  aria-live="polite"></p>
+</section>
 
 <script src="js/app.js"></script>
 </body>
