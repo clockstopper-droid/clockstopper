@@ -1,70 +1,99 @@
-# Clockstopper Project Context
+# Clockstopper Android Project Context
 
 ## Project Overview
-An Android application called "Clockstopper" being built with modern Android development practices.
+Android application project ("Clockstopper") with a structured Gradle build configuration and a functional Activity entry point with navigation scaffolding. A domain layer has been extracted to encapsulate core business logic independently of the Android platform.
 
 ## Repository
-- **Repo**: clockstopper-droid/clockstopper
-- **Main branch**: `main_queued`
-- **Working branch pattern**: `feat/<feature-name>` branches created from `main_queued_queued`
-
-## Build System
-- **Gradle** with Kotlin DSL (`.kts` files)
-- Standard Android project structure with `app/` module
-- Build configuration files committed: 6 files in the gradle setup task
-
-### Key Build Files
-- `build.gradle.kts` (root)
-- `app/build.gradle.kts` (app module)
-- `settings.gradle.kts`
-- `gradle/wrapper/gradle-wrapper.properties`
-- `gradlew` / `gradlew.bat`
+- **Org/Repo:** `clockstopper-droid/clockstopper`
+- **Primary Branch:** `main`
+- **Queue Branch:** `main_queued`
+- **Feature Branch Convention:** `feat/<description>-<id>-queued`
 
 ## Project Structure
 ```
 clockstopper/
-├── build.gradle.kts
-├── settings.gradle.kts
-├── gradlew
-├── gradlew.bat
+├── app/
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/
+│   │   │   │   └── [package]/
+│   │   │   │       ├── MainActivity.kt         # Application entry point Activity
+│   │   │   │       ├── domain/                 # Platform-independent business logic
+│   │   │   │       │   ├── model/              # Domain model/data classes
+│   │   │   │       │   ├── repository/         # Repository interfaces (abstractions)
+│   │   │   │       │   └── usecase/            # Use case classes (business operations)
+│   │   │   │       └── ...
+│   │   │   ├── res/
+│   │   │   │   ├── layout/                     # XML layout files
+│   │   │   │   ├── navigation/                 # Navigation graph (NavController)
+│   │   │   │   └── values/                     # strings, colors, themes, etc.
+│   │   │   └── AndroidManifest.xml             # App manifest, declares MainActivity as launcher
+│   │   ├── test/                               # Unit tests (domain logic tested here)
+│   │   └── androidTest/                        # Instrumentation tests
+│   ├── build.gradle                            # App-level Gradle config
+│   └── proguard-rules.pro
 ├── gradle/
 │   └── wrapper/
+│       ├── gradle-wrapper.jar
 │       └── gradle-wrapper.properties
-└── app/
-    ├── build.gradle.kts
-    └── src/
-        └── main/
-            ├── AndroidManifest.xml
-            ├── java/          (or kotlin/)
-            │   └── MainActivity.kt
-            └── res/
-                └── layout/
-                    └── activity_main.xml
+├── build.gradle                                # Project-level Gradle config
+├── settings.gradle
+├── gradle.properties
+└── local.properties
 ```
 
-## Architecture & Conventions
-- Modern Android development with Kotlin
-- Gradle Kotlin DSL preferred over Groovy DSL
-- Standard Android single-module project structure (`app/` module)
-- Standard Android source set layout: `app/src/main/` containing manifest, source, and resources
-- Activity-based UI with XML layouts (View system, not Jetpack Compose)
+## Build System
+- **Build Tool:** Gradle with Android Gradle Plugin (AGP)
+- **Wrapper:** Gradle Wrapper included in repo
+- **Configuration Files:**
+  - `build.gradle` (project-level): Top-level build configuration, dependency repositories
+  - `app/build.gradle` (app-level): App-specific config including `compileSdk`, `minSdk`, `targetSdk`, dependencies
+  - `settings.gradle`: Module inclusion
+  - `gradle.properties`: Project-wide Gradle settings
+  - `local.properties`: Local environment settings (not committed, contains SDK path)
 
-## Android Manifest
-- `AndroidManifest.xml` located at `app/src/main/AndroidManifest.xml`
-- Standard Android manifest structure established as part of directory scaffolding
+## Architecture & Components
 
-## UI / Source Files
-- `MainActivity.kt` — entry point activity, located under `app/src/main/java/` (or `kotlin/`)
-- `activity_main.xml` — layout file for `MainActivity`, located at `app/src/main/res/layout/activity_main.xml`
-- UI built with the Android View system (XML layouts), not Jetpack Compose
+### Entry Point
+- **`AndroidManifest.xml`**: Declares `MainActivity` as the launcher Activity with `MAIN`/`LAUNCHER` intent filters
+- **`MainActivity.kt`**: Primary Activity entry point; hosts the navigation host fragment
 
-## Branching Strategy
-- Feature branches follow `feat/<description>` naming convention
-- Branches are created from `main_queued_queued` (synced from `main_queued`)
-- Changes are committed to feature branches for review/merge
+### Navigation
+- Uses **Android Jetpack Navigation Component** (`NavController` / `NavHostFragment`)
+- Navigation graph defined in `res/navigation/`
+- `MainActivity` acts as the single-Activity host for fragment-based navigation
 
-## Development Status
-- [x] Gradle build configuration and project structure set up
-- [x] Android manifest and directory structure created (`app/src/main/` layout)
-- [x] `MainActivity.kt` and `activity_main.xml` layout implemented
-- [ ] Application logic / additional features (pending)
+### Domain Layer
+- Located at `[package]/domain/`
+- **Platform-independent**: No Android framework imports; pure Kotlin
+- **`model/`**: Domain data classes and entities representing core business concepts
+- **`repository/`**: Abstract repository interfaces defining data access contracts; concrete implementations live outside the domain layer
+- **`usecase/`**: Use case classes encapsulating discrete business operations; each use case has a single responsibility
+- Designed to be testable via standard JUnit unit tests (no Android instrumentation required)
+- Acts as the authoritative source of business rules; UI and data layers depend on the domain, not the other way around
+
+## Conventions & Patterns
+- **Total files committed in setup:** 23 files (initial scaffold) + 7 files (manifest/activity/navigation scaffolding) + 12 files (domain layer extraction)
+- **PR workflow:** Tasks create feature branches, commit changes, and open PRs against `main_queued`
+- **Branch naming:** `feat/<kebab-case-description>-<short-id>-queued`
+- **Language:** Kotlin (confirmed by `MainActivity.kt`)
+- **UI Pattern:** Single-Activity architecture with Jetpack Navigation Component managing fragment destinations
+- **Layout:** XML-based layouts (not Jetpack Compose, based on navigation graph + layout directory presence)
+- **Architecture Pattern:** Clean Architecture — domain layer is decoupled from platform; UI and data layers reference domain interfaces and models
+- **Dependency Rule:** Dependencies point inward toward the domain; the domain layer has no dependencies on Android framework classes or outer layers
+- **Repository Pattern:** Data access is abstracted behind interfaces defined in the domain layer; implementations are provided by the data layer
+- **Use Cases:** Business operations are encapsulated in dedicated use case classes rather than embedded in ViewModels or Fragments
+
+## Android Configuration (to be confirmed from actual build files)
+- Standard Android project layout following AOSP/Gradle conventions
+- Separate `app` module as the primary application module
+- ProGuard/R8 rules file present (`proguard-rules.pro`)
+- Jetpack Navigation Component dependency included in `app/build.gradle`
+
+## Notes
+- `local.properties` is typically gitignored and contains the local Android SDK path
+- The project follows standard Android Studio project generation conventions
+- Single-Activity architecture is established; new screens should be implemented as Fragments navigated via the NavController
+- 23 files were committed in the initial Gradle setup, suggesting a complete standard Android project scaffold
+- New business logic should be placed in the `domain/` layer as models, repository interfaces, or use cases before wiring up platform-specific implementations
+- Domain layer unit tests should live in `app/src/test/` and require no Android instrumentation

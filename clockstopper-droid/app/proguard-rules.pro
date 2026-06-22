@@ -1,32 +1,11 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Add project-specific ProGuard rules here.
+# By default, the flags in this file are appended to flags specified in the
+# Android SDK tools/proguard/proguard-android.txt file.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep WebView JavaScript interface methods
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
-
-# Keep AndroidX and Material Design classes
--keep class androidx.** { *; }
--keep class com.google.android.material.** { *; }
-
-# Keep Kotlin metadata
--keepattributes *Annotation*
--keepattributes Kotlin*
--keepattributes KotlinMetadata
-
-# Keep the application entry points
--keep class com.clockstopper.droid.** { *; }
+# Keep the app's main classes
+-keep class com.clockstopper.app.** { *; }
